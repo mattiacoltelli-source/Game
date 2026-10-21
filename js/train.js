@@ -7,7 +7,7 @@ import { sfx } from './sfx.js';
 // Dalle carrozze mitragliano: raffiche di proiettili tracciati (piccole botte, non esplosioni come Macco).
 // Sperona una carrozza sopra ~80 km/h per cacciarne i mitraglieri; ripulite tutte, Lucchio è fuori uso e ti regala un NOS.
 const rnd = (a, b) => a + Math.random() * (b - a), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const LEN = [12, 14, 14, 14], GAP = 1.2, HALF_W = 1.6, SPEED = 20, BULLETS = 56;
+const LEN = [12, 14, 14, 14], GAP = 1.2, HALF_W = 1.6, SPEED = 15, BULLETS = 56;
 const LOCO = [0.62, 0.1, 0.1], BODY = [0.2, 0.26, 0.34], STRIPE = [0.85, 0.7, 0.15], ROOF = [0.55, 0.57, 0.6], GLASS = [0.2, 0.32, 0.45], DARK = [0.08, 0.08, 0.1];
 const SHIRT = [[0.7, 0.15, 0.12], [0.2, 0.35, 0.2], [0.25, 0.25, 0.3], [0.6, 0.5, 0.2]], SKIN = [0.9, 0.72, 0.58];
 
@@ -93,7 +93,7 @@ export class Train {
     if (this.state === 'dead') { this.cool -= dt; this.spd = Math.max(0, this.spd - 8 * dt); if (this.cool <= 0) { this.state = 'idle'; this.spd = SPEED; for (const c of this.cars) if (c.gun) { c.alive = true; c.gun.visible = true; } } }
     else { this.spd += (SPEED - this.spd) * Math.min(1, 2 * dt); }
     if (show || this.state === 'dead') this.place();
-    const d0 = Math.hypot(this.x - player.x, this.z - player.z), range = this.boost ? 210 : 160;
+    const d0 = Math.hypot(this.x - player.x, this.z - player.z), range = this.boost ? 190 : 125;
     if (this.state === 'idle' && !this.hold && runT > 12 && d0 < 240) { this.state = 'on'; if (!this.told) { this.told = true; this.ctx.toast('Lucchio, il treno, ti spara dai binari!'); } }
     if (this.state === 'on' && !near) this.state = 'idle';
     if (this.state === 'on') this.shoot(dt, player, range);
@@ -106,17 +106,17 @@ export class Train {
       const c = g.car, wx0 = c.x + g.gx * Math.cos(c.h) - 0, wz0 = c.z + g.gx * Math.sin(c.h);
       if (g.n > 0) { g.t -= dt; if (g.t <= 0) { this.bullet(g, c, player); g.n--; g.t = 0.085; } continue; }
       g.cool -= dt; if (g.cool > 0) continue;
-      const d = Math.hypot(player.x - wx0, player.z - wz0); g.cool = rnd(1.2, 2.4); if (d > range || d < 6) continue;
+      const d = Math.hypot(player.x - wx0, player.z - wz0); g.cool = rnd(2.4, 4.4); if (d > range || d < 6) continue;
       const nx = -Math.sin(c.h), nz = Math.cos(c.h); if (((player.x - wx0) * nx + (player.z - wz0) * nz) * g.side < 0) continue; // spara solo dal lato in cui ti trovi
-      g.n = 8 + Math.floor(Math.random() * 5); g.t = 0.05;
+      g.n = 5 + Math.floor(Math.random() * 3); g.t = 0.05;
     }
   }
 
   bullet(g, c, player) {
-    const lx = g.gx, lz = g.side * 3.0, ch = Math.cos(c.h), sh = Math.sin(c.h), ox = c.x + lx * ch - lz * sh, oz = c.z + lx * sh + lz * ch, oy = 3.1, d = Math.hypot(player.x - ox, player.z - oz), T = d / 115;
-    const tx = player.x + player.vx * T * 0.85 + rnd(-1, 1) * (0.8 + d * 0.018), tz = player.z + player.vz * T * 0.85 + rnd(-1, 1) * (0.8 + d * 0.018), ty = 0.9 + rnd(-0.6, 0.6) + player.y;
+    const lx = g.gx, lz = g.side * 3.0, ch = Math.cos(c.h), sh = Math.sin(c.h), ox = c.x + lx * ch - lz * sh, oz = c.z + lx * sh + lz * ch, oy = 3.1, d = Math.hypot(player.x - ox, player.z - oz), T = d / 95;
+    const tx = player.x + player.vx * T * 0.85 + rnd(-1, 1) * (1.2 + d * 0.025), tz = player.z + player.vz * T * 0.85 + rnd(-1, 1) * (1.2 + d * 0.025), ty = 0.9 + rnd(-0.6, 0.6) + player.y;
     let dx = tx - ox, dy = ty - oy, dz = tz - oz; const L = Math.hypot(dx, dy, dz) || 1; dx /= L; dy /= L; dz /= L;
-    if (this.b.length >= BULLETS) this.b.shift(); this.b.push({ x: ox, y: oy, z: oz, vx: dx * 115, vy: dy * 115, vz: dz * 115, t: 0 }); sfx.gun(clamp(1 - d / 160, 0.15, 0.8));
+    if (this.b.length >= BULLETS) this.b.shift(); this.b.push({ x: ox, y: oy, z: oz, vx: dx * 95, vy: dy * 95, vz: dz * 95, t: 0 }); sfx.gun(clamp(1 - d / 160, 0.15, 0.8));
     this.ctx.sparks && this.ctx.sparks(ox, oy, oz, 2, dx * 4, dz * 4);
   }
 
@@ -126,7 +126,7 @@ export class Train {
       const b = this.b[i]; b.t += dt; b.x += b.vx * dt; b.y += b.vy * dt; b.z += b.vz * dt;
       let dead = b.t > 1.6 || b.y < 0.05;
       if (!dead && player.clear < 3 && Math.abs(b.y - (player.y + 0.9)) < 1.4 && Math.hypot(b.x - player.x, b.z - player.z) < 1.7) {
-        dead = true; player.vx *= 0.86; player.vz *= 0.86; this.hits = this.hits.filter((h) => this.age - h < 3); this.hits.push(this.age); if (this.hits.length >= 4) { player.hitSlow(); this.hits.length = 0; this.ctx.toast('Colpito dai mitra! Rallentato'); } this.fx.shake = Math.max(this.fx.shake, 0.45); sfx.thud(0.25); this.ctx.sparks && this.ctx.sparks(b.x, b.y, b.z, 5, 0, 0);
+        dead = true; player.vx *= 0.9; player.vz *= 0.9; this.fx.shake = Math.max(this.fx.shake, 0.45); sfx.thud(0.25); this.ctx.sparks && this.ctx.sparks(b.x, b.y, b.z, 5, 0, 0);
         if (this.hitT <= 0) { this.hitT = 6; this.ctx.toast && this.ctx.toast('Ti mitragliano! Schiva!'); }
       }
       if (dead) { if (b.y < 0.1 && this.ctx.sparks) this.ctx.sparks(b.x, 0.2, b.z, 2, 0, 0); this.b.splice(i, 1); }
