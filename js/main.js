@@ -19,6 +19,7 @@ import { Props } from './props.js';
 import { Particles } from './particles.js';
 import { Post } from './post.js';
 import { Street } from './street.js';
+import { GadgetPickups, GADGETS, buildShield } from './gadgets.js';
 import { Traffic, Pedestrians } from './traffic.js';
 
 const $ = (id) => document.getElementById(id);
@@ -117,7 +118,10 @@ async function boot() {
   });
   let target = stops[0], marker = null;
   const nos = new NosPickups(scene, world, roads, free, [{ x: sx, z: sz, r: 60 }, ...stops.map((st) => ({ x: st.x, z: st.z, r: 45 }))]);
-  const flames = buildFlames(taxi);
+  const flames = buildFlames(taxi), shieldFx = buildShield(taxi);
+  const gadgets = new GadgetPickups(scene, world, roads, free, [{ x: sx, z: sz, r: 60 }, ...stops.map((st) => ({ x: st.x, z: st.z, r: 45 })), ...nos.items.map((i) => ({ x: i.x, z: i.z, r: 45 }))]);
+  const groundCar = (x, z, y) => Math.max(world.groundY(x, z), col.roofAt(x, z, y)); // l'auto può stare sui tetti
+  let wasRoof = false, roofToastT = 0;
   const enemies = new Enemies(scene, world, roads, {
     car, peds, traffic, props, toast, sparks: (x, y, z, n, dx, dz) => parts.sparks(x, y, z, n, dx, dz),
     onHit: (k) => { if (k > 0.25) toast('BOOM!'); },
@@ -150,6 +154,14 @@ async function boot() {
   // precarico le celle attorno alla partenza
   let pending = 1;
   while (pending > 0) { pending = world.update(car.x, car.z, 4); $('load-bar').style.width = `${85 + 15 * (1 - Math.min(1, pending / 20))}%`; await new Promise((r) => setTimeout(r, 0)); }
+
+  function useGadget() {
+    const t = car.gadget, g = GADGETS[t]; car.gadget = null; sfx.nos(1);
+    if (t === 'shield') car.shield = g.time; else if (t === 'antiolio') { car.antiOil = g.time; car.oil = 0; } else if (t === 'magnete') car.magnet = g.time; else if (t === 'disturbatore') car.jam = g.time;
+    else if (t === 'molla') car.spring();
+    else if (t === 'estintore') { const n = enemies.tarta.extinguish(car.x, car.z, 12); parts.burst(car.x, car.z, 12, 7, [0.95, 0.97, 1]); toast(n ? 'Fuoco spento!' : 'Estintore usato'); return; }
+    toast(g.name + '!');
+  }
 
   function rescue() {
     const accept = (x, z) => free(x, z);
@@ -193,7 +205,7 @@ async function boot() {
 
   function poseCar(dt) {
     taxi.outer.position.set(car.x, 0.18 + car.y, car.z);
-    shadow.position.set(car.x, groundY(car.x, car.z) + 0.2, car.z); shadow.rotation.y = -car.h; shadow.visible = car.air; shadow.scale.setScalar(1 - Math.min(0.5, car.clear * 0.06));
+    shadow.position.set(car.x, groundCar(car.x, car.z, car.y) + 0.2, car.z); shadow.rotation.y = -car.h; shadow.visible = car.air; shadow.scale.setScalar(1 - Math.min(0.5, car.clear * 0.06));
     taxi.outer.rotation.y = -car.h; taxi.update(car.steer, input.value.brake > 0.3 && car.speed > 1 && !car.air, car.air);
     const roll = THREE.MathUtils.clamp(-car.steer * Math.abs(car.speed) * 0.0035 + car.lat * 0.01, -0.12, 0.12);
     taxi.inner.rotation.x = THREE.MathUtils.lerp(taxi.inner.rotation.x, roll, Math.min(1, 8 * dt));
@@ -208,6 +220,7 @@ async function boot() {
   function beginRun() {
     car.place(sx, sz, startH, groundY(sx, sz)); camH = startH; camD = 8; input.override = null; input.keys.clear();
     run.state = 'running'; run.t = 0; run.boss = false; run.bossWon = false; $('boss').hidden = true; setStop(0); playing = true;
+    car.gadget = null; car.shield = car.antiOil = car.magnet = car.jam = 0; wasRoof = false; gadgets.reset();
     traffic.reset(); peds.reset(); props.reset(); nos.reset(); enemies.reset(); sfx.init(); if (!NOTRAFFIC) { traffic.fill(car); peds.fill(car); }
     $('screen-start').hidden = true; $('screen-end').hidden = true; $('hud').hidden = false; $('controls').hidden = false;
   }
@@ -216,6 +229,7 @@ async function boot() {
     run.boss = true; marker.visible = false; $('goal-txt').textContent = target.bossGoal || 'Sconfiggi il boss'; $('boss').hidden = false;
     $('boss').querySelector('u').style.transform = 'scaleX(1)'; $('boss').querySelector('span').textContent = enemies.giant.maxHp;
     enemies.startBoss(car); target = bossT; toast('Cliente consegnato! Arriva COS, il boss!'); sfx.boom(0.6);
+    for (let k = 0; k < 3; k++) gadgets.addAt(car.x + Math.cos(k * 2.1 + 0.2) * 55, car.z + Math.sin(k * 2.1 + 0.2) * 55);
     for (let k = 0; k < 4; k++) nos.addAt(car.x + Math.cos(k * 1.57 + 0.7) * 65, car.z + Math.sin(k * 1.57 + 0.7) * 65); // NOS per speronare più forte
   }
   function finishRun() {
@@ -242,7 +256,7 @@ async function boot() {
     const portrait = innerHeight > innerWidth;
     if (playing && !portrait && dt > 0) {
       const inp = input.value, n = Math.ceil(dt / (1 / 90)), h = dt / n;
-      for (let i = 0; i < n; i++) car.step(h, inp, col, world.meta.bounds, groundY);
+      for (let i = 0; i < n; i++) car.step(h, inp, col, world.meta.bounds, groundCar, groundY);
       if (car.needsRescue()) rescue();
       if (!NOTRAFFIC) {
         traffic.update(dt, car); peds.update(dt, car); props.update(dt, car);
@@ -251,6 +265,9 @@ async function boot() {
       }
       if (!NOENEMIES) enemies.update(dt, car);
       if (run.boss) { bossT.x = enemies.giant.x; bossT.z = enemies.giant.z; }
+      { const g = gadgets.update(dt, car); if (g) { sfx.pickup(); toast(GADGETS[g].tip); } }
+      if (input.takeGad() && car.gadget) useGadget();
+      if (car.onRoof && !wasRoof && now - roofToastT > 15000) { roofToastT = now; toast('Sei sui tetti! Scendi guidando o usa il NOS per un salto lungo'); } wasRoof = car.onRoof;
       if (nos.update(dt, car) && car.giveCharge()) { sfx.pickup(); toast(car.charges >= 3 ? 'NOS ×3 pronto!' : `NOS: ${car.charges}/3 cariche`); }
       if (input.takeNos()) { const lv = car.activate(); if (lv) { sfx.nos(lv); toast(`NOS ×${lv}! 10 secondi`); } }
       if (car.jump > 0) { if (car.jump >= 12) toast(`Salto di ${Math.round(car.jump)} m!`); car.jump = 0; }
@@ -265,7 +282,7 @@ async function boot() {
     }
     lastT = now;
     world.update(car.x, car.z, 1);
-    flames(car.boost > 0 ? car.level : 0, now / 1000);
+    flames(car.boost > 0 ? car.level : 0, now / 1000); shieldFx(car.shield, now / 1000);
     poseCar(dt); if (!window.__freeCam) updateCamera(dt); fx.update(dt, car, camera); parts.update(dt, car, camera, scene.fog.color); labels.update(dt, car, camH); atmo.update(dt, car);
     if (run.state === 'running') {
       $('kmh').textContent = Math.round(Math.abs(car.speed) * 3.6);
@@ -277,6 +294,13 @@ async function boot() {
       const sNos = $('st-nos'), sSlow = $('st-slow'); sNos.hidden = !(car.boost > 0); sSlow.hidden = !(car.slow > 0);
       const nc = '#' + NOS_COLORS[Math.max(0, car.boost > 0 ? car.level - 1 : Math.max(0, car.charges - 1))].toString(16).padStart(6, '0');
       if (car.boost > 0) { sNos.style.setProperty('--nc', nc); $('speedfx').style.setProperty('--nc', nc); sNos.querySelector('b').textContent = `NOS ×${car.level}`; sNos.querySelector('u').style.transform = `scaleX(${car.boost / 10})`; sNos.querySelector('span').textContent = car.boost.toFixed(1); }
+      { // gadget: pulsante e stato
+        const gb = $('gad-btn'), gt = car.gadget && GADGETS[car.gadget];
+        if (gt) { gb.classList.add('has'); gb.style.setProperty('--gc', '#' + gt.color.toString(16).padStart(6, '0')); gb.querySelector('.gi').textContent = gt.icon; gb.querySelector('.gl').textContent = gt.name.toUpperCase(); }
+        else { gb.classList.remove('has'); gb.querySelector('.gi').textContent = '·'; gb.querySelector('.gl').textContent = 'GADGET'; }
+        const act = [['shield', car.shield], ['antiolio', car.antiOil], ['magnete', car.magnet], ['disturbatore', car.jam]].sort((a, b) => b[1] - a[1])[0], sg = $('st-gad');
+        sg.hidden = !(act[1] > 0); if (act[1] > 0) { const g2 = GADGETS[act[0]]; sg.style.setProperty('--gc', '#' + g2.color.toString(16).padStart(6, '0')); sg.querySelector('b').textContent = g2.name.toUpperCase(); sg.querySelector('u').style.transform = `scaleX(${Math.min(1, act[1] / g2.time)})`; sg.querySelector('span').textContent = act[1].toFixed(1); }
+      }
       const nb = $('nos-btn'); nb.className = `btn nosbtn c${car.charges}` + (input.btn.nos ? ' on' : '');
       if (car.slow > 0) { sSlow.querySelector('u').style.transform = `scaleX(${car.slow / 10})`; sSlow.querySelector('span').textContent = car.slow.toFixed(1); }
       $('speedfx').classList.toggle('on', car.boost > 0);
@@ -293,7 +317,7 @@ async function boot() {
   }
   requestAnimationFrame(frame);
 
-  window.__taxi = { street, post, parts, enemies, nos, props, traffic, peds, taxi, get target() { return target; }, stops, setStop, run, startPos: [sx, sz, startH], car, world, col, roads, input, camera, scene, renderer, get fps() { return fps; }, start() { $('go').click(); }, rescue, free };
+  window.__taxi = { gadgets, street, post, parts, enemies, nos, props, traffic, peds, taxi, get target() { return target; }, stops, setStop, run, startPos: [sx, sz, startH], car, world, col, roads, input, camera, scene, renderer, get fps() { return fps; }, start() { $('go').click(); }, rescue, free };
   if (DEBUG) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;left:8px;top:8px;font:12px monospace;color:#fff;text-shadow:0 1px 2px #000;z-index:9;pointer-events:none'; document.body.append(d); setInterval(() => { d.textContent = `fps ${fps.toFixed(0)} pr ${pixelRatio.toFixed(2)} cells ${world.cells.size} calls ${renderer.info.render.calls} tris ${renderer.info.render.triangles}`; }, 500); }
 }
 

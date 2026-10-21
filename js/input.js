@@ -7,18 +7,19 @@ export class Input {
     for (const el of document.querySelectorAll('[data-btn]')) {
       const name = el.dataset.btn, pts = new Set();
       const set = () => { this.btn[name] = pts.size > 0; el.classList.toggle('on', pts.size > 0); };
-      el.addEventListener('pointerdown', (e) => { if (name === 'nos') this.nosQueued = true; e.preventDefault(); el.setPointerCapture(e.pointerId); pts.add(e.pointerId); set(); if (navigator.vibrate && name !== 'x') { /* nessuna vibrazione: risparmio batteria */ } });
+      el.addEventListener('pointerdown', (e) => { if (name === 'nos') this.nosQueued = true; if (name === 'gad') this.gadQueued = true; e.preventDefault(); el.setPointerCapture(e.pointerId); pts.add(e.pointerId); set(); if (navigator.vibrate && name !== 'x') { /* nessuna vibrazione: risparmio batteria */ } });
       const up = (e) => { pts.delete(e.pointerId); set(); };
       el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('lostpointercapture', up);
       el.addEventListener('contextmenu', (e) => e.preventDefault());
     }
-    this.nosQueued = false;
-    addEventListener('keydown', (e) => { this.keys.add(e.code); if (!e.repeat && (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyN')) this.nosQueued = true; });
+    this.nosQueued = false; this.gadQueued = false;
+    addEventListener('keydown', (e) => { this.keys.add(e.code); if (!e.repeat && (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyN')) this.nosQueued = true; if (!e.repeat && (e.code === 'KeyG' || e.code === 'KeyE')) this.gadQueued = true; });
     addEventListener('keyup', (e) => { this.keys.delete(e.code); });
     addEventListener('blur', () => { this.keys.clear(); });
     this.override = null; // per i test automatici: {steer,throttle,brake}
   }
 
+  takeGad() { const q = this.gadQueued; this.gadQueued = false; return q; }
   takeNos() { const q = this.nosQueued; this.nosQueued = false; return q; }
 
   get value() {

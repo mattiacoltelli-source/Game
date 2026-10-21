@@ -221,7 +221,7 @@ class Heli {
     if (leaving && this.y > 100) { this.reset(); this.cool = 26; return; }
     // raffica da 3 missili ogni ~5 s
     this.fireT -= dt;
-    if (!leaving && this.fireT <= 0 && this.t > 3) {
+    if (!leaving && this.fireT <= 0 && this.t > 3 && !(this.ctx.car.jam > 0)) {
       this.fireT = 0.32; this.burst++;
       const d = Math.hypot(player.x - this.x, player.z - this.z), T = 1.15 + d / 120, ax = player.x + player.vx * T * 0.8 + rnd(-9, 9), az = player.z + player.vz * T * 0.8 + rnd(-9, 9);
       this.fx.fire([this.x + Math.cos(yaw) * 2, this.y - 0.6, this.z + Math.sin(yaw) * 2], ax, az, T);
@@ -349,7 +349,9 @@ class Giant {
     // contro l'auto
     const dx = player.x - b.x, dz = player.z - b.z, d = Math.hypot(dx, dz);
     if (d < BALL_R + 1.3 && b.y - BALL_R < 2.6 && player.clear < 3 && player.y < b.y + BALL_R) {
-      if (sp > 9 && b.hitCd <= 0) { const nx = b.vx / sp, nz = b.vz / sp; player.kick(nx, nz, 1); b.vx *= 0.35; b.vz *= 0.35; b.hitCd = 1.2; this.fx.shake = Math.max(this.fx.shake, 1.3); sfx.boom(0.8); this.ctx.onKicked && this.ctx.onKicked('palla'); }
+      if (player.shield > 0 && b.hitCd <= 0) { const nx = -dx / (d || 1), nz = -dz / (d || 1), v = Math.max(sp, 18); b.vx = nx * v; b.vz = nz * v; b.vy = 9; b.hitCd = 0.8; this.fx.shake = Math.max(this.fx.shake, 0.8); sfx.boom(0.5); this.ctx.toast && this.ctx.toast('Scudo! Palla respinta'); } // lo scudo rimanda indietro il pallone
+      else if (player.shield > 0) { /* niente urto */ }
+      else if (sp > 9 && b.hitCd <= 0) { const nx = b.vx / sp, nz = b.vz / sp; player.kick(nx, nz, 1); b.vx *= 0.35; b.vz *= 0.35; b.hitCd = 1.2; this.fx.shake = Math.max(this.fx.shake, 1.3); sfx.boom(0.8); this.ctx.onKicked && this.ctx.onKicked('palla'); }
       else if (d > 1e-3) { const pen = BALL_R + 1.3 - d; player.x += dx / d * pen; player.z += dz / d * pen; const vn = player.vx * (dx / d) + player.vz * (dz / d); if (vn < 0) { player.vx -= vn * dx / d * 1.4; player.vz -= vn * dz / d * 1.4; } }
     }
     if (b.t > 9 || (b.vy === 0 && sp < 2) || Math.hypot(b.x - player.x, b.z - player.z) > 420) { b.s = 'gone'; b.back = 3; m.visible = false; }

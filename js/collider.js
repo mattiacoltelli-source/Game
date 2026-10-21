@@ -35,7 +35,7 @@ export class Collider {
   push(x, z, r, clear = 0) {
     let best = null, bd = 0;
     this.near(x - r, z - r, x + r, z + r, (b) => {
-      if (clear > b.h) return; // l'auto è più in alto del solido (salto)
+      if (b.solid ? clear > b.h : clear >= b.h - 0.35) return; // l'auto è più in alto del solido (salto) o sta sul tetto di questo edificio
       const bb = b.bb; if (x < bb[0] - r || x > bb[2] + r || z < bb[1] - r || z > bb[3] + r) return;
       const p = b.pts, n = p.length / 2; let inside = false, md = 1e9, qx = 0, qz = 0;
       for (let i = 0, j = n - 1; i < n; j = i++) {
@@ -51,6 +51,18 @@ export class Collider {
       else if (md < r) { depth = r - md; nx = (x - qx) / md; nz = (z - qz) / md; }
       else return;
       if (depth > bd) { bd = depth; best = { x: x + nx * depth, z: z + nz * depth, nx, nz }; }
+    });
+    return best;
+  }
+
+  // Quota del tetto più alto sotto l'auto: edifici (non monumenti) con tetto non sopra y+0.6 che contengono il punto. 0 se nessuno.
+  roofAt(x, z, y) {
+    let best = 0;
+    this.near(x, z, x, z, (b) => {
+      if (b.solid || b.k || b.h > y + 0.6 || b.h <= best) return; const bb = b.bb; if (x < bb[0] || x > bb[2] || z < bb[1] || z > bb[3]) return;
+      const p = b.pts, n = p.length / 2; let ins = false;
+      for (let i = 0, j = n - 1; i < n; j = i++) { const ax = p[j * 2], az = p[j * 2 + 1], bx = p[i * 2], bz = p[i * 2 + 1]; if ((az > z) !== (bz > z) && x < (bx - ax) * (z - az) / (bz - az) + ax) ins = !ins; }
+      if (ins) best = b.h;
     });
     return best;
   }

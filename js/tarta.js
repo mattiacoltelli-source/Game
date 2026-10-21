@@ -65,7 +65,8 @@ export class Tarta {
     const dx = player.x - this.rx, dz = player.z - this.rz, d = Math.hypot(dx, dz), face = Math.atan2(dz, dx);
     if (d > 260 || this.life > 38) { this.group.visible = this.tag.visible = this.beam.visible = false; this.state = 'off'; this.cool = 22; return; }
     if (this.state !== 'idle' || this.t > 0.3) this.group.rotation.y = -face; // il cannone guarda verso di te
-    if (this.state === 'idle') { if (this.t >= this.wait && d < 150) { // punta il laser davanti all'auto
+    if (this.ctx.car.jam > 0 && (this.state === 'aim')) { this.state = 'idle'; this.t = 0; this.wait = 2.5; this.beam.visible = false; this.ctx.toast('Tarta è disturbato!'); } // il disturbatore annulla la mira
+    if (this.state === 'idle') { if (this.t >= this.wait && d < 150 && !(this.ctx.car.jam > 0)) { // punta il laser davanti all'auto
         const T = 1.7, sp = Math.hypot(player.vx, player.vz), tx = player.x + player.vx * T * 0.9, tz = player.z + player.vz * T * 0.9; const sn = this.ri.nearest(tx, tz); this.tx = sn ? sn.x : tx; this.tz = sn ? sn.z : tz; this.dirx = sp > 4 ? player.vx / sp : Math.cos(player.h); this.dirz = sp > 4 ? player.vz / sp : Math.sin(player.h);
         this.state = 'aim'; this.t = 0; this.mark = this.fx.mark(this.tx, this.tz, 1.2, 0.5); this.ctx.toast('Laser in carica! Attento al fuoco'); } }
     else if (this.state === 'aim') { this.setBeam(0.12 + 0.1 * Math.sin(this.t * 30), 0.12); if (this.t >= 1.2) { this.state = 'fire'; this.t = 0; sfx.shot(); } }
@@ -86,9 +87,13 @@ export class Tarta {
     setTimeout(() => { this.burn = false; }, 0);
   }
 
+  // Estintore: spegne le fiamme entro il raggio R. Ritorna quante.
+  extinguish(x, z, R) { const n = this.fires.length; this.fires = this.fires.filter((p) => Math.hypot(p.x - x, p.z - z) > R); return n - this.fires.length; }
+
   updateFire(dt, player) {
     let inside = false; const f = this.fires;
     for (let i = f.length - 1; i >= 0; i--) { const p = f[i]; p.t += dt; if (p.t >= p.life) { f.splice(i, 1); continue; } if (!player.air && player.y < 1.2 && Math.hypot(player.x - p.x, player.z - p.z) < p.r + 0.7) inside = true; }
+    if (player.shield > 0) inside = false; // lo scudo ripara dal fuoco
     if (inside) { const k = Math.exp(-0.35 * dt); player.vx *= k; player.vz *= k; this.fx.shake = Math.max(this.fx.shake, 0.18); if (!this.hot) { this.hot = true; this.ctx.toast('Fuoco! Rallenta un po\''); } } else this.hot = false;
     const m = this.m, q = this.q, tm = performance.now() / 1000; let n = 0;
     for (const p of f) {

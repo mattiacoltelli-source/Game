@@ -45,6 +45,7 @@ export class NosPickups {
     this.t += dt; let got = false;
     for (const it of this.items) {
       if (!it.on) { it.t -= dt; if (it.t <= 0) it.on = true; continue; }
+      if (car.magnet > 0) { const d = Math.hypot(it.x - car.x, it.z - car.z); if (d < 80 && d > 1) { it.x += (car.x - it.x) / d * 40 * dt; it.z += (car.z - it.z) / d * 40 * dt; } }
       if (car.charges < 3 && Math.abs(it.x - car.x) < RADIUS && Math.abs(it.z - car.z) < RADIUS && Math.hypot(it.x - car.x, it.z - car.z) < RADIUS && car.clear < 4.5) { it.on = false; it.t = RESPAWN; got = true; }
     }
     this.draw(this.t); return got;

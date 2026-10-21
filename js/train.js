@@ -125,7 +125,8 @@ export class Train {
     for (let i = this.b.length - 1; i >= 0; i--) {
       const b = this.b[i]; b.t += dt; b.x += b.vx * dt; b.y += b.vy * dt; b.z += b.vz * dt;
       let dead = b.t > 1.6 || b.y < 0.05;
-      if (!dead && player.clear < 3 && Math.abs(b.y - (player.y + 0.9)) < 1.4 && Math.hypot(b.x - player.x, b.z - player.z) < 1.7) {
+      if (!dead && player.clear < 3 && Math.abs(b.y - (player.y + 0.9)) < 1.4 && Math.hypot(b.x - player.x, b.z - player.z) < 1.7 && player.shield > 0) { dead = true; this.ctx.sparks && this.ctx.sparks(b.x, b.y, b.z, 3, 0, 0); } // lo scudo ferma i proiettili
+      else if (!dead && player.clear < 3 && Math.abs(b.y - (player.y + 0.9)) < 1.4 && Math.hypot(b.x - player.x, b.z - player.z) < 1.7) {
         dead = true; player.vx *= 0.9; player.vz *= 0.9; this.fx.shake = Math.max(this.fx.shake, 0.45); sfx.thud(0.25); this.ctx.sparks && this.ctx.sparks(b.x, b.y, b.z, 5, 0, 0);
         if (this.hitT <= 0) { this.hitT = 6; this.ctx.toast && this.ctx.toast('Ti mitragliano! Schiva!'); }
       }

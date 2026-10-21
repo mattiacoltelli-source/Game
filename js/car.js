@@ -8,20 +8,22 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 
 export class Car {
-  constructor() { this.place(0, 0, 0); }
+  constructor() { this.gadget = null; this.shield = 0; this.antiOil = 0; this.magnet = 0; this.jam = 0; this.onRoof = false; this.place(0, 0, 0); }
 
   place(x, z, h, y = 0) {
     this.x = x; this.z = z; this.h = h; this.vx = 0; this.vz = 0; this.y = y; this.vy = 0; this.boost = 0; this.level = 0; this.charges = 0; this.slow = 0; this.oil = 0; this.oilPh = 0; this.air = false; this.airT = 0; this.jump = 0; this.landed = 0; this.clear = 0;
     this.yaw = 0; this.steer = 0; this.drift = 0; this.speed = 0; this.lat = 0; this.contact = 0; this.stuck = 0;
   }
 
-  step(dt, input, col, bounds, ground = () => 0) {
+  step(dt, input, col, bounds, ground = () => 0, base = ground) {
     const air = this.air, thr = air ? 0 : input.throttle, brk = air ? 0 : input.brake;
     // NOS a livelli (1-3 cariche accumulate): la spinta in più è x1, x2, x3 (+40% velocità massima e +90% accelerazione per livello).
     // Rallentamento (dopo aver investito un pedone): velocità massima -30%.
     const lv = this.boost > 0 ? this.level : 0;
     const vmax = VMAX * (1 + 0.4 * lv) * (this.slow > 0 ? 0.7 : 1), acc = ACC * (1 + 0.9 * lv) * (this.slow > 0 ? 0.75 : 1);
     this.boost = Math.max(0, this.boost - dt); this.slow = Math.max(0, this.slow - dt);
+    this.shield = Math.max(0, this.shield - dt); this.antiOil = Math.max(0, this.antiOil - dt); this.magnet = Math.max(0, this.magnet - dt); this.jam = Math.max(0, this.jam - dt);
+    if (this.antiOil > 0) this.oil = 0;
     const oily = this.oil > 0 && !air; this.oil = Math.max(0, this.oil - dt); // olio: poca aderenza, frenata debole, sbandate
     let fx = Math.cos(this.h), fz = Math.sin(this.h), rx = -fz, rz = fx;
     let vf = this.vx * fx + this.vz * fz;
@@ -64,15 +66,15 @@ export class Car {
     this.speed = vf; this.lat = vl;
 
     this.x += this.vx * dt; this.z += this.vz * dt;
-    this.vertical(dt, ground);
+    this.vertical(dt, ground, base);
     this.collide(dt, col, bounds, input);
   }
 
   // Quota: segue il terreno; se il terreno scende più in fretta della caduta libera, l'auto vola.
-  vertical(dt, ground) {
-    const g = ground(this.x, this.z), yb = this.y + this.vy * dt - 0.5 * G * dt * dt;
+  vertical(dt, ground, base) {
+    const g = ground(this.x, this.z, this.y), yb = this.y + this.vy * dt - 0.5 * G * dt * dt;
     if (yb > g + 0.02) { // in volo
-      if (!this.air) { this.air = true; this.airT = 0; this.x0 = this.x; this.z0 = this.z; }
+      if (!this.air) { this.air = true; this.airT = 0; this.x0 = this.x; this.z0 = this.z; if (this.onRoof && this.boost > 0) { this.vy = Math.max(this.vy, 5 + 2 * this.level); this.vx += Math.cos(this.h) * 9 * this.level; this.vz += Math.sin(this.h) * 9 * this.level; } } // dal tetto col NOS: la propulsione spinge in alto e in avanti
       this.airT += dt; this.y = yb; this.vy -= G * dt;
     } else {
       const vyg = Math.max(-25, Math.min(25, (g - this.y) / dt));
@@ -83,7 +85,7 @@ export class Car {
       }
       this.y = g; this.vy = vyg;
     }
-    this.clear = this.y - g;
+    const b0 = base(this.x, this.z); this.onRoof = !this.air && g > b0 + 0.5; this.clear = this.y - b0;
   }
 
   collide(dt, col, bounds, input) {
@@ -130,16 +132,18 @@ export class Car {
   // NOS: 10 s di boost più uno scatto in avanti. Rallentamento: 10 s con velocità massima ridotta.
   // Onda d'urto: dentro il raggio R l'auto viene lanciata in aria e spinta via. Ritorna l'intensità 0..1.3 (0 = fuori portata).
   blast(ex, ez, R, power = 1) {
+    if (this.shield > 0) return 0; // lo scudo assorbe le esplosioni
     const dx = this.x - ex, dz = this.z - ez, d = Math.hypot(dx, dz); if (d > R) return 0;
     const k = Math.pow(1 - d / R, 0.6) * power, nx = d > 1e-3 ? dx / d : Math.cos(this.h), nz = d > 1e-3 ? dz / d : Math.sin(this.h);
-    this.vx += nx * 13 * k; this.vz += nz * 13 * k; this.vy = 7 + 7 * k; this.y += 0.3;
+    this.vx += nx * 13 * k; this.vz += nz * 13 * k; this.vy = 10 + 10 * k; this.y += 0.3;
     if (!this.air) { this.air = true; this.airT = 0; this.x0 = this.x; this.z0 = this.z; }
     this.yaw += (Math.random() - 0.5) * 7 * k; return k;
   }
 
   // Calcio del gigante: lancia l'auto lontano nella direzione (dx,dz) e in alto. k = intensità 0..1.
   kick(dx, dz, k) {
-    this.vx = this.vx * 0.3 + dx * 44 * k; this.vz = this.vz * 0.3 + dz * 44 * k; this.vy = 14 + 7 * k; this.y += 0.3;
+    if (this.shield > 0) { this.vx = this.vx * 0.6 + dx * 9 * k; this.vz = this.vz * 0.6 + dz * 9 * k; return; } // lo scudo respinge il calcio
+    this.vx = this.vx * 0.3 + dx * 44 * k; this.vz = this.vz * 0.3 + dz * 44 * k; this.vy = 16 + 8 * k; this.y += 0.3;
     if (!this.air) { this.air = true; this.airT = 0; this.x0 = this.x; this.z0 = this.z; }
     this.yaw += (Math.random() - 0.5) * 9 * k;
   }
@@ -151,7 +155,9 @@ export class Car {
     this.level = this.charges; this.charges = 0; this.boost = BOOST_TIME;
     const fx = Math.cos(this.h), fz = Math.sin(this.h); this.vx += fx * 6 * this.level; this.vz += fz * 6 * this.level; return this.level;
   }
-  hitSlow() { this.slow = SLOW_TIME; }
+  hitSlow() { if (this.shield > 0) return; this.slow = SLOW_TIME; }
+  // Molla: salto automatico (scavalca ostacoli e treno).
+  spring() { this.vy = 13; this.y += 0.3; if (!this.air) { this.air = true; this.airT = 0; this.x0 = this.x; this.z0 = this.z; } }
 
   // Ritorna true se serve riposizionare (incastrata per >2 s).
   needsRescue() { return this.stuck > 2.0; }
