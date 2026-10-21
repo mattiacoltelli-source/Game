@@ -9,7 +9,7 @@ const APP_FILES = ['./', 'index.html', 'manifest.webmanifest', 'css/style.css', 
   'js/main.js', 'js/config.js', 'js/world.js', 'js/collider.js', 'js/car.js', 'js/input.js', 'js/carmodel.js', 'js/fx.js',
   'js/minimap.js', 'js/marker.js', 'js/labels.js', 'js/pwa.js', 'js/version.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png'];
-const DATA_FILES = ['data/roads.json', 'data/buildings.json', 'data/areas.json', 'data/labels.json'];
+const DATA_FILES = ['data/roads.json', 'data/buildings.json', 'data/areas.json', 'data/labels.json', 'data/extras.json'];
 
 const fresh = (u) => new Request(u, { cache: 'reload' }); // salta la cache HTTP: niente file misti tra versioni
 

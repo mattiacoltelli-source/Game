@@ -1,5 +1,5 @@
 import * as THREE from '../lib/three.module.min.js';
-import { START, VIEW, CUSTOMERS, STOP_SPEED } from './config.js';
+import { RIDES, VIEW, STOP_SPEED } from './config.js';
 import { loadData, World } from './world.js';
 import { Collider, RoadIndex } from './collider.js';
 import { Car } from './car.js';
@@ -61,6 +61,7 @@ async function boot() {
   const car = new Car();
   const fx = new DriftFX(scene);
   const free = (x, z) => !col.push(x, z, 1.6); // spazio libero per l'auto
+  const ride = RIDES[0], START = ride.start;
   const sp = world.project(START.lat, START.lon), fp = world.project(START.facing.lat, START.facing.lon);
   const snap = roads.nearest(sp[0], sp[1], free);
   const sx = snap ? snap.x : sp[0], sz = snap ? snap.z : sp[1];
@@ -68,17 +69,24 @@ async function boot() {
   car.place(sx, sz, startH);
   let camH = startH, camD = 8, camPos = new THREE.Vector3();
 
-  // corsa: per ora una sola tratta, partenza -> primo cliente (la lista CUSTOMERS è dati)
-  const cust = CUSTOMERS[0];
-  const cp = world.project(cust.lat, cust.lon), cs = roads.nearest(cp[0], cp[1], free);
-  const target = { x: cs ? cs.x : cp[0], z: cs ? cs.z : cp[1], r: cust.raggio, id: cust.id, nome: cust.nome };
-  const marker = buildMarker(target.r); marker.position.set(target.x, 0, target.z); scene.add(marker);
+  // corsa: partenza -> tappe in ordine (cliente, ..., destinazione). Cronometro unico per tutta la corsa.
+  const stops = ride.stops.map((st) => {
+    const p = world.project(st.lat, st.lon), q = roads.nearest(p[0], p[1], free);
+    return { ...st, x: q ? q.x : p[0], z: q ? q.z : p[1], r: st.raggio };
+  });
+  let target = stops[0], marker = null;
   const mini = new Minimap($('mini'), roads);
   const labels = new Labels(scene, camera, data.labels);
-  const run = { state: 'menu', t: 0, warned: false }; // menu | running | done
-  $('cust-name').textContent = target.nome;
-  $('goal-txt').textContent = 'Vai dal cliente';
-  const showBest = () => { const b = loadBest(target.id); $('best-start').textContent = b ? `Record: ${fmt(b)}` : 'Nessun record ancora'; };
+  const run = { state: 'menu', t: 0, warned: false, stop: 0 }; // menu | running | done
+  const setStop = (i) => {
+    run.stop = i; target = stops[i]; run.warned = false;
+    if (marker) { scene.remove(marker); marker.traverse((o) => { o.geometry && o.geometry.dispose(); o.material && o.material.dispose(); }); }
+    marker = buildMarker(target.r, i === stops.length - 1 ? 0x5be37d : 0xffc928); marker.position.set(target.x, 0, target.z); scene.add(marker);
+    $('goal-txt').textContent = target.goal;
+  };
+  setStop(0);
+  $('route').innerHTML = [START.nome, ...stops.map((s2) => s2.nome)].map((n) => `<span>${n}</span>`).join('<i></i>');
+  const showBest = () => { const b = loadBest(ride.id); $('best-start').textContent = b ? `Record: ${fmt(b)}` : 'Nessun record ancora'; };
   showBest();
 
   const input = new Input();
@@ -131,15 +139,16 @@ async function boot() {
   let playing = false;
   function beginRun() {
     car.place(sx, sz, startH); camH = startH; camD = 8; input.override = null; input.keys.clear();
-    run.state = 'running'; run.t = 0; run.warned = false; playing = true;
+    run.state = 'running'; run.t = 0; setStop(0); playing = true;
     $('screen-start').hidden = true; $('screen-end').hidden = true; $('hud').hidden = false; $('controls').hidden = false;
   }
   function finishRun() {
     run.state = 'done'; playing = false; input.override = null;
-    const prev = loadBest(target.id), isNew = !prev || run.t < prev;
-    if (isNew) saveBest(target.id, run.t);
+    const prev = loadBest(ride.id), isNew = !prev || run.t < prev;
+    if (isNew) saveBest(ride.id, run.t);
     $('end-time').textContent = fmt(run.t);
     const el = $('end-best'); el.classList.toggle('new', isNew);
+    $('end-title').textContent = `Arrivati: ${target.nome}`;
     el.textContent = isNew ? (prev ? `Nuovo record! Prima: ${fmt(prev)}` : 'Primo record salvato!') : `Record: ${fmt(prev)}`;
     $('hud').hidden = true; $('controls').hidden = true; $('screen-end').hidden = false; showBest();
   }
@@ -162,7 +171,9 @@ async function boot() {
       run.t += Math.min(0.25, (now - lastT) / 1000);
       const d = Math.hypot(target.x - car.x, target.z - car.z);
       if (d < target.r) {
-        if (Math.abs(car.speed) < STOP_SPEED) finishRun();
+        if (Math.abs(car.speed) < STOP_SPEED) {
+          if (run.stop < stops.length - 1) { toast(target.boarded || 'Tappa completata'); setStop(run.stop + 1); } else finishRun();
+        }
         else if (!run.warned) { run.warned = true; toast('Fermati nel cerchio'); }
       } else run.warned = false;
     }
@@ -188,7 +199,7 @@ async function boot() {
   }
   requestAnimationFrame(frame);
 
-  window.__taxi = { target, run, startPos: [sx, sz, startH], car, world, col, roads, input, camera, scene, renderer, get fps() { return fps; }, start() { $('go').click(); }, rescue, free };
+  window.__taxi = { get target() { return target; }, stops, setStop, run, startPos: [sx, sz, startH], car, world, col, roads, input, camera, scene, renderer, get fps() { return fps; }, start() { $('go').click(); }, rescue, free };
   if (DEBUG) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;left:8px;top:8px;font:12px monospace;color:#fff;text-shadow:0 1px 2px #000;z-index:9;pointer-events:none'; document.body.append(d); setInterval(() => { d.textContent = `fps ${fps.toFixed(0)} pr ${pixelRatio.toFixed(2)} cells ${world.cells.size} calls ${renderer.info.render.calls} tris ${renderer.info.render.triangles}`; }, 500); }
 }
 

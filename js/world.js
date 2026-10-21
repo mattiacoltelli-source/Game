@@ -8,7 +8,7 @@ export function makeProjector(origin) {
 }
 
 export async function loadData(onProgress) {
-  const names = ['roads', 'buildings', 'areas', 'labels'];
+  const names = ['roads', 'buildings', 'areas', 'labels', 'extras'];
   const { DATA_URLS } = await import('./config.js');
   const out = {};
   let done = 0;
@@ -24,7 +24,7 @@ export async function loadData(onProgress) {
 // Colori (RGB 0..1)
 const C = {
   ground: [0.80, 0.78, 0.71], green: [0.56, 0.70, 0.45], wood: [0.42, 0.60, 0.38], water: [0.48, 0.65, 0.78],
-  road: [0.28, 0.28, 0.31], roadMajor: [0.24, 0.24, 0.27], service: [0.36, 0.36, 0.38], pedestrian: [0.66, 0.62, 0.55],
+  road: [0.28, 0.28, 0.31], roadMajor: [0.24, 0.24, 0.27], service: [0.36, 0.36, 0.38], pedestrian: [0.70, 0.64, 0.57],
 };
 const ROAD_STYLE = { // [colore, quota y, scala larghezza]
   motorway: ['roadMajor', 0.16, 1], trunk: ['roadMajor', 0.16, 1], primary: ['roadMajor', 0.15, 1.05], secondary: ['roadMajor', 0.14, 1.05],
@@ -48,6 +48,15 @@ const SIDEWALK = [0.74, 0.72, 0.68], LINE = [0.86, 0.84, 0.76];
 // Facciate tipiche bolognesi: terracotta, ocra, rosa, crema.
 const PALETTE = [[0.80, 0.47, 0.34], [0.86, 0.68, 0.40], [0.88, 0.60, 0.50], [0.90, 0.82, 0.66], [0.66, 0.37, 0.29], [0.76, 0.56, 0.38], [0.72, 0.68, 0.62], [0.92, 0.76, 0.55]];
 const hash = (i) => ((i + 1) * 2654435761 >>> 0) / 4294967296;
+
+// Lastricato di piazza: lastre chiare con fuga scura (4 m per lastra).
+function makePlazaTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'), sh = ['#ffffff', '#f2eee6', '#f8f5ee', '#ece7dd'];
+  for (let i = 0; i < 4; i++) { g.fillStyle = sh[i]; g.fillRect((i % 2) * 32, Math.floor(i / 2) * 32, 32, 32); }
+  g.fillStyle = '#cfc7b8'; g.fillRect(0, 0, 64, 2); g.fillRect(0, 32, 64, 2); g.fillRect(0, 0, 2, 64); g.fillRect(32, 0, 2, 64);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t;
+}
 
 // Portico: arcata scura con pilastri chiari (tile 4.2 m x 4.6 m).
 function makeArcadeTexture() {
@@ -85,7 +94,8 @@ export class World {
     this.rows = Math.ceil((this.z1 - this.z0) / VIEW.cell);
 
     this.roads = data.roads.roads;
-    this.areas = data.areas.areas.filter((a) => a.k !== 'river');
+    this.areas = data.areas.areas.filter((a) => a.k !== 'river' && a.k !== 'plaza');
+    this.plazas = data.areas.areas.filter((a) => a.k === 'plaza');
     this.rivers = data.areas.areas.filter((a) => a.k === 'river');
     // edifici: anello aperto (senza punto di chiusura duplicato) in Float32Array
     this.buildings = [];
@@ -101,7 +111,7 @@ export class World {
       return (cx < 0 || cz < 0 || cx >= this.cols || cz >= this.rows) ? -1 : cz * this.cols + cx;
     };
     const mk = () => new Map();
-    this.cB = mk(); this.cS = mk(); this.cV = mk(); this.cA = mk(); this.cRail = mk(); this.cWater = mk(); this.cT = mk();
+    this.cB = mk(); this.cS = mk(); this.cV = mk(); this.cA = mk(); this.cRail = mk(); this.cWater = mk(); this.cT = mk(); this.cP = mk(); this.cL = mk(); this.cPar = mk();
     this.rails = data.roads.rails;
     const add = (m, k, ...v) => { if (k < 0) return; let a = m.get(k); if (!a) m.set(k, a = []); a.push(...v); };
 
@@ -128,6 +138,30 @@ export class World {
       for (let i = 0; i < r.p.length / 2 - 1; i++) add(map, this.cellOf((r.p[i * 2] + r.p[i * 2 + 2]) / 2, (r.p[i * 2 + 1] + r.p[i * 2 + 3]) / 2), ri, i);
     });
     lineSegs(this.rails, this.cRail); lineSegs(this.rivers, this.cWater);
+    // piazze (lastricato), lampioni, parapetti dei ponti (solidi con collisione)
+    this.plazas.forEach((a, ai) => {
+      let mnx = 1e9, mnz = 1e9, mxx = -1e9, mxz = -1e9;
+      for (let i = 0; i < a.p.length; i += 2) { mnx = Math.min(mnx, a.p[i]); mxx = Math.max(mxx, a.p[i]); mnz = Math.min(mnz, a.p[i + 1]); mxz = Math.max(mxz, a.p[i + 1]); }
+      const seen = new Set();
+      for (let x = mnx; x <= mxx + VIEW.cell; x += VIEW.cell) for (let z = mnz; z <= mxz + VIEW.cell; z += VIEW.cell) { const k = this.cellOf(Math.min(x, mxx), Math.min(z, mxz)); if (k >= 0 && !seen.has(k)) { seen.add(k); add(this.cP, k, ai); } }
+    });
+    const ex = data.extras;
+    for (let i = 0; i < ex.lamps.length; i += 2) add(this.cL, this.cellOf(ex.lamps[i], ex.lamps[i + 1]), ex.lamps[i], ex.lamps[i + 1]);
+    this.parapets = [];
+    for (const br of ex.bridges) {
+      const p = br.p, hw = br.w / 2 + 0.35;
+      for (let i = 0; i < p.length / 2 - 1; i++) {
+        const ax = p[i * 2], az = p[i * 2 + 1], bx = p[i * 2 + 2], bz = p[i * 2 + 3], dx = bx - ax, dz = bz - az, L = Math.hypot(dx, dz); if (L < 0.5) continue;
+        const ux = dx / L, uz = dz / L, nx = -uz, nz = ux;
+        for (const sd of [-1, 1]) {
+          const cx = (ax + bx) / 2 + nx * hw * sd, cz = (az + bz) / 2 + nz * hw * sd, hl = L / 2 + 0.25, ht = 0.25;
+          const rect = [cx - ux * hl - nx * ht, cz - uz * hl - nz * ht, cx + ux * hl - nx * ht, cz + uz * hl - nz * ht, cx + ux * hl + nx * ht, cz + uz * hl + nz * ht, cx - ux * hl + nx * ht, cz - uz * hl + nz * ht];
+          const par = { pts: Float32Array.from(rect), h: 1.1, solid: true, c: [cx, cz, L + 0.5, Math.atan2(uz, ux)] };
+          this.parapets.push(par); add(this.cPar, this.cellOf(cx, cz), this.parapets.length - 1);
+        }
+      }
+    }
+    this.buildings.push(...this.parapets); // collisione
     this.areas.forEach((a, ai) => {
       let mnx = 1e9, mnz = 1e9, mxx = -1e9, mxz = -1e9;
       for (let i = 0; i < a.p.length; i += 2) { mnx = Math.min(mnx, a.p[i]); mxx = Math.max(mxx, a.p[i]); mnz = Math.min(mnz, a.p[i + 1]); mxz = Math.max(mxz, a.p[i + 1]); }
@@ -143,6 +177,7 @@ export class World {
     this.matPlain = new THREE.MeshLambertMaterial({ vertexColors: true });
     this.matBuilding = new THREE.MeshLambertMaterial({ vertexColors: true, map: makeFacadeTexture() });
     this.matArcade = new THREE.MeshLambertMaterial({ vertexColors: true, map: makeArcadeTexture() });
+    this.matPlaza = new THREE.MeshBasicMaterial({ vertexColors: true, map: makePlazaTexture() });
   }
 
   // Carica al massimo `maxBuild` celle vicine a (x,z), scarica quelle lontane.
@@ -189,6 +224,19 @@ export class World {
       let idx; try { idx = THREE.ShapeUtils.triangulateShape(contour, []); } catch (e) { continue; }
       const y = AREA_Y[a.k] || 0.03, col = C[a.k] || C.green;
       for (const t of idx) tri(gp, gc, [contour[t[0]].x, y, contour[t[0]].y], [contour[t[1]].x, y, contour[t[1]].y], [contour[t[2]].x, y, contour[t[2]].y], col, UP);
+    }
+    const PP = { p: [], c: [], u: [] }, pcol = [0.84, 0.78, 0.70];
+    for (const ai of this.cP.get(key) || []) {
+      const a = this.plazas[ai], n = a.p.length / 2; let m = n;
+      if (a.p[0] === a.p[a.p.length - 2] && a.p[1] === a.p[a.p.length - 1]) m--;
+      const contour = []; for (let i = 0; i < m; i++) contour.push(new THREE.Vector2(a.p[i * 2], a.p[i * 2 + 1]));
+      let idx; try { idx = THREE.ShapeUtils.triangulateShape(contour, []); } catch (e) { continue; }
+      for (const t of idx) {
+        const A = contour[t[0]], B2 = contour[t[1]], C2 = contour[t[2]], y = 0.045;
+        const cr = (B2.x - A.x) * (C2.y - A.y) - (B2.y - A.y) * (C2.x - A.x); // winding verso l'alto
+        const tr = cr > 0 ? [A, C2, B2] : [A, B2, C2];
+        for (const q of tr) { PP.p.push(q.x, y, q.y); PP.c.push(pcol[0], pcol[1], pcol[2]); PP.u.push(q.x / 4, q.y / 4); }
+      }
     }
     const segs = this.cS.get(key) || [];
     for (let s = 0; s < segs.length; s += 2) {
@@ -242,19 +290,25 @@ export class World {
     const wt = this.cWater.get(key); if (wt) ribbon(this.rivers, wt, 7, 0.045, C.water, 3);
     if (gp.length) g.add(this.makeMesh(gp, gc, null, this.matGround));
 
+    if (PP.p.length) { const m = this.makeMesh(PP.p, PP.c, null, this.matPlaza); m.geometry.setAttribute('uv', new THREE.Float32BufferAttribute(PP.u, 2)); g.add(m); }
+    // lampioni e parapetti dei ponti
+    const lp = this.cL.get(key), pr = this.cPar.get(key);
+    const extra = { p: [], n: [], c: [] }; // lampioni, parapetti, alberi: stesso materiale dei tetti -> una sola mesh
+    if (lp || pr) {
+      const T = extra;
+      if (lp) for (let q = 0; q < lp.length; q += 2) { this.box(T, lp[q], 2.7, lp[q + 1], 0.16, 5.4, 0.16, 0, [0.2, 0.21, 0.24]); this.box(T, lp[q], 5.5, lp[q + 1], 0.7, 0.22, 0.7, 0, [1.4, 1.3, 0.95]); }
+      if (pr) for (const pi of pr) { const c = this.parapets[pi].c; this.box(T, c[0], 0.55, c[1], c[2], 1.1, 0.5, c[3], [0.8, 0.79, 0.75]); }
+    }
     // alberi (parchi): tronco + chioma low-poly
     const tr = this.cT.get(key);
-    if (tr) {
-      const T = { p: [], n: [], c: [] };
-      for (let q = 0; q < tr.length; q += 3) this.addTree(T, tr[q], tr[q + 1], tr[q + 2]);
-      g.add(this.makeMesh(T.p, T.c, T.n, this.matPlain));
-    }
+    if (tr) for (let q = 0; q < tr.length; q += 3) this.addTree(extra, tr[q], tr[q + 1], tr[q + 2]);
 
     // edifici: pareti con texture finestre (W), tetti e monumenti a tinta unita (Pl)
     const W = { p: [], n: [], c: [], u: [] }, Pl = { p: [], n: [], c: [] }, Ar = { p: [], n: [], c: [], u: [] };
     for (const bi of this.cB.get(key) || []) this.addBuilding(this.buildings[bi], bi, W, Pl, Ar);
     if (Ar.p.length) { const m = this.makeMesh(Ar.p, Ar.c, Ar.n, this.matArcade); m.geometry.setAttribute('uv', new THREE.Float32BufferAttribute(Ar.u, 2)); g.add(m); }
     if (W.p.length) { const m = this.makeMesh(W.p, W.c, W.n, this.matBuilding); m.geometry.setAttribute('uv', new THREE.Float32BufferAttribute(W.u, 2)); g.add(m); }
+    for (const k2 of ['p', 'n', 'c']) for (let i = 0; i < extra[k2].length; i++) Pl[k2].push(extra[k2][i]);
     if (Pl.p.length) g.add(this.makeMesh(Pl.p, Pl.c, Pl.n, this.matPlain));
     return g;
   }
@@ -349,7 +403,7 @@ export class World {
     const pts = []; for (let i = 0; i < n; i++) pts.push([p[i * 2], p[i * 2 + 1]]);
     let A = 0; for (let i = 0; i < n; i++) { const j = (i + 1) % n; A += pts[i][0] * pts[j][1] - pts[j][0] * pts[i][1]; }
     const s = A > 0 ? 1 : -1;
-    if (b.k) return this.addLandmark(b, pts, s, Pl);
+    if (b.k) return this.addLandmark(b, pts, s, Pl, W, Ar);
 
     const tone = 0.92 + hash(bi + 7) * 0.16, ty = TYPE_STYLE[b.t];
     const base = ty ? ty.wall : PALETTE[Math.floor(hash(bi) * PALETTE.length)];
@@ -369,52 +423,121 @@ export class World {
     for (const t of idx) this.tri3(Pl, [contour[t[0]].x, h, contour[t[0]].y], [contour[t[1]].x, h, contour[t[1]].y], [contour[t[2]].x, h, contour[t[2]].y], [0, 1, 0], rf, rf, rf);
   }
 
-  // Due Torri (con cornice e punta) e San Petronio (facciata in marmo sotto, mattoni sopra).
-  addLandmark(b, pts, s, Pl) {
-    const h = b.h, n = pts.length;
+  // Parallelepipedo orientato (rot = rotazione attorno a y, sx lungo l'asse locale u).
+  box(B, cx, cy, cz, sx, sy, sz, rot, col) {
+    const c = Math.cos(rot), sn = Math.sin(rot), ctr = [cx, cy, cz], P = [];
+    for (const a of [-1, 1]) for (const b of [-1, 1]) for (const d of [-1, 1]) {
+      const lx = a * sx / 2, lz = b * sz / 2; P.push([cx + c * lx - sn * lz, cy + d * sy / 2, cz + sn * lx + c * lz]);
+    }
+    // indici: bit2=a, bit1=b, bit0=d
+    const F = [[0, 1, 3, 2], [4, 5, 7, 6], [0, 1, 5, 4], [2, 3, 7, 6], [1, 3, 7, 5], [0, 2, 6, 4]]; // -a,+a,-b,+b,+d,-d
+    for (const f of F) { this.triOut(B, P[f[0]], P[f[1]], P[f[2]], ctr, col); this.triOut(B, P[f[0]], P[f[2]], P[f[3]], ctr, col); }
+  }
+
+  // Merli ghibellini lungo il bordo del tetto.
+  merlons(B, pts, s, y, col, w = 1.3, step = 2.7) {
+    const n = pts.length;
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n, ax = pts[i][0], az = pts[i][1], dx = pts[j][0] - ax, dz = pts[j][1] - az, L = Math.hypot(dx, dz); if (L < 1.6) continue;
+      const ux = dx / L, uz = dz / L, ox = -s * dz / L, oz = s * dx / L; // verso l'interno
+      for (let t = 0.8; t < L - 0.6; t += step) this.box(B, ax + ux * t + ox * 0.4, y + 0.7, az + uz * t + oz * 0.4, w, 1.4, 0.8, Math.atan2(uz, ux), col);
+    }
+  }
+
+  // Palazzo storico: pareti con finestre (W), portico (Ar) sui lati marcati (o su tutti i lati lunghi), tetto, merli.
+  palace(b, pts, s, W, Pl, Ar, o) {
+    const h = b.h, n = pts.length, top = o.wall, low = top.map((v) => v * 0.82);
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n, ax = pts[i][0], az = pts[i][1], bx = pts[j][0], bz = pts[j][1], L = Math.hypot(bx - ax, bz - az);
+      const arc = (b.a && b.a.has(i)) || (o.allArcade && L > 8);
+      if (arc && h > 7) { this.wallSeg(Ar, ax, az, bx, bz, s, 0, 4.6, o.arc || ARC_COLOR, o.arc || ARC_COLOR, 4.2, 4.6); this.wallSeg(W, ax, az, bx, bz, s, 4.6, h, low, top, 3.4, 3.1); }
+      else this.wallSeg(W, ax, az, bx, bz, s, 0, h, low, top, 3.4, 3.1);
+    }
+    const contour = pts.map((q) => new THREE.Vector2(q[0], q[1]));
+    let idx; try { idx = THREE.ShapeUtils.triangulateShape(contour, []); } catch (e) { return; }
+    for (const t of idx) this.tri3(Pl, [contour[t[0]].x, h, contour[t[0]].y], [contour[t[1]].x, h, contour[t[1]].y], [contour[t[2]].x, h, contour[t[2]].y], [0, 1, 0], o.roof, o.roof, o.roof);
+    if (o.merlons) this.merlons(Pl, pts, s, h, top);
+  }
+
+  addLandmark(b, pts, s, Pl, W, Ar) {
+    const h = b.h, n = pts.length, k = b.k;
     let cx = 0, cz = 0; for (const q of pts) { cx += q[0]; cz += q[1]; } cx /= n; cz /= n;
     const brick = [0.74, 0.44, 0.32], brickLow = [0.58, 0.34, 0.25], roof = [0.42, 0.24, 0.20], marble = [1.35, 1.2, 1.1];
-    if (b.k === 'petronio') {
-      const rf = [0.5, 0.42, 0.38], nz0 = pts.map(() => 0);
+    if (k === 'accursio') return this.palace(b, pts, s, W, Pl, Ar, { wall: [0.80, 0.46, 0.34], roof: [0.45, 0.28, 0.24], merlons: true });
+    if (k === 'reenzo') return this.palace(b, pts, s, W, Pl, Ar, { wall: [0.72, 0.42, 0.30], roof: [0.4, 0.3, 0.27], merlons: true });
+    if (k === 'podesta') return this.palace(b, pts, s, W, Pl, Ar, { wall: [0.76, 0.46, 0.33], roof: [0.42, 0.26, 0.22], allArcade: true, merlons: true });
+    if (k === 'salaborsa') return this.palace(b, pts, s, W, Pl, Ar, { wall: [0.90, 0.80, 0.64], roof: [0.5, 0.4, 0.36] });
+    if (k === 'cattedrale') return this.palace(b, pts, s, W, Pl, Ar, { wall: [0.93, 0.88, 0.78], roof: [0.42, 0.36, 0.34] });
+    if (k === 'nettuno') { // Fontana del Nettuno: vasca, colonna, statua col tridente
+      const stone = [0.82, 0.8, 0.76], bronze = [0.3, 0.26, 0.21], water = [0.45, 0.66, 0.82];
+      this.box(Pl, cx, 0.45, cz, 8.2, 0.9, 8.2, 0, stone); this.box(Pl, cx, 0.92, cz, 7.2, 0.06, 7.2, 0, water);
+      this.box(Pl, cx, 2.3, cz, 2.2, 2.8, 2.2, 0, stone); this.box(Pl, cx, 4.0, cz, 3.0, 0.6, 3.0, 0, stone);
+      this.box(Pl, cx, 5.2, cz, 0.9, 1.9, 0.7, 0, bronze); this.box(Pl, cx, 6.5, cz, 0.55, 0.7, 0.55, 0, bronze);
+      this.box(Pl, cx + 0.8, 6.0, cz, 0.12, 3.2, 0.12, 0, bronze); this.box(Pl, cx + 0.8, 7.7, cz, 0.9, 0.12, 0.12, 0, bronze);
+      return;
+    }
+    if (k === 'petronio') {
+      const rf = [0.5, 0.42, 0.38];
       for (let i = 0; i < n; i++) { // pareti: facciata a nord (verso Piazza Maggiore) bicolore
-        const j = (i + 1) % n, dx = pts[j][0] - pts[i][0], dz = pts[j][1] - pts[i][1], L = Math.hypot(dx, dz) || 1, nzv = -s * dx / L;
-        const seg = [pts[i], pts[j]];
-        if (nzv < -0.6 && L > 3) {
-          this.wallRingSeg(Pl, seg, s, 0, 20, marble, marble); this.wallRingSeg(Pl, seg, s, 20, h, brick, brick);
-        } else this.wallRingSeg(Pl, seg, s, 0, h, brickLow, brick);
-      }
-      void nz0;
-      // tre portali scuri sulla facciata (lato nord più lungo)
-      let fe = null, fl = 0;
-      for (let i = 0; i < n; i++) {
-        const j = (i + 1) % n, dx = pts[j][0] - pts[i][0], dz = pts[j][1] - pts[i][1], L = Math.hypot(dx, dz);
-        if (-s * dx / (L || 1) < -0.6 && L > fl) { fl = L; fe = [pts[i], pts[j]]; }
-      }
-      if (fe) {
-        const dx = fe[1][0] - fe[0][0], dz = fe[1][1] - fe[0][1], ux = dx / fl, uz = dz / fl, ox = s * dz / fl * 0.15, oz = -s * dx / fl * 0.15, door = [0.22, 0.14, 0.11];
-        for (const f of [0.2, 0.5, 0.8]) {
-          const w = f === 0.5 ? 3.2 : 2.2, hh = f === 0.5 ? 9 : 6.5, c0 = fl * f;
-          const q = (t, y) => [fe[0][0] + ux * (c0 + t) + ox, y, fe[0][1] + uz * (c0 + t) + oz];
-          this.tri3(Pl, q(-w, 0), q(w, 0), q(w, hh), [ox, 0, oz], door, door, door);
-          this.tri3(Pl, q(-w, 0), q(w, hh), q(-w, hh), [ox, 0, oz], door, door, door);
-        }
+        const j = (i + 1) % n, dx = pts[j][0] - pts[i][0], dz = pts[j][1] - pts[i][1], L = Math.hypot(dx, dz) || 1, nzv = -s * dx / L, seg = [pts[i], pts[j]];
+        if (nzv < -0.6 && L > 3) { this.wallRingSeg(Pl, seg, s, 0, 20, marble, marble); this.wallRingSeg(Pl, seg, s, 20, h, brick, brick); }
+        else this.wallRingSeg(Pl, seg, s, 0, h, brickLow, brick);
       }
       const contour = pts.map((q) => new THREE.Vector2(q[0], q[1]));
       let idx; try { idx = THREE.ShapeUtils.triangulateShape(contour, []); } catch (e) { return; }
       for (const t of idx) this.tri3(Pl, [contour[t[0]].x, h, contour[t[0]].y], [contour[t[1]].x, h, contour[t[1]].y], [contour[t[2]].x, h, contour[t[2]].y], [0, 1, 0], rf, rf, rf);
+      let fe = null, fl = 0; // tre portali sulla facciata (lato nord più lungo)
+      for (let i = 0; i < n; i++) { const j = (i + 1) % n, dx = pts[j][0] - pts[i][0], dz = pts[j][1] - pts[i][1], L = Math.hypot(dx, dz); if (-s * dx / (L || 1) < -0.6 && L > fl) { fl = L; fe = [pts[i], pts[j]]; } }
+      if (fe) {
+        const dx = fe[1][0] - fe[0][0], dz = fe[1][1] - fe[0][1], ux = dx / fl, uz = dz / fl, ox = s * dz / fl * 0.15, oz = -s * dx / fl * 0.15, door = [0.22, 0.14, 0.11];
+        for (const f of [0.2, 0.5, 0.8]) {
+          const w = f === 0.5 ? 3.2 : 2.2, hh = f === 0.5 ? 9 : 6.5, c0 = fl * f, q = (t, y) => [fe[0][0] + ux * (c0 + t) + ox, y, fe[0][1] + uz * (c0 + t) + oz];
+          this.tri3(Pl, q(-w, 0), q(w, 0), q(w, hh), [ox, 0, oz], door, door, door); this.tri3(Pl, q(-w, 0), q(w, hh), q(-w, hh), [ox, 0, oz], door, door, door);
+        }
+      }
       return;
     }
-    // torri: fusto, cornice sporgente, punta piramidale. La Garisenda pende.
-    const lean = b.k === 'garisenda' ? 2.4 : 0, dir = [-0.8, 0.6];
+    // torri: fusto, cornice sporgente, copertura. Asinelli/Garisenda a punta (la Garisenda pende), le altre merlate.
+    const lean = k === 'garisenda' ? 2.4 : 0, dir = [-0.8, 0.6];
     const shear = (x, y, z) => { const f = lean * Math.pow(y / h, 2); return [x + dir[0] * f, y, z + dir[1] * f]; };
-    const H0 = h - 7;
-    this.wallRing(Pl, pts, s, 0, H0, brickLow, brick, false, shear);
+    const tone = [[0.74, 0.46, 0.33], [0.78, 0.62, 0.44], [0.68, 0.44, 0.34], [0.72, 0.55, 0.38]][Math.floor(hash(Math.round(cx + cz)) * 4)];
+    const wall = k === 'orologio' ? [0.93, 0.87, 0.74] : (k === 'asinelli' || k === 'garisenda') ? brick : tone, wallLow = wall.map((v) => v * 0.78);
+    const pointed = k === 'asinelli' || k === 'garisenda' || k === 'orologio' || k === 'arengo', H0 = h - (pointed ? 7 : 2.5);
+    this.wallRing(Pl, pts, s, 0, H0, wallLow, wall, false, shear);
     const big = pts.map((q) => [cx + (q[0] - cx) * 1.14, cz + (q[1] - cz) * 1.14]);
-    this.wallRing(Pl, big, s, H0, H0 + 2.2, brick, brick, false, shear);
-    this.wallRing(Pl, pts, s, H0 + 2.2, H0 + 3, brickLow, brickLow, false, shear); // sottotetto
-    for (let i = 0; i < n; i++) { // tetto a piramide
-      const j = (i + 1) % n, a = shear(big[i][0], H0 + 2.2, big[i][1]), c = shear(big[j][0], H0 + 2.2, big[j][1]), apex = shear(cx, h, cz);
-      this.tri3(Pl, a, c, apex, [(a[0] + c[0]) / 2 - cx, 0.8, (a[2] + c[2]) / 2 - cz], roof, roof, roof);
+    this.wallRing(Pl, big, s, H0, H0 + 2.2, wall, wall, false, shear);
+    this.wallRing(Pl, pts, s, H0 + 2.2, H0 + 3, wallLow, wallLow, false, shear);
+    if (pointed) {
+      const cap = k === 'orologio' ? [0.35, 0.42, 0.4] : roof;
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n, a = shear(big[i][0], H0 + 2.2, big[i][1]), c = shear(big[j][0], H0 + 2.2, big[j][1]), apex = shear(cx, h, cz);
+        this.tri3(Pl, a, c, apex, [(a[0] + c[0]) / 2 - cx, 0.8, (a[2] + c[2]) / 2 - cz], cap, cap, cap);
+      }
+    } else { // sommità piana con merli
+      const rf = [0.4, 0.3, 0.27], contour = big.map((q) => new THREE.Vector2(q[0], q[1]));
+      let idx; try { idx = THREE.ShapeUtils.triangulateShape(contour, []); } catch (e) { idx = []; }
+      for (const t of idx) this.tri3(Pl, [contour[t[0]].x, H0 + 2.2, contour[t[0]].y], [contour[t[1]].x, H0 + 2.2, contour[t[1]].y], [contour[t[2]].x, H0 + 2.2, contour[t[2]].y], [0, 1, 0], rf, rf, rf);
+      this.merlons(Pl, big, s, H0 + 2.2, wall, 1.1, 2.4);
+    }
+    if (k === 'orologio' || k === 'arengo') { // quadranti dell'orologio / aperture della cella campanaria
+      const face = k === 'orologio' ? [0.97, 0.96, 0.9] : [0.12, 0.09, 0.08], rim = [0.2, 0.18, 0.16], yc = h - (k === 'orologio' ? 9.5 : 11), r = k === 'orologio' ? 1.7 : 1.3;
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n, dx = pts[j][0] - pts[i][0], dz = pts[j][1] - pts[i][1], L = Math.hypot(dx, dz); if (L < 3) continue;
+        const nx = s * dz / L, nz = -s * dx / L, mx = (pts[i][0] + pts[j][0]) / 2 + nx * 0.1, mz = (pts[i][1] + pts[j][1]) / 2 + nz * 0.1, ux = dx / L, uz = dz / L;
+        if (k === 'arengo') { // tre aperture ad arco della cella campanaria
+          for (const du of [-1.6, 0, 1.6]) {
+            const Q = (t, y) => [mx + ux * (du + t) + nx * 0.05, y, mz + uz * (du + t) + nz * 0.05];
+            this.tri3(Pl, Q(-0.6, yc - 2), Q(0.6, yc - 2), Q(0.6, yc + 1.6), [nx, 0, nz], face, face, face); this.tri3(Pl, Q(-0.6, yc - 2), Q(0.6, yc + 1.6), Q(-0.6, yc + 1.6), [nx, 0, nz], face, face, face);
+            this.tri3(Pl, Q(-0.6, yc + 1.6), Q(0.6, yc + 1.6), Q(0, yc + 2.5), [nx, 0, nz], face, face, face);
+          }
+          continue;
+        }
+        for (const [rr, col] of [[r * 1.18, rim], [r, face]]) for (let q = 0; q < 8; q++) {
+          const a0 = q / 8 * Math.PI * 2, a1 = (q + 1) / 8 * Math.PI * 2, off = rr === r ? 0.04 : 0;
+          const P = (a) => [mx + ux * Math.cos(a) * rr + nx * off, yc + Math.sin(a) * rr, mz + uz * Math.cos(a) * rr + nz * off];
+          this.tri3(Pl, [mx + nx * off, yc, mz + nz * off], P(a0), P(a1), [nx, 0, nz], col, col, col);
+        }
+      }
     }
   }
 

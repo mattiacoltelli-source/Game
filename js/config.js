@@ -4,21 +4,22 @@ export const DATA_URLS = {
   buildings: 'data/buildings.json',
   areas: 'data/areas.json',
   labels: 'data/labels.json',
+  extras: 'data/extras.json',
 };
 
-// Partenza: vicolo laterale su Via Alfonso Lombardi (Bolognina). Viene agganciata alla strada più vicina.
-export const START = {
-  lat: 44.51614, lon: 11.35259,
-  facing: { lat: 44.51589, lon: 11.35243 }, // verso Via Alfonso Lombardi
-};
-
-// Punti cliente (per ora uno solo). `raggio` = raggio del cerchio in metri. La corsa finisce quando ci si ferma nel cerchio.
-// In futuro: Centro di Raccolta Hera, IIS Aldini Valeriani (Via Sario Bassanelli / Via di Corticella),
-// e la seconda tratta verso Piazza Maggiore (44.4936561, 11.3430486).
-export const CUSTOMERS = [
-  { id: 'fiera', nome: 'Fiera di Bologna', lat: 44.5122686, lon: 11.3595329, raggio: 18 },
+// Corse: partenza + elenco di tappe (la prima è il cliente, l'ultima la destinazione). `raggio` = raggio del cerchio in metri;
+// per completare una tappa ci si ferma nel cerchio. Punti agganciati alla strada più vicina.
+// Aggiungere una corsa = aggiungere un oggetto (es. Centro di Raccolta Hera, IIS Aldini Valeriani in Via Sario Bassanelli / Via di Corticella).
+export const RIDES = [
+  {
+    id: 'torri-fiera',
+    start: { nome: 'Due Torri', lat: 44.494244, lon: 11.34657, facing: { lat: 44.493795, lon: 11.345839 } }, // sotto le torri, verso Piazza Maggiore
+    stops: [
+      { id: 'piazza-maggiore', nome: 'Piazza Maggiore', lat: 44.4936561, lon: 11.3430486, raggio: 22, goal: 'Vai dal cliente', boarded: 'Cliente a bordo' },
+      { id: 'fiera', nome: 'Fiera di Bologna', lat: 44.5122686, lon: 11.3595329, raggio: 18, goal: 'Porta il cliente alla Fiera' },
+    ],
+  },
 ];
-
 
 // Fermarsi nel cerchio = velocità sotto questa soglia (m/s).
 export const STOP_SPEED = 4;

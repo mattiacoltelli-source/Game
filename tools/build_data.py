@@ -108,8 +108,14 @@ def flat(geom, close=False):
         x, z = proj(g["lat"], g["lon"]); out += [r1(x), r1(z)]
     return out
 
-# Monumenti con modello dedicato nel gioco: nome OSM -> (chiave, altezza m)
-LANDMARKS = {"Asinelli": ("asinelli", 97), "Garisenda": ("garisenda", 48), "Basilica di San Petronio": ("petronio", 42)}
+# Monumenti con modello dedicato nel gioco: id way OSM -> (stile, altezza m)
+LANDMARKS = {
+    46965352: ("asinelli", 97), 46965353: ("garisenda", 48), 328013918: ("petronio", 42),
+    149211251: ("torre", 59), 149211257: ("torre", 61), 149041036: ("torre", 48), 149211222: ("torre", 39),
+    149211166: ("torre", 25), 149211218: ("torre", 20), 148846459: ("torre", 30),
+    1173957347: ("arengo", 40), 149041465: ("orologio", 30), 149040859: ("accursio", 22), 149040903: ("reenzo", 19),
+    149040794: ("podesta", 24), 325434925: ("cattedrale", 33), 149041309: ("salaborsa", 22),
+}
 
 def height(t):
     h = t.get("height") or t.get("building:height")
@@ -122,7 +128,7 @@ def height(t):
     except ValueError: pass
     return None
 
-roads, buildings, areas, rails, arcades = [], [], [], [], []
+roads, buildings, areas, rails, arcades, bridges_raw = [], [], [], [], [], []
 BTYPE = {'church': 1, 'cathedral': 1, 'chapel': 1, 'bell_tower': 1, 'hospital': 2, 'school': 3, 'university': 3, 'college': 3, 'kindergarten': 3,
          'industrial': 4, 'warehouse': 4, 'factory': 4, 'garage': 4, 'garages': 4, 'retail': 5, 'commercial': 5, 'office': 5, 'supermarket': 5, 'hotel': 5,
          'apartments': 6, 'residential': 6, 'house': 6, 'terrace': 6}
@@ -132,6 +138,11 @@ for e in els:
     t = e.get("tags", {})
     pts = flat(e["geometry"])
     if len(pts) < 4: continue
+    if (t.get("area:highway") in ("pedestrian", "footway") or (t.get("highway") == "pedestrian" and t.get("area") == "yes") or t.get("place") == "square") and len(pts) >= 8:
+        areas.append({"k": "plaza", "p": pts})
+        continue
+    if t.get("bridge") == "yes" and t.get("highway") in ("primary", "secondary", "tertiary", "trunk", "unclassified", "residential"):
+        bridges_raw.append({"id": e["id"], "n": t.get("name", ""), "w": HW.get(t["highway"], (7, 1))[0], "p": pts})
     if t.get("highway") == "footway" and t.get("covered") in ("arcade", "colonnade"):
         arcades.append(pts)
         continue
@@ -150,8 +161,8 @@ for e in els:
         bd = {"h": h, "p": pts}
         bt = BTYPE.get(t["building"])
         if bt: bd["t"] = bt
-        lm = LANDMARKS.get(t.get("name", ""))
-        if lm and not any(b.get("k") == lm[0] for b in buildings):
+        lm = LANDMARKS.get(e["id"])
+        if lm:
             bd["k"] = lm[0]; bd["h"] = lm[1]
         buildings.append(bd)
     elif "railway" in t:
@@ -276,6 +287,8 @@ def height_at(x, z):
         if ins: best = max(best, buildings[bi]["h"])
     return best
 pois, seen = [], {}
+mb = next((b for b in bridges_raw if "Matteotti" in b["n"]), None)
+if mb: pois.append({"k": "bridge", "t": 1, "n": "Ponte Matteotti", "x": r1(mb["p"][len(mb["p"]) // 2 // 2 * 2]), "z": r1(mb["p"][len(mb["p"]) // 2 // 2 * 2 + 1]), "h": 12})
 for e in poi_data["elements"]:
     t = e.get("tags", {}); kind, tier = poi_kind(t)
     if not kind: continue
@@ -287,6 +300,49 @@ for e in poi_data["elements"]:
     seen[name] = (x, z)
     pois.append({"k": kind, "t": tier, "n": name, "x": r1(x), "z": r1(z), "h": round(height_at(x, z) or 10, 0)})
 print("luoghi:", len(pois), {k: sum(1 for q in pois if q["k"] == k) for k in sorted({q["k"] for q in pois})})
+
+# --- Piazza Maggiore / Piazza Nettuno: non sono way chiuse in OSM; rettangoli di lastricato (gli edifici li coprono ai bordi)
+nep = proj(44.4942648, 11.3426605)
+for rect in ([(-602, 668), (-492, 668), (-492, 772), (-602, 772)],
+             [(nep[0] - 38, nep[1] - 30), (nep[0] + 38, nep[1] - 30), (nep[0] + 38, nep[1] + 30), (nep[0] - 38, nep[1] + 30)]):
+    areas.append({"k": "plaza", "p": [r1(c) for q in rect for c in q]})
+# Fontana del Nettuno: ottagono con modello dedicato (e collisione)
+buildings.append({"h": 7, "k": "nettuno", "p": [r1(c) for q in [(nep[0] + 4.2 * math.cos(k * math.pi / 4), nep[1] + 4.2 * math.sin(k * math.pi / 4)) for k in range(9)] for c in q]})
+
+# --- ponti sopra ferrovia/acqua e non incrociati da altre strade: parapetti (visivi e con collisione)
+def seg_hit(a, b, c, d, tol=0.0):
+    def cr(o, p, q): return (p[0] - o[0]) * (q[1] - o[1]) - (p[1] - o[1]) * (q[0] - o[0])
+    return cr(a, b, c) * cr(a, b, d) < 0 and cr(c, d, a) * cr(c, d, b) < 0
+bridges = []
+under = [r["p"] for r in rails] + [a["p"] for a in areas if a["k"] == "river"]
+for br in bridges_raw:
+    pts = [(br["p"][i], br["p"][i + 1]) for i in range(0, len(br["p"]), 2)]
+    over = any(seg_hit(pts[i], pts[i + 1], (u[j*2], u[j*2+1]), (u[j*2+2], u[j*2+3])) for i in range(len(pts) - 1) for u in under for j in range(len(u) // 2 - 1))
+    if not over: continue
+    crossed = False
+    for rd in roads:
+        if rd.get("id") == br["id"] or rd["p"] == br["p"]: continue
+        q = rd["p"]
+        for i in range(len(pts) - 1):
+            for j in range(len(q) // 2 - 1):
+                c0, c1 = (q[j*2], q[j*2+1]), (q[j*2+2], q[j*2+3])
+                if seg_hit(pts[i], pts[i + 1], c0, c1) and min(math.hypot(c0[0] - pts[k][0], c0[1] - pts[k][1]) for k in (0, -1)) > 15: crossed = True
+    if not crossed: bridges.append({"n": br["n"], "w": br["w"], "p": br["p"]})
+print("ponti con parapetti:", [(b["n"] or "-") for b in bridges])
+
+# --- lampioni lungo strade principali e Via dell'Indipendenza (ogni ~38 m, lati alternati)
+lamps, side, acc_all = [], 1, 0
+for rd in roads:
+    if not (rd["c"] in ("primary", "secondary", "trunk") or "Indipendenza" in rd["n"]): continue
+    p = rd["p"]; off = rd["w"] / 2 + 1.1; nxt = 14.0; acc = 0.0
+    for i in range(len(p) // 2 - 1):
+        dx, dz = p[i*2+2] - p[i*2], p[i*2+3] - p[i*2+1]; L = math.hypot(dx, dz)
+        while acc + L >= nxt and L > 0:
+            f = (nxt - acc) / L; x, z = p[i*2] + dx * f, p[i*2+1] + dz * f
+            side = -side; lamps += [r1(x - dz / L * off * side), r1(z + dx / L * off * side)]
+            nxt += 38
+        acc += L
+print("lampioni:", len(lamps) // 2)
 
 # --- ancore per i nomi delle strade: una ogni ~160 m per nome, solo strade con nome
 NAMED_OK = {"motorway", "trunk", "primary", "secondary", "tertiary", "unclassified", "residential", "living_street", "pedestrian"}
@@ -319,3 +375,4 @@ dump("roads.json", {"meta": meta, "roads": roads, "rails": rails, "arcades": len
 dump("buildings.json", {"meta": meta, "defaultHeight": DEFAULT_H, "buildings": buildings})
 dump("areas.json", {"meta": meta, "areas": areas})
 dump("labels.json", {"meta": meta, "pois": pois, "streets": anchors})
+dump("extras.json", {"meta": meta, "bridges": bridges, "lamps": lamps})

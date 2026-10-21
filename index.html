@@ -40,7 +40,7 @@
   <div class="card">
     <h1>Taxi Bologna</h1>
     <p class="job">Corsa disponibile</p>
-    <p class="route"><span>Bolognina</span><i></i><span id="cust-name">Fiera di Bologna</span></p>
+    <p class="route" id="route"></p>
     <p class="best" id="best-start"></p>
     <button id="go" class="primary">Parti</button>
     <label class="opt"><input type="checkbox" id="auto"> Acceleratore automatico</label>
@@ -51,7 +51,7 @@
 
 <div id="screen-end" class="screen" hidden>
   <div class="card">
-    <h1>Cliente a destinazione</h1>
+    <h1 id="end-title">Corsa completata</h1>
     <div class="lcd"><b id="end-time">0:00.00</b></div>
     <p class="best" id="end-best"></p>
     <button id="again" class="primary">Rigioca</button>
