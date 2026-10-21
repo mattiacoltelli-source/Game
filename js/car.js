@@ -11,7 +11,7 @@ export class Car {
   constructor() { this.place(0, 0, 0); }
 
   place(x, z, h, y = 0) {
-    this.x = x; this.z = z; this.h = h; this.vx = 0; this.vz = 0; this.y = y; this.vy = 0; this.boost = 0; this.level = 0; this.charges = 0; this.slow = 0; this.air = false; this.airT = 0; this.jump = 0; this.landed = 0; this.clear = 0;
+    this.x = x; this.z = z; this.h = h; this.vx = 0; this.vz = 0; this.y = y; this.vy = 0; this.boost = 0; this.level = 0; this.charges = 0; this.slow = 0; this.oil = 0; this.oilPh = 0; this.air = false; this.airT = 0; this.jump = 0; this.landed = 0; this.clear = 0;
     this.yaw = 0; this.steer = 0; this.drift = 0; this.speed = 0; this.lat = 0; this.contact = 0; this.stuck = 0;
   }
 
@@ -22,6 +22,7 @@ export class Car {
     const lv = this.boost > 0 ? this.level : 0;
     const vmax = VMAX * (1 + 0.4 * lv) * (this.slow > 0 ? 0.7 : 1), acc = ACC * (1 + 0.9 * lv) * (this.slow > 0 ? 0.75 : 1);
     this.boost = Math.max(0, this.boost - dt); this.slow = Math.max(0, this.slow - dt);
+    const oily = this.oil > 0 && !air; this.oil = Math.max(0, this.oil - dt); // olio: poca aderenza, frenata debole, sbandate
     let fx = Math.cos(this.h), fz = Math.sin(this.h), rx = -fz, rz = fx;
     let vf = this.vx * fx + this.vz * fz;
 
@@ -32,7 +33,7 @@ export class Car {
     // acceleratore / freno / retromarcia
     let a = 0;
     if (thr > 0) a += acc * thr * (1 - Math.max(0, vf) / vmax) + (vf < 0 ? BRAKE * thr : 0);
-    if (brk > 0) a += vf > 0.8 ? -BRAKE * brk : -REV_ACC * brk * (1 + Math.min(0, vf) / VREV);
+    if (brk > 0) a += (vf > 0.8 ? -BRAKE * brk : -REV_ACC * brk * (1 + Math.min(0, vf) / VREV)) * (oily ? 0.3 : 1);
     if (!thr && !brk && !air) a -= Math.sign(vf) * Math.min(Math.abs(vf) / dt, COAST);
     a -= this.drift * 2.5 * Math.sign(vf);
     this.vx += fx * a * dt; this.vz += fz * a * dt;
@@ -48,16 +49,17 @@ export class Car {
     let wT = vf * Math.tan(this.steer * dMax) / WHEELBASE * (1 + 0.25 * this.drift) * (air ? 0.25 : 1);
     // auto-allineamento: senza sterzo l'auto riprende da sola la direzione di marcia
     const vl0 = this.vx * rx + this.vz * rz;
-    if (vf > 0.5 && !air) wT += 3 * (vl0 / (vf + 3)) * (1 - sAbs);
+    if (vf > 0.5 && !air && !oily) wT += 3 * (vl0 / (vf + 3)) * (1 - sAbs);
+    if (oily) { this.oilPh += dt * 6.5; wT += Math.sin(this.oilPh) * 1.1 * clamp(sp / 22, 0, 1) + (this.steer * 0.4); this.drift = Math.max(this.drift, 0.85); }
     wT = clamp(wT, -2.8, 2.8); // a velocità enormi l'auto resta guidabile
-    this.yaw += (wT - this.yaw) * Math.min(1, 10 * dt);
+    this.yaw += (wT - this.yaw) * Math.min(1, (oily ? 2.6 : 10) * dt);
     this.h += this.yaw * dt;
 
     // riproietta la velocità sul nuovo asse; la componente laterale decade (poco in drift), con slip massimo
     fx = Math.cos(this.h); fz = Math.sin(this.h); rx = -fz; rz = fx;
     vf = this.vx * fx + this.vz * fz;
     let vl = this.vx * rx + this.vz * rz;
-    if (!air) { vl *= Math.exp(-lerp(GRIP, GRIP_DRIFT, this.drift) * dt); const ms = MAX_SLIP * (Math.abs(vf) + 2); vl = clamp(vl, -ms, ms); }
+    if (!air) { vl *= Math.exp(-(oily ? 0.5 : lerp(GRIP, GRIP_DRIFT, this.drift)) * dt); const ms = (oily ? 1.5 : MAX_SLIP) * (Math.abs(vf) + 2); vl = clamp(vl, -ms, ms); }
     this.vx = fx * vf + rx * vl; this.vz = fz * vf + rz * vl;
     this.speed = vf; this.lat = vl;
 
@@ -137,7 +139,7 @@ export class Car {
 
   // Calcio del gigante: lancia l'auto lontano nella direzione (dx,dz) e in alto. k = intensità 0..1.
   kick(dx, dz, k) {
-    this.vx = this.vx * 0.3 + dx * 34 * k; this.vz = this.vz * 0.3 + dz * 34 * k; this.vy = 12 + 6 * k; this.y += 0.3;
+    this.vx = this.vx * 0.3 + dx * 44 * k; this.vz = this.vz * 0.3 + dz * 44 * k; this.vy = 14 + 7 * k; this.y += 0.3;
     if (!this.air) { this.air = true; this.airT = 0; this.x0 = this.x; this.z0 = this.z; }
     this.yaw += (Math.random() - 0.5) * 9 * k;
   }

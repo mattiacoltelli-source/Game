@@ -159,6 +159,98 @@ class Tank {
   destroy() { this.fx.explode(this.x, this.z, 0.5, 0.7); this.state = 'dead'; this.cool = 22; this.group.visible = this.tag.visible = false; }
 }
 
+// ---- SIMO PAKELO, il tir con la cisterna: velocissimo, lascia chiazze d'olio che fanno sbandare
+const TRK_CAB = [0.75, 0.15, 0.12], TRK_DARK = [0.14, 0.14, 0.16], TRK_TANK = [0.82, 0.84, 0.88], MAX_OIL = 14;
+class Truck {
+  constructor(scene, world, roadIndex, fx, ctx) {
+    this.fx = fx; this.ctx = ctx; this.ri = roadIndex; this.g = new Graph(world.roads, (r) => ROADS.has(r.c) && !r.n.includes('Matteotti') && r.w >= 6);
+    this.group = new THREE.Group();
+    this.group.add(new THREE.Mesh(mergeBoxes([
+      { x: 6.2, y: 1.9, z: 0, sx: 2.6, sy: 2.6, sz: 2.5, c: TRK_CAB }, { x: 7.3, y: 2.4, z: 0, sx: 0.2, sy: 1.0, sz: 2.1, c: [0.6, 0.8, 0.95] },
+      { x: 5.0, y: 0.75, z: 0, sx: 10.6, sy: 0.5, sz: 2.3, c: TRK_DARK }, { x: 6.4, y: 0.5, z: 0, sx: 1.2, sy: 0.9, sz: 2.4, c: TRK_DARK },
+      { x: -1.2, y: 2.0, z: 0, sx: 9.4, sy: 1.9, sz: 2.3, c: TRK_TANK }, { x: -1.2, y: 2.0, z: 0, sx: 9.8, sy: 0.35, sz: 2.4, c: TRK_DARK },
+      { x: -5.9, y: 2.0, z: 0, sx: 0.5, sy: 1.5, sz: 2.0, c: TRK_TANK }, { x: -1.2, y: 3.15, z: 0, sx: 1.0, sy: 0.4, sz: 1.0, c: TRK_DARK },
+      { x: 2.6, y: 0.45, z: 1.15, sx: 1.0, sy: 0.9, sz: 0.3, c: TRK_DARK }, { x: 2.6, y: 0.45, z: -1.15, sx: 1.0, sy: 0.9, sz: 0.3, c: TRK_DARK },
+      { x: -4.2, y: 0.45, z: 1.15, sx: 1.0, sy: 0.9, sz: 0.3, c: TRK_DARK }, { x: -4.2, y: 0.45, z: -1.15, sx: 1.0, sy: 0.9, sz: 0.3, c: TRK_DARK },
+    ]), new THREE.MeshLambertMaterial({ vertexColors: true })));
+    this.group.visible = false; scene.add(this.group);
+    this.tag = nameTag('SIMO PAKELO', '#7a3b00'); this.tag.visible = false; scene.add(this.tag);
+    // chiazze d'olio (istanze piatte)
+    const geo = new THREE.CircleGeometry(1, 20); geo.rotateX(-Math.PI / 2);
+    this.puddles = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({ color: 0x0b0710, transparent: true, opacity: 0.88, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), MAX_OIL);
+    this.puddles.frustumCulled = false; this.puddles.renderOrder = 3; this.puddles.count = 0; scene.add(this.puddles);
+    this.oils = []; this.m = new THREE.Matrix4(); this.state = 'off'; this.cool = 22; this.age = 0; this.dropT = 0; this.told = false;
+  }
+
+  reset() { this.state = 'off'; this.cool = 22; this.group.visible = this.tag.visible = false; this.oils.length = 0; this.puddles.count = 0; this.told = false; }
+
+  spawn(player) {
+    let pick = null, n = 0; const hx = Math.cos(player.h), hz = Math.sin(player.h);
+    this.ri.segmentsNear(player.x, player.z, 280, (r, i) => {
+      if (!this.g.ok.has(r)) return; const p = r.p, mx = (p[i * 2] + p[i * 2 + 2]) / 2, mz = (p[i * 2 + 1] + p[i * 2 + 3]) / 2, dx = mx - player.x, dz = mz - player.z, d = Math.hypot(dx, dz);
+      if (d < 170 || d > 270 || (dx * hx + dz * hz) / d < 0.3) return; if (++n * Math.random() < 1) pick = [r, i];
+    });
+    if (!pick) return false;
+    const [r, i] = pick, a = i, b = i + 1, sg = this.g.seg(r._i, a, b);
+    Object.assign(this, { cr: r._i, a, b, s: Math.random() * sg.L, x: sg.ax, z: sg.az, h: Math.atan2(sg.uz, sg.ux), spd: 20, state: 'on', age: 0, dropT: 0.8 });
+    this.group.visible = this.tag.visible = true; return true;
+  }
+
+  drop(x, z, r) {
+    if (this.oils.length >= MAX_OIL) this.oils.shift();
+    this.oils.push({ x, z, r, t: 11 });
+  }
+
+  update(dt, player, runT) {
+    if (this.state === 'off') { this.cool -= dt; if (runT > 25 && this.cool <= 0 && this.spawn(player)) { this.ctx.toast('Simo Pakelo, il tir, sta spandendo olio!'); } }
+    else {
+      this.age += dt;
+      const dx = player.x - this.x, dz = player.z - this.z, d = Math.hypot(dx, dz);
+      if (d > 400 || this.age > 40) { this.group.visible = this.tag.visible = false; this.state = 'off'; this.cool = 18; }
+      else {
+        let sg = this.g.seg(this.cr, this.a, this.b); this.spd += clamp(34 - this.spd, -20 * dt, 14 * dt); this.s += this.spd * dt;
+        while (this.s >= sg.L) {
+          this.s -= sg.L; let best = null, bd = 1e9;
+          for (let k = 0; k < 6; k++) { const n = this.g.next(this.cr, this.a, this.b), p = this.g.roads[n[0]].p, dd = Math.hypot(p[n[2] * 2] - player.x, p[n[2] * 2 + 1] - player.z); if (dd < bd) { bd = dd; best = n; } }
+          [this.cr, this.a, this.b] = best; sg = this.g.seg(this.cr, this.a, this.b);
+        }
+        const tx = sg.ax + sg.ux * this.s, tz = sg.az + sg.uz * this.s; this.x += (tx - this.x) * Math.min(1, 10 * dt); this.z += (tz - this.z) * Math.min(1, 10 * dt);
+        let dh = Math.atan2(sg.uz, sg.ux) - this.h; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); this.h += dh * Math.min(1, 5 * dt);
+        this.group.position.set(this.x, 0.1, this.z); this.group.rotation.y = -this.h; this.tag.position.set(this.x, 6.4, this.z);
+        // olio: una chiazza dietro il tir e una davanti all'auto (con anticipo sulla traiettoria)
+        this.dropT -= dt;
+        if (this.dropT <= 0 && d < 140) {
+          const sp = Math.hypot(player.vx, player.vz), T = 1.1 + d / 120, ax = player.x + player.vx * T, az = player.z + player.vz * T;
+          this.drop(ax + rnd(-2, 2), az + rnd(-2, 2), rnd(5.5, 7.5)); this.drop(this.x - Math.cos(this.h) * 7, this.z - Math.sin(this.h) * 7, 4);
+          this.dropT = sp > 5 ? rnd(1.4, 2.0) : 3; sfx.thud && sfx.thud(0.3);
+        }
+      }
+    }
+    // chiazze: durata, disegno e effetto sull'auto
+    const o = this.oils; let hit = false;
+    for (let i = o.length - 1; i >= 0; i--) {
+      const p = o[i]; p.t -= dt; if (p.t <= 0) { o.splice(i, 1); continue; }
+      if (!player.air && player.clear < 0.5 && Math.hypot(player.x - p.x, player.z - p.z) < p.r) hit = true;
+    }
+    for (let i = 0; i < o.length; i++) { const p = o[i], sc = p.r * Math.min(1, (11 - p.t) * 3) * Math.min(1, p.t); this.m.makeScale(sc, 1, sc); this.m.setPosition(p.x, 0.07, p.z); this.puddles.setMatrixAt(i, this.m); }
+    this.puddles.count = o.length; this.puddles.instanceMatrix.needsUpdate = true;
+    if (hit) { if (player.oil <= 0 && !this.told) { this.ctx.toast('Olio! Non hai più aderenza!'); this.told = true; } player.oil = 2.2; }
+    if (this.state === 'off' && !o.length) this.told = false;
+  }
+
+  // Urto con il tir: è pesante, rimbalzi via.
+  collide(player) {
+    if (this.state !== 'on' || player.clear > 2.2) return false;
+    const pf = [Math.cos(player.h), Math.sin(player.h)], tf = [Math.cos(this.h), Math.sin(this.h)];
+    for (const to of [-5.5, -2.5, 0.5, 3.5, 6.5]) for (const po of [-1.4, 0, 1.4]) {
+      let dx = player.x + pf[0] * po - (this.x + tf[0] * to), dz = player.z + pf[1] * po - (this.z + tf[1] * to); const d = Math.hypot(dx, dz), pen = 1.5 + 0.92 - d; if (pen <= 0) continue;
+      if (d > 1e-3) { dx /= d; dz /= d; } else { dx = 0; dz = 1; }
+      player.x += dx * pen; player.z += dz * pen; const vn = player.vx * dx + player.vz * dz; if (vn < 0) { player.vx -= vn * dx * 1.5; player.vz -= vn * dz * 1.5; } player.oil = Math.max(player.oil, 1.5); return 'bump';
+    }
+    return false;
+  }
+}
+
 // ---- MACCO, l'elicottero
 class Heli {
   constructor(scene, fx, ctx) {
@@ -206,7 +298,7 @@ class Heli {
 }
 
 // ---- COS, il gigante di 30 m che tira calci
-const KICK_R = 8, WIND = 0.9, SWING = 0.22;
+const KICK_R = 10, WIND = 0.65, SWING = 0.16;
 class Giant {
   constructor(scene, fx, ctx) {
     this.fx = fx; this.ctx = ctx;
@@ -257,7 +349,7 @@ class Giant {
     let lean = 0, crouch = 0;
     if (this.state === 'walk') {
       this.h += dh * Math.min(1, 2.2 * dt);
-      const want = d > 15 ? 11 + (this.boss ? (this.bp - 1) * 2 : 0) : 0; this.v = (this.v || 0) + clamp(want - (this.v || 0), -14 * dt, 8 * dt);
+      const want = d > 15 ? 13 + (this.boss ? (this.bp - 1) * 2 : 0) : 0; this.v = (this.v || 0) + clamp(want - (this.v || 0), -14 * dt, 8 * dt);
       this.x += fx * this.v * dt; this.z += fz * this.v * dt; this.phase += dt * (this.v || 0) / 5.5;
       const sw = Math.sin(this.phase); this.legL.rotation.z = sw * 0.55; this.legR.rotation.z = -sw * 0.55; this.armL.rotation.z = -sw * 0.5; this.armR.rotation.z = sw * 0.5;
       const st = Math.floor(this.phase / Math.PI); if (st !== this.step) { this.step = st; if (d < 300) { this.fx.shake = Math.max(this.fx.shake, clamp(0.9 - d / 330, 0, 0.9)); sfx.thud(clamp(1 - d / 250, 0.1, 1)); } }
@@ -265,7 +357,7 @@ class Giant {
       if (this.boss && this.bp >= 2 && this.stompCool <= 0 && d < 34) { this.state = 'stompwind'; this.t = 0; this.fx.mark(this.x, this.z, 1.1, 1.7); this.ctx.toast('Pestone! Allontanati!'); }
       else if (this.kickCool <= 0 && d < 40) {
         const T = WIND + SWING, tx = player.x + player.vx * T * 0.9, tz = player.z + player.vz * T * 0.9, td = Math.hypot(tx - this.x, tz - this.z);
-        if (td > 6 && td < 15) { this.state = 'wind'; this.t = 0; this.tx = tx; this.tz = tz; this.fx.mark(tx, tz, T); this.h = Math.atan2(tz - this.z, tx - this.x); this.ctx.toast('Cos sta per calciare!'); }
+        if (td > 6 && td < 16) { this.state = 'wind'; this.t = 0; this.tx = tx; this.tz = tz; this.fx.mark(tx, tz, T); this.h = Math.atan2(tz - this.z, tx - this.x); this.ctx.toast('Cos sta per calciare!'); }
       }
     } else {
       this.t += dt; this.v = 0;
@@ -279,7 +371,7 @@ class Giant {
         const f = Math.min(1, this.t / 2.6); lean = -1.55 * f * f; this.legL.rotation.z = 0.3; this.legR.rotation.z = -0.3; this.armL.rotation.z = -1.2; this.armR.rotation.z = -1.2;
         this.boomT = (this.boomT || 0) - dt; if (this.boomT <= 0) { this.boomT = 0.2; this.fx.explode(this.x + rnd(-6, 6), this.z + rnd(-6, 6), rnd(2, 20), 0.001); }
         if (this.t >= 2.8) { this.state = 'off'; this.boss = false; this.group.visible = this.tag.visible = false; this.cool = 1e9; this.ctx.onBossDown && this.ctx.onBossDown(); } }
-      else if (this.state === 'hold') { this.legR.rotation.z = 1.05; crouch = 3.4 * (1 - Math.min(1, this.t / 0.5)); lean = 0.18; if (this.t >= 0.6) { this.state = 'walk'; this.kickCool = this.boss ? [3.0, 2.1, 1.4][this.bp - 1] : 3.2; } }
+      else if (this.state === 'hold') { this.legR.rotation.z = 1.05; crouch = 3.4 * (1 - Math.min(1, this.t / 0.5)); lean = 0.18; if (this.t >= 0.6) { this.state = 'walk'; this.kickCool = this.boss ? [2.4, 1.7, 1.1][this.bp - 1] : 2.4; } }
     }
     this.group.position.set(this.x, 0, this.z); this.group.rotation.y = -this.h; this.root.position.y = -2.1 - crouch; this.root.rotation.z = lean; this.tag.position.set(this.x, 35.5, this.z);
     this.feet = [this.legL, this.legR].map((l, i) => ({ x: this.x + fx * 13.2 * Math.sin(l.rotation.z) + (-fz) * (i ? -1.8 : 1.8), z: this.z + fz * 13.2 * Math.sin(l.rotation.z) + fx * (i ? -1.8 : 1.8) }));
@@ -293,7 +385,7 @@ class Giant {
     this.fx.thump(this.tx, this.tz, KICK_R + 2); this.fx.shake = Math.max(this.fx.shake, 1.2); sfx.boom(0.9);
     const d = Math.hypot(player.x - this.tx, player.z - this.tz);
     if (d < KICK_R && player.clear < 3) {
-      const ox = player.x - this.x, oz = player.z - this.z, L = Math.hypot(ox, oz) || 1; player.kick(ox / L, oz / L, 1 - 0.5 * d / KICK_R); this.ctx.onKicked && this.ctx.onKicked();
+      const ox = player.x - this.x, oz = player.z - this.z, L = Math.hypot(ox, oz) || 1; player.kick(ox / L, oz / L, 1 - 0.35 * d / KICK_R); this.ctx.onKicked && this.ctx.onKicked();
     }
   }
 
@@ -319,21 +411,21 @@ class Giant {
 
 export class Enemies {
   constructor(scene, world, roadIndex, ctx) {
-    this.fx = new Fx(scene, ctx); this.tank = new Tank(scene, world, roadIndex, this.fx, ctx); this.heli = new Heli(scene, this.fx, ctx); this.giant = new Giant(scene, this.fx, ctx); this.ctx = ctx; this.t = 0; this.last = null;
+    this.fx = new Fx(scene, ctx); this.tank = new Tank(scene, world, roadIndex, this.fx, ctx); this.truck = new Truck(scene, world, roadIndex, this.fx, ctx); this.heli = new Heli(scene, this.fx, ctx); this.giant = new Giant(scene, this.fx, ctx); this.ctx = ctx; this.t = 0; this.last = null;
     this.giant.onPhase = (ph) => { // fase 2: arriva Macco, fase 3: arriva Lucchio
       if (ph === 2) { this.heli.forceSpawn(this.last); ctx.toast('Fase 2: Macco si unisce a Cos!'); }
       if (ph === 3) { this.tank.cool = 0; this.tank.spawn(this.last); ctx.toast('Fase 3: arriva anche Lucchio!'); }
     };
   }
-  reset() { this.t = 0; this.fx.reset(); this.tank.reset(); this.heli.reset(); this.giant.reset(); this.last = null; }
+  reset() { this.t = 0; this.fx.reset(); this.tank.reset(); this.truck.reset(); this.heli.reset(); this.giant.reset(); this.last = null; }
   // Inizia il boss finale: sospende le apparizioni normali e fa comparire Cos con la barra della vita.
-  startBoss(player) { this.reset(); this.last = player; this.t = 1e5; this.tank.cool = 1e9; this.heli.cool = 1e9; this.giant.startBoss(player); }
+  startBoss(player) { this.reset(); this.last = player; this.t = 1e5; this.tank.cool = 1e9; this.truck.cool = 1e9; this.heli.cool = 1e9; this.giant.startBoss(player); }
   get boss() { return this.giant.boss; }
   // Posizioni dei nemici attivi (per la minimappa).
-  points() { const o = []; if (this.tank.state === 'on') o.push({ x: this.tank.x, z: this.tank.z }); if (this.heli.state === 'on') o.push({ x: this.heli.x, z: this.heli.z }); if (this.giant.state !== 'off') o.push({ x: this.giant.x, z: this.giant.z }); return o; }
+  points() { const o = []; if (this.tank.state === 'on') o.push({ x: this.tank.x, z: this.tank.z }); if (this.truck.state === 'on') o.push({ x: this.truck.x, z: this.truck.z }); if (this.heli.state === 'on') o.push({ x: this.heli.x, z: this.heli.z }); if (this.giant.state !== 'off') o.push({ x: this.giant.x, z: this.giant.z }); return o; }
   get shake() { return this.fx.shake; }
   update(dt, player) {
-    this.t += dt; this.last = player; this.fx.update(dt); this.tank.update(dt, player, this.t); this.heli.update(dt, player, this.t); this.giant.update(dt, player, this.t); this.giant.collide(player);
+    this.t += dt; this.last = player; this.fx.update(dt); this.tank.update(dt, player, this.t); this.truck.update(dt, player, this.t); this.truck.collide(player); this.heli.update(dt, player, this.t); this.giant.update(dt, player, this.t); this.giant.collide(player);
     const r = this.tank.collide(player); if (r === 'ko') { this.ctx.onKo('Lucchio'); } return r;
   }
 }
