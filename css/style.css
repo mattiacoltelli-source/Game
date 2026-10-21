@@ -33,7 +33,13 @@ canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 
 /* Schermate */
 .screen { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(120% 120% at 50% 0%, #1f2730 0%, var(--bg) 70%); z-index: 5; padding: 12px; }
-#screen-start { background: linear-gradient(180deg, #14181dcc, #14181de6); }
+#screen-start { place-items: center start; padding-left: max(28px, env(safe-area-inset-left)); background: linear-gradient(90deg, #14181df0 0%, #14181dd0 34%, #14181d00 62%); }
+#screen-start .card { width: 300px; text-align: left; }
+#screen-start .route { flex-direction: column; align-items: flex-start; gap: 4px; counter-reset: st; font-size: 15px; }
+#screen-start .route i { display: none; }
+#screen-start .route span { counter-increment: st; }
+#screen-start .route span::before { content: counter(st) "."; display: inline-block; width: 1.4em; color: var(--accent); font-weight: 700; }
+#screen-start .opt { justify-content: flex-start; }
 .card { text-align: center; max-width: 420px; }
 h1 { margin: 0 0 10px; font-size: 34px; letter-spacing: -.01em; }
 .route { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0 0 16px; color: var(--muted); font-size: 14px; }

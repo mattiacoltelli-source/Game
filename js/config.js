@@ -13,9 +13,10 @@ export const DATA_URLS = {
 export const RIDES = [
   {
     id: 'torri-fiera',
-    start: { nome: 'Due Torri', lat: 44.494244, lon: 11.34657, facing: { lat: 44.493795, lon: 11.345839 } }, // sotto le torri, verso Piazza Maggiore
+    // Via Rizzoli, ~140 m a ovest delle torri: da qui si vedono bene Asinelli e Garisenda (la schermata iniziale le inquadra)
+    start: { nome: 'Due Torri', lat: 44.494478, lon: 11.345007, facing: { lat: 44.494271, lon: 11.346217 }, look: { lat: 44.49412, lon: 11.3467, y: 40 } },
     stops: [
-      { id: 'piazza-maggiore', nome: 'Piazza Maggiore', lat: 44.4936561, lon: 11.3430486, raggio: 22, goal: 'Vai dal cliente', boarded: 'Cliente a bordo' },
+      { id: 'nettuno', nome: 'Fontana del Nettuno', lat: 44.494262, lon: 11.342763, raggio: 11, goal: 'Vai dal cliente al Nettuno', boarded: 'Cliente a bordo' }, // a fianco della fontana, in Piazza Maggiore
       { id: 'fiera', nome: 'Fiera di Bologna', lat: 44.5122686, lon: 11.3595329, raggio: 18, goal: 'Porta il cliente alla Fiera' },
     ],
   },

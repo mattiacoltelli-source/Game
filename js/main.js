@@ -77,7 +77,7 @@ async function boot() {
 
   // corsa: partenza -> tappe in ordine (cliente, ..., destinazione). Cronometro unico per tutta la corsa.
   const stops = ride.stops.map((st) => {
-    const p = world.project(st.lat, st.lon), q = roads.nearest(p[0], p[1], free);
+    const p = world.project(st.lat, st.lon), q = free(p[0], p[1]) ? { x: p[0], z: p[1] } : roads.nearest(p[0], p[1], free); // punto libero esatto, altrimenti la strada più vicina
     return { ...st, x: q ? q.x : p[0], z: q ? q.z : p[1], r: st.raggio };
   });
   let target = stops[0], marker = null;
@@ -111,7 +111,15 @@ async function boot() {
     car.place(r.x, r.z, h, groundY(r.x, r.z)); camH = h; camD = 6; toast('Riposizionato sulla strada');
   }
 
+  const hero = START.look ? { p: world.project(START.look.lat, START.look.lon), y: START.look.y } : null;
   function updateCamera(dt) {
+    if (run.state === 'menu' && hero) { // schermata iniziale: inquadra le due torri, spostate a destra del pannello
+      const dx = hero.p[0] - car.x, dz = hero.p[1] - car.z, d = Math.hypot(dx, dz), a = Math.atan2(dz, dx) - 0.3;
+      camera.position.set(car.x - Math.cos(car.h) * 10, 5.5, car.z - Math.sin(car.h) * 10);
+      camera.lookAt(camera.position.x + Math.cos(a) * d, hero.y, camera.position.z + Math.sin(a) * d);
+      if (camera.fov !== 62) { camera.fov = 62; camera.updateProjectionMatrix(); }
+      return;
+    }
     let d = car.h - camH; d = Math.atan2(Math.sin(d), Math.cos(d));
     camH += d * (1 - Math.exp(-4.5 * dt));
     const speed = Math.hypot(car.vx, car.vz);
