@@ -36,6 +36,7 @@
     <button class="btn steer" data-btn="right" aria-label="Sterza a destra"><svg viewBox="0 0 24 24"><path d="m9 4 8 8-8 8"/></svg></button>
   </div>
   <div class="pad pad-r">
+    <button class="btn nosbtn c0" id="nos-btn" data-btn="nos" aria-label="Attiva il NOS"><span class="nl">NOS</span><span class="pips"><i></i><i></i><i></i></span></button>
     <button class="btn brake" data-btn="brake" aria-label="Freno e retromarcia"><span>FRENO</span></button>
     <button class="btn gas" data-btn="gas" aria-label="Acceleratore"><span>GAS</span></button>
   </div>
@@ -49,9 +50,12 @@
     <div class="seg" id="tod" role="radiogroup" aria-label="Momento della giornata"><button data-tod="giorno">Giorno</button><button data-tod="tramonto">Tramonto</button><button data-tod="notte">Notte</button></div>
     <p class="best" id="best-start"></p>
     <button id="go" class="primary">Parti</button>
-    <label class="opt"><input type="checkbox" id="auto"> Acceleratore automatico</label>
-    <button id="install" class="ghost" hidden>Installa app</button>
-    <p class="ver" id="version"></p>
+    <div class="row2">
+      <label class="opt"><input type="checkbox" id="auto"> Acceleratore automatico</label>
+      <button id="install" class="ghost" hidden>Installa app</button>
+      <button id="howto" class="ghost" hidden>Come installare</button>
+    </div>
+    <p class="note" id="howto-txt" hidden></p>
   </div>
 </div>
 
@@ -65,7 +69,7 @@
 </div>
 
 <div id="screen-load" class="screen">
-  <div class="card"><h1>Taxi Bologna</h1><p id="load-msg">Carico la mappa…</p><div class="bar"><i id="load-bar"></i></div></div>
+  <div class="card"><h1>Taxi Bologna</h1><p id="load-msg">Carico la mappa…</p><div class="bar"><i id="load-bar"></i></div><button id="retry" class="ghost" hidden>Riprova</button></div>
 </div>
 
 <div id="screen-rotate" class="screen">
@@ -74,6 +78,7 @@
 
 <div id="update" role="status" hidden><span>Nuova versione pronta</span><button id="update-btn">Aggiorna</button></div>
 
+<span id="version" class="ver"></span>
 <a id="osm" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© Collaboratori di OpenStreetMap (ODbL)</a>
 
 <script type="module" src="js/main.js"></script>

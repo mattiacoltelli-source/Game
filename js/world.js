@@ -12,12 +12,18 @@ export async function loadData(onProgress) {
   const { DATA_URLS } = await import('./config.js');
   const out = {};
   let done = 0;
-  await Promise.all(names.map(async (n) => {
-    const r = await fetch(DATA_URLS[n]);
-    if (!r.ok) throw new Error(`Impossibile caricare ${DATA_URLS[n]} (${r.status})`);
-    out[n] = await r.json();
-    onProgress && onProgress(++done / names.length);
-  }));
+  // ogni file: fino a 3 tentativi, 45 s di timeout ciascuno (rete lenta o instabile)
+  const get = async (url) => {
+    let err;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 45000);
+      try { const r = await fetch(url, { signal: ctl.signal }); if (!r.ok) throw new Error(`HTTP ${r.status}`); return await r.json(); }
+      catch (e) { err = e; await new Promise((res) => setTimeout(res, 800 * (attempt + 1))); }
+      finally { clearTimeout(timer); }
+    }
+    throw new Error(`Non riesco a scaricare ${url.split('/').pop()}: ${err && err.name === 'AbortError' ? 'connessione troppo lenta' : (err && err.message) || 'rete assente'}`);
+  };
+  await Promise.all(names.map(async (n) => { out[n] = await get(DATA_URLS[n]); onProgress && onProgress(++done / names.length); }));
   return out;
 }
 

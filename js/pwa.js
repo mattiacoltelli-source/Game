@@ -5,6 +5,14 @@ const CHECK_EVERY = 30 * 60 * 1000;
 
 export function initPWA() {
   const ver = document.getElementById('version'); if (ver) ver.textContent = `v${VERSION}`;
+  // guida all'installazione quando il browser non offre il pulsante (iPhone, o Chrome che non l'ha ancora proposto)
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone, ua = navigator.userAgent, ios = /iphone|ipad|ipod/i.test(ua);
+  const how = document.getElementById('howto'), txt = document.getElementById('howto-txt');
+  if (how && !standalone) {
+    how.hidden = false;
+    txt.textContent = ios ? 'Safari: tocca il tasto Condividi, poi «Aggiungi alla schermata Home».' : 'Chrome: apri il menu ⋮ in alto a destra e scegli «Installa app» (o «Aggiungi a schermata Home»).';
+    how.addEventListener('click', () => { txt.hidden = !txt.hidden; });
+  }
   const local = ['localhost', '127.0.0.1'].includes(location.hostname) && !location.search.includes('sw');
   if (!('serviceWorker' in navigator) || local) return;
 
@@ -28,7 +36,7 @@ export function initPWA() {
 
   // pulsante "Installa app" (Chrome/Android)
   let deferred = null; const inst = document.getElementById('install');
-  addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferred = e; if (inst) inst.hidden = false; });
+  addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferred = e; if (inst) inst.hidden = false; if (how) how.hidden = true; });
   if (inst) inst.addEventListener('click', async () => { if (!deferred) return; deferred.prompt(); await deferred.userChoice.catch(() => {}); deferred = null; inst.hidden = true; });
   addEventListener('appinstalled', () => { if (inst) inst.hidden = true; });
 }

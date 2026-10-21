@@ -7,16 +7,19 @@ export class Input {
     for (const el of document.querySelectorAll('[data-btn]')) {
       const name = el.dataset.btn, pts = new Set();
       const set = () => { this.btn[name] = pts.size > 0; el.classList.toggle('on', pts.size > 0); };
-      el.addEventListener('pointerdown', (e) => { e.preventDefault(); el.setPointerCapture(e.pointerId); pts.add(e.pointerId); set(); if (navigator.vibrate && name !== 'x') { /* nessuna vibrazione: risparmio batteria */ } });
+      el.addEventListener('pointerdown', (e) => { if (name === 'nos') this.nosQueued = true; e.preventDefault(); el.setPointerCapture(e.pointerId); pts.add(e.pointerId); set(); if (navigator.vibrate && name !== 'x') { /* nessuna vibrazione: risparmio batteria */ } });
       const up = (e) => { pts.delete(e.pointerId); set(); };
       el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('lostpointercapture', up);
       el.addEventListener('contextmenu', (e) => e.preventDefault());
     }
-    addEventListener('keydown', (e) => { this.keys.add(e.code); });
+    this.nosQueued = false;
+    addEventListener('keydown', (e) => { this.keys.add(e.code); if (!e.repeat && (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyN')) this.nosQueued = true; });
     addEventListener('keyup', (e) => { this.keys.delete(e.code); });
     addEventListener('blur', () => { this.keys.clear(); });
     this.override = null; // per i test automatici: {steer,throttle,brake}
   }
+
+  takeNos() { const q = this.nosQueued; this.nosQueued = false; return q; }
 
   get value() {
     if (this.override) return this.override;

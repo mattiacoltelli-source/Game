@@ -17,8 +17,8 @@ self.addEventListener('install', (e) => {
   e.waitUntil((async () => {
     const app = await caches.open(APP_CACHE);
     await Promise.all(APP_FILES.map(async (u) => { const r = await fetch(fresh(u)); if (!r.ok) throw new Error(`${u}: ${r.status}`); await app.put(u, r); }));
-    const data = await caches.open(DATA_CACHE);
-    await Promise.all(DATA_FILES.map(async (u) => { if (await data.match(u)) return; const r = await fetch(fresh(u)); if (!r.ok) throw new Error(`${u}: ${r.status}`); await data.put(u, r); }));
+    const data = await caches.open(DATA_CACHE); // i dati sono facoltativi: se la rete fallisce si scaricano al primo uso
+    await Promise.allSettled(DATA_FILES.map(async (u) => { if (await data.match(u)) return; const r = await fetch(fresh(u)); if (r.ok) await data.put(u, r); }));
   })());
 });
 
@@ -37,7 +37,11 @@ self.addEventListener('fetch', (e) => {
   e.respondWith((async () => {
     const hit = await caches.match(req, { ignoreSearch: true });
     if (hit) return hit;
-    try { return await fetch(req); } catch (err) {
+    try {
+      const r = await fetch(req);
+      if (r.ok && DATA_FILES.some((u) => req.url.endsWith(u))) { const c = await caches.open(DATA_CACHE); c.put(req, r.clone()); }
+      return r;
+    } catch (err) {
       if (req.mode === 'navigate') { const idx = await caches.match('index.html'); if (idx) return idx; }
       throw err;
     }

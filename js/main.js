@@ -11,7 +11,7 @@ import { Minimap } from './minimap.js';
 import { buildMarker } from './marker.js';
 import { Labels } from './labels.js';
 import { initPWA } from './pwa.js';
-import { NosPickups, buildFlames } from './nos.js';
+import { NosPickups, buildFlames, NOS_COLORS } from './nos.js';
 import { Atmosphere, PRESET_NAMES } from './atmosphere.js';
 import { Props } from './props.js';
 import { Traffic, Pedestrians } from './traffic.js';
@@ -46,12 +46,15 @@ let toastT = 0;
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1800); }
 
 async function boot() {
-  const data = await loadData((p) => { $('load-bar').style.width = `${p * 70}%`; });
-  $('load-msg').textContent = 'Costruisco la città…';
-  await new Promise((r) => setTimeout(r, 30));
+  const step = async (msg, pct) => { $('load-msg').textContent = msg; $('load-bar').style.width = `${pct}%`; await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0))); };
+  await step('Scarico la mappa…', 3);
+  const data = await loadData((p) => { $('load-bar').style.width = `${3 + p * 55}%`; });
+  await step('Costruisco la città…', 60);
   const world = new World(data);
+  await step('Preparo le strade…', 72);
   const col = new Collider(world.buildings, world.meta.bounds);
   const roads = new RoadIndex(world.roads);
+  await step('Pianto gli alberi…', 80);
   world.plantTrees(col);
   const props = new Props(scene, world, col, CANTIERI);
   const traffic = new Traffic(scene, world, roads, props), peds = new Pedestrians(scene, world, roads);
@@ -114,7 +117,7 @@ async function boot() {
 
   // precarico le celle attorno alla partenza
   let pending = 1;
-  while (pending > 0) { pending = world.update(car.x, car.z, 4); $('load-bar').style.width = `${70 + 30 * (1 - Math.min(1, pending / 20))}%`; await new Promise((r) => setTimeout(r, 0)); }
+  while (pending > 0) { pending = world.update(car.x, car.z, 4); $('load-bar').style.width = `${85 + 15 * (1 - Math.min(1, pending / 20))}%`; await new Promise((r) => setTimeout(r, 0)); }
 
   function rescue() {
     const accept = (x, z) => free(x, z);
@@ -151,7 +154,7 @@ async function boot() {
     camPos.set(px, height + camY, pz);
     camera.position.copy(camPos);
     camera.lookAt(car.x + Math.cos(camH) * 7, 0.9 + car.y * 0.8 + (car.y - camY) * 0.4, car.z + Math.sin(camH) * 7);
-    const fov = 62 + Math.min(1, speed / 50) * 9 + (car.boost > 0 ? 7 : 0);
+    const fov = 62 + Math.min(1, speed / 50) * 9 + (car.boost > 0 ? 4 + 3 * car.level : 0);
     if (Math.abs(camera.fov - fov) > 0.2) { camera.fov += (fov - camera.fov) * Math.min(1, 5 * dt); camera.updateProjectionMatrix(); }
   }
 
@@ -206,7 +209,8 @@ async function boot() {
         const bump = traffic.collide(car); if (bump > 5) toast('Botta!');
         if (peds.collide(car)) { car.hitSlow(); toast('Pedone! Rallentato per 10 s'); }
       }
-      if (nos.update(dt, car)) { car.giveBoost(); toast('NOS! 10 secondi di boost'); }
+      if (nos.update(dt, car) && car.giveCharge()) toast(car.charges >= 3 ? 'NOS ×3 pronto!' : `NOS: ${car.charges}/3 cariche`);
+      if (input.takeNos()) { const lv = car.activate(); if (lv) toast(`NOS ×${lv}! 10 secondi`); }
       if (car.jump > 0) { if (car.jump >= 12) toast(`Salto di ${Math.round(car.jump)} m!`); car.jump = 0; }
       run.t += Math.min(0.25, (now - lastT) / 1000);
       const d = Math.hypot(target.x - car.x, target.z - car.z);
@@ -219,7 +223,7 @@ async function boot() {
     }
     lastT = now;
     world.update(car.x, car.z, 1);
-    flames(car.boost > 0, now / 1000);
+    flames(car.boost > 0 ? car.level : 0, now / 1000);
     poseCar(dt); updateCamera(dt); fx.update(dt, car, camera); labels.update(dt, car, camH); atmo.update(dt, car);
     if (run.state === 'running') {
       $('kmh').textContent = Math.round(Math.abs(car.speed) * 3.6);
@@ -229,7 +233,9 @@ async function boot() {
       $('arrow').style.transform = `rotate(${Math.atan2(dz, dx) - camH}rad)`;
       mini.update(dt, car, target, nos.active());
       const sNos = $('st-nos'), sSlow = $('st-slow'); sNos.hidden = !(car.boost > 0); sSlow.hidden = !(car.slow > 0);
-      if (car.boost > 0) { sNos.querySelector('u').style.transform = `scaleX(${car.boost / 10})`; sNos.querySelector('span').textContent = car.boost.toFixed(1); }
+      const nc = '#' + NOS_COLORS[Math.max(0, car.boost > 0 ? car.level - 1 : Math.max(0, car.charges - 1))].toString(16).padStart(6, '0');
+      if (car.boost > 0) { sNos.style.setProperty('--nc', nc); $('speedfx').style.setProperty('--nc', nc); sNos.querySelector('b').textContent = `NOS ×${car.level}`; sNos.querySelector('u').style.transform = `scaleX(${car.boost / 10})`; sNos.querySelector('span').textContent = car.boost.toFixed(1); }
+      const nb = $('nos-btn'); nb.className = `btn nosbtn c${car.charges}` + (input.btn.nos ? ' on' : '');
       if (car.slow > 0) { sSlow.querySelector('u').style.transform = `scaleX(${car.slow / 10})`; sSlow.querySelector('span').textContent = car.slow.toFixed(1); }
       $('speedfx').classList.toggle('on', car.boost > 0);
     }
@@ -249,4 +255,5 @@ async function boot() {
 }
 
 initPWA();
-boot().catch((e) => { console.error(e); $('load-msg').textContent = `Errore: ${e.message}`; });
+boot().catch((e) => { console.error(e); $('load-msg').textContent = e.message || 'Errore di caricamento'; $('load-bar').style.width = '0'; $('retry').hidden = false; });
+$('retry').addEventListener('click', () => location.reload());

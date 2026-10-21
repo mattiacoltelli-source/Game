@@ -21,7 +21,7 @@ export class NosPickups {
       if (best > 90) continue; // quella carreggiata non è sul percorso
       const dx = cor[bi + 1][0] - cor[bi][0], dz = cor[bi + 1][1] - cor[bi][1], dir = dx * h.ux + dz * h.uz >= 0 ? 1 : -1;
       const ex = dir > 0 ? h.ax : h.ax + h.ux * h.L, ez = dir > 0 ? h.az : h.az + h.uz * h.L;
-      for (const back of [45, 100]) add(ex - h.ux * dir * back, ez - h.uz * dir * back);
+      for (const back of [45, 100, 155]) add(ex - h.ux * dir * back, ez - h.uz * dir * back);
     }
     for (let d = 110; d < total - 120; d += 240) { const p = at(d); if (p) add(p[0], p[1]); }
     const n = Math.max(1, this.items.length), mats = (op) => new THREE.MeshBasicMaterial({ color: COLOR, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
@@ -42,7 +42,7 @@ export class NosPickups {
     this.t += dt; let got = false;
     for (const it of this.items) {
       if (!it.on) { it.t -= dt; if (it.t <= 0) it.on = true; continue; }
-      if (Math.abs(it.x - car.x) < RADIUS && Math.abs(it.z - car.z) < RADIUS && Math.hypot(it.x - car.x, it.z - car.z) < RADIUS && car.clear < 4.5) { it.on = false; it.t = RESPAWN; got = true; }
+      if (car.charges < 3 && Math.abs(it.x - car.x) < RADIUS && Math.abs(it.z - car.z) < RADIUS && Math.hypot(it.x - car.x, it.z - car.z) < RADIUS && car.clear < 4.5) { it.on = false; it.t = RESPAWN; got = true; }
     }
     this.draw(this.t); return got;
   }
@@ -60,12 +60,19 @@ export class NosPickups {
   }
 }
 
-// Fiamme del NOS dietro all'auto (due coni additivi), visibili solo col boost.
+// Colori dei livelli del NOS: 1 ciano, 2 viola, 3 oro.
+export const NOS_COLORS = [0x4fe6ff, 0xc26bff, 0xffb02e];
+
+// Fiamme del NOS dietro all'auto (due coni additivi), visibili solo col boost; colore e dimensione dipendono dal livello.
 export function buildFlames(taxi) {
   const geo = new THREE.ConeGeometry(0.28, 2.6, 8).rotateZ(Math.PI / 2).translate(-1.3, 0, 0); // punta verso -x (dietro)
   const outer = new THREE.MeshBasicMaterial({ color: 0x3fd0ff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
   const inner = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
   const fl = [];
   for (const z of [-0.55, 0.55]) for (const [mat, sc] of [[outer, 1], [inner, 0.55]]) { const m = new THREE.Mesh(geo, mat); m.position.set(-2.2, 0.55, z); m.scale.set(sc, sc, sc); m.visible = false; taxi.inner.add(m); fl.push([m, sc]); }
-  return (boosting, t) => { for (const [m, sc] of fl) { m.visible = boosting; if (boosting) { const f = 0.8 + 0.35 * Math.sin(t * 40 + m.position.z * 7); m.scale.set(sc * (1 + f * 0.6), sc, sc); } } };
+  let last = 0;
+  return (level, t) => {
+    if (level && level !== last) outer.color.setHex(NOS_COLORS[level - 1]); last = level;
+    for (const [m, sc] of fl) { m.visible = level > 0; if (level) { const f = 0.8 + 0.35 * Math.sin(t * 40 + m.position.z * 7); m.scale.set(sc * (1 + f * 0.6) * (0.85 + 0.3 * level), sc * (0.9 + 0.2 * level), sc * (0.9 + 0.2 * level)); } }
+  };
 }

@@ -94,7 +94,35 @@ h1 { margin: 0 0 10px; font-size: 34px; letter-spacing: -.01em; }
 .chip b { font-size: 12px; letter-spacing: .04em; }
 .chip i { display: block; width: 76px; height: 7px; border-radius: 7px; background: #ffffff22; overflow: hidden; }
 .chip u { display: block; height: 100%; width: 100%; border-radius: 7px; transform-origin: left; }
-.chip.nos { border: 1.5px solid #4fe6ff; color: #bff4ff; } .chip.nos u { background: linear-gradient(90deg, #4fe6ff, #ffffff); }
+.chip.nos { border: 1.5px solid var(--nc, #4fe6ff); color: #fff; } .chip.nos b { color: var(--nc, #4fe6ff); } .chip.nos u { background: linear-gradient(90deg, var(--nc, #4fe6ff), #ffffff); }
 .chip.slow { border: 1.5px solid #ff7b7b; color: #ffd0d0; } .chip.slow u { background: #ff7b7b; }
-#speedfx { position: absolute; inset: 0; opacity: 0; transition: opacity .25s; background: repeating-conic-gradient(from 0deg at 50% 58%, #0000 0 5deg, #9eeeff 5deg 5.6deg); -webkit-mask: radial-gradient(ellipse at 50% 58%, transparent 38%, #000 92%); mask: radial-gradient(ellipse at 50% 58%, transparent 38%, #000 92%); }
+#speedfx { position: absolute; inset: 0; opacity: 0; transition: opacity .25s; background: repeating-conic-gradient(from 0deg at 50% 58%, #0000 0 5deg, var(--nc, #9eeeff) 5deg 5.6deg); -webkit-mask: radial-gradient(ellipse at 50% 58%, transparent 38%, #000 92%); mask: radial-gradient(ellipse at 50% 58%, transparent 38%, #000 92%); }
 #speedfx.on { opacity: .24; }
+
+/* Pulsante NOS: il colore segue le cariche accumulate (1 ciano, 2 viola, 3 oro) */
+.nosbtn { --nc: #4fe6ff; width: 84px; height: 84px; display: grid; place-items: center; align-content: center; gap: 6px; border-color: #ffffff33; color: #ffffff77; font-size: 14px; }
+.nosbtn .pips { display: flex; gap: 5px; } .nosbtn .pips i { width: 11px; height: 11px; border-radius: 50%; background: #ffffff2e; }
+.nosbtn.c1 { --nc: #4fe6ff; } .nosbtn.c2 { --nc: #c26bff; } .nosbtn.c3 { --nc: #ffb02e; }
+.nosbtn.c1, .nosbtn.c2, .nosbtn.c3 { color: #fff; border-color: var(--nc); background: #10151aee; box-shadow: 0 0 18px var(--nc), inset 0 0 14px #ffffff18; }
+.nosbtn.c1 .pips i:nth-child(-n+1), .nosbtn.c2 .pips i:nth-child(-n+2), .nosbtn.c3 .pips i:nth-child(-n+3) { background: var(--nc); box-shadow: 0 0 8px var(--nc); }
+.nosbtn.c1 .nl, .nosbtn.c2 .nl, .nosbtn.c3 .nl { color: var(--nc); }
+.nosbtn.on { transform: scale(.94); }
+.pad-r { gap: 14px; }
+
+.note { margin: 6px 0 0; max-width: 300px; color: var(--muted); font-size: 12px; line-height: 1.35; }
+
+/* Schermata iniziale compatta (telefono in orizzontale) */
+.row2 { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 4px; }
+.row2 .opt { margin: 0; } .row2 .ghost { margin: 0; min-height: 44px; }
+#version { position: fixed; right: 10px; bottom: 3px; z-index: 6; font-size: 10px; color: #ffffff66; }
+@media (max-height: 420px) {
+  #screen-start .card h1 { font-size: 24px; margin: 0 0 2px; }
+  #screen-start .job { font-size: 13px; margin: 0 0 4px; color: var(--muted); }
+  #screen-start .route { flex-direction: row; flex-wrap: wrap; justify-content: flex-start; gap: 0 6px; font-size: 14px; margin-bottom: 8px; }
+  #screen-start .route span::before { content: none; }
+  #screen-start .route i { display: block; width: 7px; height: 7px; margin: 0 6px 0 2px; background: none; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); border-radius: 0; transform: rotate(45deg); align-self: center; }
+  #screen-start .best { margin: 0 0 8px; min-height: 0; font-size: 13px; }
+  #screen-start .primary { min-height: 48px; font-size: 18px; }
+  #screen-start .opt { font-size: 13px; }
+  #screen-start .seg { margin-bottom: 8px; }
+}

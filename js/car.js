@@ -11,14 +11,16 @@ export class Car {
   constructor() { this.place(0, 0, 0); }
 
   place(x, z, h, y = 0) {
-    this.x = x; this.z = z; this.h = h; this.vx = 0; this.vz = 0; this.y = y; this.vy = 0; this.boost = 0; this.slow = 0; this.air = false; this.airT = 0; this.jump = 0; this.landed = 0; this.clear = 0;
+    this.x = x; this.z = z; this.h = h; this.vx = 0; this.vz = 0; this.y = y; this.vy = 0; this.boost = 0; this.level = 0; this.charges = 0; this.slow = 0; this.air = false; this.airT = 0; this.jump = 0; this.landed = 0; this.clear = 0;
     this.yaw = 0; this.steer = 0; this.drift = 0; this.speed = 0; this.lat = 0; this.contact = 0; this.stuck = 0;
   }
 
   step(dt, input, col, bounds, ground = () => 0) {
     const air = this.air, thr = air ? 0 : input.throttle, brk = air ? 0 : input.brake;
-    // NOS (+40% velocità massima, accelerazione quasi doppia) e rallentamento (dopo aver investito un pedone)
-    const vmax = VMAX * (this.boost > 0 ? 1.4 : 1) * (this.slow > 0 ? 0.7 : 1), acc = ACC * (this.boost > 0 ? 1.9 : 1) * (this.slow > 0 ? 0.75 : 1);
+    // NOS a livelli (1-3 cariche accumulate): la spinta in più è x1, x2, x3 (+40% velocità massima e +90% accelerazione per livello).
+    // Rallentamento (dopo aver investito un pedone): velocità massima -30%.
+    const lv = this.boost > 0 ? this.level : 0;
+    const vmax = VMAX * (1 + 0.4 * lv) * (this.slow > 0 ? 0.7 : 1), acc = ACC * (1 + 0.9 * lv) * (this.slow > 0 ? 0.75 : 1);
     this.boost = Math.max(0, this.boost - dt); this.slow = Math.max(0, this.slow - dt);
     let fx = Math.cos(this.h), fz = Math.sin(this.h), rx = -fz, rz = fx;
     let vf = this.vx * fx + this.vz * fz;
@@ -47,6 +49,7 @@ export class Car {
     // auto-allineamento: senza sterzo l'auto riprende da sola la direzione di marcia
     const vl0 = this.vx * rx + this.vz * rz;
     if (vf > 0.5 && !air) wT += 3 * (vl0 / (vf + 3)) * (1 - sAbs);
+    wT = clamp(wT, -2.8, 2.8); // a velocità enormi l'auto resta guidabile
     this.yaw += (wT - this.yaw) * Math.min(1, 10 * dt);
     this.h += this.yaw * dt;
 
@@ -123,7 +126,13 @@ export class Car {
   }
 
   // NOS: 10 s di boost più uno scatto in avanti. Rallentamento: 10 s con velocità massima ridotta.
-  giveBoost() { this.boost = BOOST_TIME; const fx = Math.cos(this.h), fz = Math.sin(this.h); this.vx += fx * 6; this.vz += fz * 6; }
+  giveCharge() { if (this.charges >= 3) return false; this.charges++; return true; }
+  // Attiva il NOS con tutte le cariche accumulate (livello = cariche). Ritorna il livello attivato, 0 se non possibile.
+  activate() {
+    if (this.boost > 0 || this.charges <= 0) return 0;
+    this.level = this.charges; this.charges = 0; this.boost = BOOST_TIME;
+    const fx = Math.cos(this.h), fz = Math.sin(this.h); this.vx += fx * 6 * this.level; this.vz += fz * 6 * this.level; return this.level;
+  }
   hitSlow() { this.slow = SLOW_TIME; }
 
   // Ritorna true se serve riposizionare (incastrata per >2 s).
