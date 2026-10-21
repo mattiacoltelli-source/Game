@@ -125,10 +125,11 @@ async function boot() {
   const hero = START.look ? { p: world.project(START.look.lat, START.look.lon), y: START.look.y } : null;
   function updateCamera(dt) {
     if (run.state === 'menu' && hero) { // schermata iniziale: inquadra le due torri, spostate a destra del pannello
-      const dx = hero.p[0] - car.x, dz = hero.p[1] - car.z, d = Math.hypot(dx, dz), a = Math.atan2(dz, dx) - 0.3;
-      camera.position.set(car.x - Math.cos(car.h) * 10, 5.5, car.z - Math.sin(car.h) * 10);
-      camera.lookAt(camera.position.x + Math.cos(a) * d, hero.y, camera.position.z + Math.sin(a) * d);
-      if (camera.fov !== 62) { camera.fov = 62; camera.updateProjectionMatrix(); }
+      // camera davanti all'auto (che guarda verso di lei) e rivolta alle torri, che stanno alle spalle del taxi
+      const cx = car.x + Math.cos(car.h) * 22, cz = car.z + Math.sin(car.h) * 22, dx = hero.p[0] - cx, dz = hero.p[1] - cz, d = Math.hypot(dx, dz), a = Math.atan2(dz, dx) - 0.3;
+      camera.position.set(cx, 5.5, cz);
+      camera.lookAt(cx + Math.cos(a) * d, hero.y, cz + Math.sin(a) * d);
+      if (camera.fov !== 66) { camera.fov = 66; camera.updateProjectionMatrix(); }
       return;
     }
     let d = car.h - camH; d = Math.atan2(Math.sin(d), Math.cos(d));
