@@ -24,6 +24,7 @@ export const sfx = {
   },
   boom(v = 1) { this._n(0.9, 'lowpass', 900, 70, 0.9 * v); this._t(0.5, 110, 28, 0.9 * v); },
   shot() { this._n(0.25, 'bandpass', 1800, 300, 0.4, 0.8); this._t(0.18, 150, 50, 0.5); },
+  gun(v = 1) { this._n(0.07, 'bandpass', 2600, 1100, 0.2 * v, 1.2); },
   pickup() { this._t(0.12, 660, 880, 0.25, 'triangle'); setTimeout(() => this._t(0.16, 990, 1320, 0.25, 'triangle'), 90); },
   nos(level = 1) { this._n(0.8, 'bandpass', 400, 4000 + level * 1500, 0.5, 2); this._t(0.6, 120, 420 + 100 * level, 0.2, 'sawtooth'); },
   thud(v = 1) { this._t(0.22, 70, 28, 0.55 * v); this._n(0.2, 'lowpass', 220, 60, 0.35 * v); },

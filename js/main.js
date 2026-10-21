@@ -108,9 +108,9 @@ async function boot() {
   const nos = new NosPickups(scene, world, roads, free, [{ x: sx, z: sz, r: 60 }, ...stops.map((st) => ({ x: st.x, z: st.z, r: 45 }))]);
   const flames = buildFlames(taxi);
   const enemies = new Enemies(scene, world, roads, {
-    car, peds, traffic, props, toast,
+    car, peds, traffic, props, toast, sparks: (x, y, z, n, dx, dz) => parts.sparks(x, y, z, n, dx, dz),
     onHit: (k) => { if (k > 0.25) toast('BOOM!'); },
-    onKicked: () => toast('Cos ti ha calciato!'),
+    onKicked: (k) => toast(k === 'palla' ? 'Palla in faccia!' : 'Cos ti ha calciato!'),
     onBossHit: (hp, max, dmg) => { toast(dmg > 1 ? `COLPITO ×${dmg}!` : 'Colpito!'); $('boss').querySelector('u').style.transform = `scaleX(${hp / max})`; $('boss').querySelector('span').textContent = hp; },
     onBossDown: () => { toast('COS SCONFITTO!'); sfx.ko(); run.bossWon = true; finishRun(); },
     onKo: (name) => { toast(`${name} distrutto! +1 NOS`); car.giveCharge(); sfx.ko(); },
