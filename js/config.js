@@ -18,7 +18,7 @@ export const RIDES = [
     start: { nome: 'Due Torri', lat: 44.494361, lon: 11.345713, facing: { lat: 44.494532, lon: 11.344704 }, look: { lat: 44.49412, lon: 11.3467, y: 30 } },
     stops: [
       { id: 'nettuno', nome: 'Fontana del Nettuno', lat: 44.494262, lon: 11.342763, raggio: 11, goal: 'Vai dal cliente al Nettuno', boarded: 'Cliente a bordo' }, // a fianco della fontana, in Piazza Maggiore
-      { id: 'fiera', nome: 'Fiera di Bologna', lat: 44.5122686, lon: 11.3595329, raggio: 18, goal: 'Porta il cliente alla Fiera' },
+      { id: 'fiera', nome: 'Fiera di Bologna', lat: 44.5122686, lon: 11.3595329, raggio: 18, goal: 'Porta il cliente alla Fiera', boss: 'Cos', bossGoal: 'Sconfiggi Cos!' }, // alla Fiera c'è il boss finale
     ],
   },
 ];

@@ -6,7 +6,7 @@ const COLOR = 0x4fe6ff, RESPAWN = 25, RADIUS = 4.2;
 
 export class NosPickups {
   constructor(scene, world, roads, free, avoid = []) {
-    this.items = []; this.t = 0;
+    this.items = []; this.t = 0; this.roads = roads; this.free = free;
     const cor = world.corridor, seg = []; let total = 0;
     for (let i = 0; i < cor.length - 1; i++) { const L = Math.hypot(cor[i + 1][0] - cor[i][0], cor[i + 1][1] - cor[i][1]); seg.push(L); total += L; }
     const at = (d) => { for (let i = 0; i < seg.length; i++) { if (d <= seg[i]) { const f = d / seg[i]; return [cor[i][0] + (cor[i + 1][0] - cor[i][0]) * f, cor[i][1] + (cor[i + 1][1] - cor[i][1]) * f, cor[i + 1][0] - cor[i][0], cor[i + 1][1] - cor[i][1]]; } d -= seg[i]; } return null; };
@@ -24,7 +24,7 @@ export class NosPickups {
       for (const back of [45, 100, 155]) add(ex - h.ux * dir * back, ez - h.uz * dir * back);
     }
     for (let d = 110; d < total - 120; d += 240) { const p = at(d); if (p) add(p[0], p[1]); }
-    const n = Math.max(1, this.items.length), mats = (op) => new THREE.MeshBasicMaterial({ color: COLOR, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+    const n = Math.max(1, this.items.length) + 8, mats = (op) => new THREE.MeshBasicMaterial({ color: COLOR, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
     this.beam = new THREE.InstancedMesh(new THREE.CylinderGeometry(1.5, 2.1, 26, 12, 1, true).translate(0, 13, 0), mats(0.5), n);
     this.ring = new THREE.InstancedMesh(new THREE.TorusGeometry(2.7, 0.3, 8, 28), mats(1), n);
     this.orb = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1.0, 0), new THREE.MeshBasicMaterial({ color: 0xffffff }), n);
@@ -32,6 +32,9 @@ export class NosPickups {
     for (const m of [this.beam, this.ring, this.orb, this.glow]) { m.frustumCulled = false; scene.add(m); }
     this.draw(0);
   }
+
+  // Pickup aggiuntivo a runtime (arena del boss), agganciato alla strada più vicina.
+  addAt(x, z) { const q = this.roads.nearest(x, z, this.free); if (q && this.items.length < this.beam.instanceMatrix.count) this.items.push({ x: q.x, z: q.z, on: true, t: 0 }); }
 
   active() { return this.items.filter((i) => i.on); }
 
@@ -56,7 +59,7 @@ export class NosPickups {
       e.set(0, t * 2.4 + i, 0); q.setFromEuler(e); pos.set(it.x, 1.9 + Math.sin(t * 3 + i) * 0.25, it.z); m.compose(pos, q, sc); this.ring.setMatrixAt(i, m);
       e.set(t * 1.7, t * 2.1, 0); q.setFromEuler(e); this.orb.setMatrixAt(i, m.compose(pos, q, sc));
     });
-    for (const m2 of [this.beam, this.ring, this.orb, this.glow]) m2.instanceMatrix.needsUpdate = true;
+    for (const m2 of [this.beam, this.ring, this.orb, this.glow]) { m2.count = this.items.length; m2.instanceMatrix.needsUpdate = true; }
   }
 }
 

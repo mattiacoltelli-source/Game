@@ -33,7 +33,7 @@ class Fx {
   reset() { this.shells.length = 0; this.ex.length = 0; this.marks.length = 0; this.shake = 0; this.draw(); }
 
   // Cerchio di avviso a terra (senza proiettile) che dura T secondi.
-  mark(x, z, T) { const m = { x, z, T, t: 0 }; this.marks.push(m); return m; }
+  mark(x, z, T, s = 1) { const m = { x, z, T, t: 0, s }; this.marks.push(m); return m; }
 
   // Tonfo del gigante: onda di polvere + pedoni, auto e coni sbalzati via (senza fuoco né lancio automatico dell'auto).
   thump(x, z, R = 8) {
@@ -72,7 +72,7 @@ class Fx {
       sc.set(f, 1, f); m.compose(pos, q, sc); this.discM.setMatrixAt(i, m); // il disco si riempie man mano che il colpo si avvicina
     });
     this.marks.forEach((k, j) => { const i = this.shells.length + j, f = Math.min(1, k.t / k.T);
-      pos.set(k.x, 0.25, k.z); const pulse = 0.94 + 0.06 * Math.sin(k.t * 18); sc.set(pulse, 1, pulse); m.compose(pos, q, sc); this.ringM.setMatrixAt(i, m); sc.set(f, 1, f); m.compose(pos, q, sc); this.discM.setMatrixAt(i, m); });
+      pos.set(k.x, 0.25, k.z); const pulse = 0.94 + 0.06 * Math.sin(k.t * 18); sc.set(pulse * k.s, 1, pulse * k.s); m.compose(pos, q, sc); this.ringM.setMatrixAt(i, m); sc.set(f * k.s, 1, f * k.s); m.compose(pos, q, sc); this.discM.setMatrixAt(i, m); });
     this.shellM.count = this.shells.length; this.ringM.count = this.discM.count = this.shells.length + this.marks.length;
     this.ex.forEach((e, i) => {
       const f = e.t / 0.7, s = e.dust ? 0 : R_BLAST * 0.55 * (0.25 + 0.75 * Math.sqrt(f)) * (1 - f * f * 0.8);
@@ -176,7 +176,9 @@ class Heli {
     this.state = 'off'; this.cool = 0; this.t = 0; this.burst = 0; this.fireT = 4; this.ang = 0;
   }
 
-  reset() { this.state = 'off'; this.cool = 0; this.group.visible = false; this.tag.visible = false; }
+  reset() { this.state = 'off'; this.cool = 0; this.group.visible = false; this.tag.visible = false; this.stay = false; }
+
+  forceSpawn(player) { const a = Math.random() * 6.28; Object.assign(this, { state: 'on', t: 0, x: player.x + Math.cos(a) * 150, z: player.z + Math.sin(a) * 150, y: 40, fireT: 2.5, burst: 0, ang: a, stay: true }); this.group.visible = this.tag.visible = true; }
 
   update(dt, player, runT) {
     if (this.state === 'off') { this.cool -= dt; if (runT > 18 && this.cool <= 0) { // arriva da lontano
@@ -184,7 +186,7 @@ class Heli {
         this.group.visible = this.tag.visible = true; this.ctx.toast('Macco, l\'elicottero, è in arrivo!'); }
       return; }
     this.t += dt; this.rotor.rotation.y += dt * 26;
-    this.ang += dt * 0.4; const leaving = this.t > 42;
+    this.ang += dt * 0.4; const leaving = this.t > 42 && !this.stay;
     const tx = player.x + player.vx * 0.9 + Math.cos(this.ang) * 36, tz = player.z + player.vz * 0.9 + Math.sin(this.ang) * 36, ty = leaving ? 120 : 22 + Math.sin(this.t * 1.7) * 2;
     const k = Math.min(1, 1.5 * dt), ox = this.x, oz = this.z;
     this.x += clamp((tx - this.x) * k, -70 * dt, 70 * dt); this.z += clamp((tz - this.z) * k, -70 * dt, 70 * dt); this.y += (ty - this.y) * Math.min(1, 1.2 * dt);
@@ -223,9 +225,16 @@ class Giant {
     this.group.visible = false; scene.add(this.group);
     this.tag = nameTag('COS', '#6a2fb0'); this.tag.scale.set(18, 4.5, 1); this.tag.visible = false; scene.add(this.tag);
     this.state = 'off'; this.cool = 0; this.phase = 0; this.t = 0; this.kickCool = 0; this.step = 0;
+    this.boss = false; this.maxHp = 8; this.hp = 0; this.hitCool = 0; this.stompCool = 0; this.bp = 1;
   }
 
-  reset() { this.state = 'off'; this.cool = 0; this.group.visible = false; this.tag.visible = false; }
+  reset() { this.state = 'off'; this.cool = 0; this.group.visible = false; this.tag.visible = false; this.boss = false; this.root.rotation.z = 0; }
+
+  // Boss finale: Cos compare davanti al giocatore con una barra della vita. 3 fasi: calci più rapidi + pestoni, poi Macco, poi Lucchio.
+  startBoss(player) {
+    const a = player.h; Object.assign(this, { state: 'walk', x: player.x + Math.cos(a) * 100, z: player.z + Math.sin(a) * 100, h: a + Math.PI, boss: true, hp: this.maxHp, kickCool: 3, stompCool: 6, hitCool: 0, bp: 1, v: 0, t: 0 });
+    this.group.visible = this.tag.visible = true;
+  }
 
   update(dt, player, runT) {
     if (this.state === 'off') {
@@ -236,20 +245,25 @@ class Giant {
       }
       return;
     }
-    const dx = player.x - this.x, dz = player.z - this.z, d = Math.hypot(dx, dz);
-    if (d > 430) { this.reset(); this.cool = 16; return; }
+    let dx = player.x - this.x, dz = player.z - this.z, d = Math.hypot(dx, dz);
+    if (this.boss) { // il boss non sparisce: se ci si allontana troppo ti raggiunge
+      if (d > 360) { this.x = player.x - dx / d * 240; this.z = player.z - dz / d * 240; dx = player.x - this.x; dz = player.z - this.z; d = 240; }
+      const ph = this.hp <= this.maxHp / 3 ? 3 : this.hp <= this.maxHp * 2 / 3 ? 2 : 1; if (ph !== this.bp) { this.bp = ph; this.onPhase && this.onPhase(ph); }
+      this.hitCool -= dt; this.stompCool -= dt;
+    } else if (d > 430) { this.reset(); this.cool = 16; return; }
     this.kickCool -= dt;
     const face = Math.atan2(dz, dx); let dh = face - this.h; dh = Math.atan2(Math.sin(dh), Math.cos(dh));
     const fx = Math.cos(this.h), fz = Math.sin(this.h);
     let lean = 0, crouch = 0;
     if (this.state === 'walk') {
       this.h += dh * Math.min(1, 2.2 * dt);
-      const want = d > 15 ? 11 : 0; this.v = (this.v || 0) + clamp(want - (this.v || 0), -14 * dt, 8 * dt);
+      const want = d > 15 ? 11 + (this.boss ? (this.bp - 1) * 2 : 0) : 0; this.v = (this.v || 0) + clamp(want - (this.v || 0), -14 * dt, 8 * dt);
       this.x += fx * this.v * dt; this.z += fz * this.v * dt; this.phase += dt * (this.v || 0) / 5.5;
       const sw = Math.sin(this.phase); this.legL.rotation.z = sw * 0.55; this.legR.rotation.z = -sw * 0.55; this.armL.rotation.z = -sw * 0.5; this.armR.rotation.z = sw * 0.5;
       const st = Math.floor(this.phase / Math.PI); if (st !== this.step) { this.step = st; if (d < 300) { this.fx.shake = Math.max(this.fx.shake, clamp(0.9 - d / 330, 0, 0.9)); sfx.thud(clamp(1 - d / 250, 0.1, 1)); } }
       // inizia il calcio: bersaglio = posizione prevista dell'auto, a 8-14 m da lui
-      if (this.kickCool <= 0 && d < 40) {
+      if (this.boss && this.bp >= 2 && this.stompCool <= 0 && d < 34) { this.state = 'stompwind'; this.t = 0; this.fx.mark(this.x, this.z, 1.1, 1.7); this.ctx.toast('Pestone! Allontanati!'); }
+      else if (this.kickCool <= 0 && d < 40) {
         const T = WIND + SWING, tx = player.x + player.vx * T * 0.9, tz = player.z + player.vz * T * 0.9, td = Math.hypot(tx - this.x, tz - this.z);
         if (td > 6 && td < 15) { this.state = 'wind'; this.t = 0; this.tx = tx; this.tz = tz; this.fx.mark(tx, tz, T); this.h = Math.atan2(tz - this.z, tx - this.x); this.ctx.toast('Cos sta per calciare!'); }
       }
@@ -258,11 +272,21 @@ class Giant {
       if (this.state === 'wind') { const f = this.t / WIND; this.legR.rotation.z = -0.9 * f; this.legL.rotation.z = 0.2 * f; crouch = 3.4 * f; lean = -0.12 * f; this.armR.rotation.z = 0.8 * f; this.armL.rotation.z = -0.6 * f; if (this.t >= WIND) { this.state = 'swing'; this.t = 0; } }
       else if (this.state === 'swing') { const f = Math.min(1, this.t / SWING); this.legR.rotation.z = -0.9 + 1.95 * f; crouch = 3.4; lean = -0.12 + 0.3 * f; this.armR.rotation.z = 0.8 - 1.4 * f;
         if (f >= 1) { this.impact(player); this.state = 'hold'; this.t = 0; } }
-      else if (this.state === 'hold') { this.legR.rotation.z = 1.05; crouch = 3.4 * (1 - Math.min(1, this.t / 0.5)); lean = 0.18; if (this.t >= 0.6) { this.state = 'walk'; this.kickCool = 3.2; } }
+      else if (this.state === 'stompwind') { const f = Math.min(1, this.t / 1.1); this.legL.rotation.z = 0.9 * f; this.legR.rotation.z = -0.2; crouch = -1.2 * f; this.armL.rotation.z = -1.1 * f; this.armR.rotation.z = -1.1 * f;
+        if (f >= 1) { this.stomp(player); this.state = 'hold'; this.t = 0; this.stompCool = 5.5; } }
+      else if (this.state === 'stagger') { const f = this.t / 1.3; this.legL.rotation.z = 0.5; this.legR.rotation.z = -0.5; lean = -0.3 * Math.sin(Math.min(1, f) * Math.PI); this.armL.rotation.z = -1.4; this.armR.rotation.z = -1.4; if (this.t >= 1.3) { this.state = 'walk'; } }
+      else if (this.state === 'dying') { // cade all'indietro tra le esplosioni
+        const f = Math.min(1, this.t / 2.6); lean = -1.55 * f * f; this.legL.rotation.z = 0.3; this.legR.rotation.z = -0.3; this.armL.rotation.z = -1.2; this.armR.rotation.z = -1.2;
+        this.boomT = (this.boomT || 0) - dt; if (this.boomT <= 0) { this.boomT = 0.2; this.fx.explode(this.x + rnd(-6, 6), this.z + rnd(-6, 6), rnd(2, 20), 0.001); }
+        if (this.t >= 2.8) { this.state = 'off'; this.boss = false; this.group.visible = this.tag.visible = false; this.cool = 1e9; this.ctx.onBossDown && this.ctx.onBossDown(); } }
+      else if (this.state === 'hold') { this.legR.rotation.z = 1.05; crouch = 3.4 * (1 - Math.min(1, this.t / 0.5)); lean = 0.18; if (this.t >= 0.6) { this.state = 'walk'; this.kickCool = this.boss ? [3.0, 2.1, 1.4][this.bp - 1] : 3.2; } }
     }
     this.group.position.set(this.x, 0, this.z); this.group.rotation.y = -this.h; this.root.position.y = -2.1 - crouch; this.root.rotation.z = lean; this.tag.position.set(this.x, 35.5, this.z);
     this.feet = [this.legL, this.legR].map((l, i) => ({ x: this.x + fx * 13.2 * Math.sin(l.rotation.z) + (-fz) * (i ? -1.8 : 1.8), z: this.z + fz * 13.2 * Math.sin(l.rotation.z) + fx * (i ? -1.8 : 1.8) }));
   }
+
+  // Pestone (fase 2+): onda a terra di 15 m attorno ai suoi piedi; chi è a terra nel raggio viene sbalzato.
+  stomp(player) { this.fx.thump(this.x, this.z, 16); this.fx.shake = Math.max(this.fx.shake, 1.5); sfx.boom(1); if (player.clear < 2) player.blast(this.x, this.z, 15, 0.95); }
 
   // Il piede colpisce il punto bersaglio: onda di polvere, tutto vola via e, se l'auto è nel raggio, viene calciata lontano.
   impact(player) {
@@ -273,12 +297,21 @@ class Giant {
     }
   }
 
-  // I piedi sono ostacoli: urto forte ma niente danni.
+  // I piedi sono ostacoli. Il boss subisce danno se lo si sperona forte: >79 km/h 1, >137 km/h 2, >198 km/h 3 (il NOS!).
   collide(player) {
-    if (this.state === 'off' || !this.feet || player.clear > 3) return false;
+    if (this.state === 'off' || this.state === 'dying' || !this.feet || player.clear > 3) return false;
     for (const f of this.feet) for (const po of [-1.4, 0, 1.4]) {
       const px = player.x + Math.cos(player.h) * po, pz = player.z + Math.sin(player.h) * po; let dx = px - f.x, dz = pz - f.z; const d = Math.hypot(dx, dz), pen = 3.2 + 0.92 - d; if (pen <= 0) continue;
-      if (d > 1e-3) { dx /= d; dz /= d; } else { dx = 1; dz = 0; } player.x += dx * pen; player.z += dz * pen; const vn = player.vx * dx + player.vz * dz; if (vn < 0) { player.vx -= vn * dx * 1.5; player.vz -= vn * dz * 1.5; } return true;
+      if (d > 1e-3) { dx /= d; dz /= d; } else { dx = 1; dz = 0; }
+      const sp = Math.hypot(player.vx, player.vz);
+      if (this.boss && this.hitCool <= 0 && this.state !== 'stagger' && sp > 22) {
+        const dmg = sp > 55 ? 3 : sp > 38 ? 2 : 1; this.hp = Math.max(0, this.hp - dmg); this.hitCool = 1.0; this.fx.thump(f.x, f.z, 9); this.fx.shake = Math.max(this.fx.shake, 1.4); sfx.boom(0.9);
+        player.vx = dx * Math.min(26, sp * 0.6); player.vz = dz * Math.min(26, sp * 0.6); player.x += dx * pen; player.z += dz * pen;
+        this.ctx.onBossHit && this.ctx.onBossHit(this.hp, this.maxHp, dmg);
+        if (this.hp <= 0) { this.state = 'dying'; this.t = 0; this.boomT = 0; } else { this.state = 'stagger'; this.t = 0; }
+        return true;
+      }
+      player.x += dx * pen; player.z += dz * pen; const vn = player.vx * dx + player.vz * dz; if (vn < 0) { player.vx -= vn * dx * 1.5; player.vz -= vn * dz * 1.5; } return true;
     }
     return false;
   }
@@ -286,14 +319,21 @@ class Giant {
 
 export class Enemies {
   constructor(scene, world, roadIndex, ctx) {
-    this.fx = new Fx(scene, ctx); this.tank = new Tank(scene, world, roadIndex, this.fx, ctx); this.heli = new Heli(scene, this.fx, ctx); this.giant = new Giant(scene, this.fx, ctx); this.ctx = ctx; this.t = 0;
+    this.fx = new Fx(scene, ctx); this.tank = new Tank(scene, world, roadIndex, this.fx, ctx); this.heli = new Heli(scene, this.fx, ctx); this.giant = new Giant(scene, this.fx, ctx); this.ctx = ctx; this.t = 0; this.last = null;
+    this.giant.onPhase = (ph) => { // fase 2: arriva Macco, fase 3: arriva Lucchio
+      if (ph === 2) { this.heli.forceSpawn(this.last); ctx.toast('Fase 2: Macco si unisce a Cos!'); }
+      if (ph === 3) { this.tank.cool = 0; this.tank.spawn(this.last); ctx.toast('Fase 3: arriva anche Lucchio!'); }
+    };
   }
-  reset() { this.t = 0; this.fx.reset(); this.tank.reset(); this.heli.reset(); this.giant.reset(); }
+  reset() { this.t = 0; this.fx.reset(); this.tank.reset(); this.heli.reset(); this.giant.reset(); this.last = null; }
+  // Inizia il boss finale: sospende le apparizioni normali e fa comparire Cos con la barra della vita.
+  startBoss(player) { this.reset(); this.last = player; this.t = 1e5; this.tank.cool = 1e9; this.heli.cool = 1e9; this.giant.startBoss(player); }
+  get boss() { return this.giant.boss; }
   // Posizioni dei nemici attivi (per la minimappa).
   points() { const o = []; if (this.tank.state === 'on') o.push({ x: this.tank.x, z: this.tank.z }); if (this.heli.state === 'on') o.push({ x: this.heli.x, z: this.heli.z }); if (this.giant.state !== 'off') o.push({ x: this.giant.x, z: this.giant.z }); return o; }
   get shake() { return this.fx.shake; }
   update(dt, player) {
-    this.t += dt; this.fx.update(dt); this.tank.update(dt, player, this.t); this.heli.update(dt, player, this.t); this.giant.update(dt, player, this.t); this.giant.collide(player);
+    this.t += dt; this.last = player; this.fx.update(dt); this.tank.update(dt, player, this.t); this.heli.update(dt, player, this.t); this.giant.update(dt, player, this.t); this.giant.collide(player);
     const r = this.tank.collide(player); if (r === 'ko') { this.ctx.onKo('Lucchio'); } return r;
   }
 }

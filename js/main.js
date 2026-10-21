@@ -104,13 +104,16 @@ async function boot() {
     car, peds, traffic, props, toast,
     onHit: (k) => { if (k > 0.25) toast('BOOM!'); },
     onKicked: () => toast('Cos ti ha calciato!'),
+    onBossHit: (hp, max, dmg) => { toast(dmg > 1 ? `COLPITO ×${dmg}!` : 'Colpito!'); $('boss').querySelector('u').style.transform = `scaleX(${hp / max})`; $('boss').querySelector('span').textContent = hp; },
+    onBossDown: () => { toast('COS SCONFITTO!'); sfx.ko(); run.bossWon = true; finishRun(); },
     onKo: (name) => { toast(`${name} distrutto! +1 NOS`); car.giveCharge(); sfx.ko(); },
   });
   const muteBtn = $('mute'); muteBtn.classList.toggle('off', sfx.muted);
   muteBtn.addEventListener('click', () => { sfx.setMuted(!sfx.muted); muteBtn.classList.toggle('off', sfx.muted); });
   const mini = new Minimap($('mini'), roads);
   const labels = new Labels(scene, camera, data.labels);
-  const run = { state: 'menu', t: 0, warned: false, stop: 0 }; // menu | running | done
+  const run = { state: 'menu', t: 0, warned: false, stop: 0, boss: false, bossWon: false }; // menu | running | done
+  const bossT = { x: 0, z: 0, r: 0 }; // bersaglio mobile durante il boss (Cos)
   const setStop = (i) => {
     run.stop = i; target = stops[i]; run.warned = false;
     if (marker) { scene.remove(marker); marker.traverse((o) => { o.geometry && o.geometry.dispose(); o.material && o.material.dispose(); }); }
@@ -185,17 +188,24 @@ async function boot() {
   let playing = false;
   function beginRun() {
     car.place(sx, sz, startH, groundY(sx, sz)); camH = startH; camD = 8; input.override = null; input.keys.clear();
-    run.state = 'running'; run.t = 0; setStop(0); playing = true;
+    run.state = 'running'; run.t = 0; run.boss = false; run.bossWon = false; $('boss').hidden = true; setStop(0); playing = true;
     traffic.reset(); peds.reset(); props.reset(); nos.reset(); enemies.reset(); sfx.init(); if (!NOTRAFFIC) { traffic.fill(car); peds.fill(car); }
     $('screen-start').hidden = true; $('screen-end').hidden = true; $('hud').hidden = false; $('controls').hidden = false;
   }
+  // Alla Fiera: consegnato il cliente, arriva il boss finale. La corsa finisce quando Cos cade.
+  function beginBoss() {
+    run.boss = true; marker.visible = false; $('goal-txt').textContent = target.bossGoal || 'Sconfiggi il boss'; $('boss').hidden = false;
+    $('boss').querySelector('u').style.transform = 'scaleX(1)'; $('boss').querySelector('span').textContent = enemies.giant.maxHp;
+    enemies.startBoss(car); target = bossT; toast('Cliente consegnato! Arriva COS, il boss!'); sfx.boom(0.6);
+    for (let k = 0; k < 4; k++) nos.addAt(car.x + Math.cos(k * 1.57 + 0.7) * 65, car.z + Math.sin(k * 1.57 + 0.7) * 65); // NOS per speronare più forte
+  }
   function finishRun() {
-    run.state = 'done'; playing = false; input.override = null; enemies.reset();
+    run.state = 'done'; playing = false; input.override = null; enemies.reset(); $('boss').hidden = true;
     const prev = loadBest(ride.id), isNew = !prev || run.t < prev;
     if (isNew) saveBest(ride.id, run.t);
     $('end-time').textContent = fmt(run.t);
     const el = $('end-best'); el.classList.toggle('new', isNew);
-    $('end-title').textContent = `Arrivati: ${target.nome}`;
+    $('end-title').textContent = run.bossWon ? 'Cos sconfitto!' : `Arrivati: ${stops[stops.length - 1].nome}`;
     el.textContent = isNew ? (prev ? `Nuovo record! Prima: ${fmt(prev)}` : 'Primo record salvato!') : `Record: ${fmt(prev)}`;
     $('hud').hidden = true; $('controls').hidden = true; $('screen-end').hidden = false; showBest();
   }
@@ -221,6 +231,7 @@ async function boot() {
         if (peds.collide(car)) { car.hitSlow(); toast('Pedone! Rallentato per 10 s'); }
       }
       if (!NOENEMIES) enemies.update(dt, car);
+      if (run.boss) { bossT.x = enemies.giant.x; bossT.z = enemies.giant.z; }
       if (nos.update(dt, car) && car.giveCharge()) { sfx.pickup(); toast(car.charges >= 3 ? 'NOS ×3 pronto!' : `NOS: ${car.charges}/3 cariche`); }
       if (input.takeNos()) { const lv = car.activate(); if (lv) { sfx.nos(lv); toast(`NOS ×${lv}! 10 secondi`); } }
       if (car.jump > 0) { if (car.jump >= 12) toast(`Salto di ${Math.round(car.jump)} m!`); car.jump = 0; }
@@ -228,7 +239,7 @@ async function boot() {
       const d = Math.hypot(target.x - car.x, target.z - car.z);
       if (d < target.r) {
         if (Math.abs(car.speed) < STOP_SPEED) {
-          if (run.stop < stops.length - 1) { toast(target.boarded || 'Tappa completata'); setStop(run.stop + 1); } else finishRun();
+          if (run.stop < stops.length - 1) { toast(target.boarded || 'Tappa completata'); setStop(run.stop + 1); } else if (target.boss && !run.boss) beginBoss(); else finishRun();
         }
         else if (!run.warned) { run.warned = true; toast('Fermati nel cerchio'); }
       } else run.warned = false;
