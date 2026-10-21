@@ -13,7 +13,7 @@ canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 #speed { position: absolute; top: max(10px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right)); text-align: right; text-shadow: 0 1px 3px #0008; }
 #speed b { font-size: 28px; font-variant-numeric: tabular-nums; }
 #speed small { margin-left: 4px; color: var(--muted); font-size: 12px; }
-#toast { position: absolute; top: 18%; left: 50%; transform: translateX(-50%); padding: 8px 14px; border-radius: 999px; background: #000a; font-size: 14px; opacity: 0; transition: opacity .25s; }
+#toast { position: absolute; top: 31%; left: 50%; transform: translateX(-50%); padding: 8px 14px; border-radius: 999px; background: #000a; font-size: 14px; opacity: 0; transition: opacity .25s; }
 #toast.show { opacity: 1; }
 
 /* Controlli touch */
@@ -87,3 +87,14 @@ h1 { margin: 0 0 10px; font-size: 34px; letter-spacing: -.01em; }
 .seg button { appearance: none; border: 0; background: transparent; color: var(--muted); min-height: 44px; padding: 0 14px; font: 700 14px/1 system-ui, sans-serif; }
 .seg button[aria-checked="true"] { background: var(--accent); color: var(--accent-ink); }
 @media (max-height: 420px) { .seg { margin-bottom: 8px; } .seg button { min-height: 40px; padding: 0 11px; } }
+
+/* Stati: NOS e rallentamento */
+#status { position: absolute; top: calc(max(10px, env(safe-area-inset-top)) + 40px); right: max(14px, env(safe-area-inset-right)); display: grid; gap: 6px; justify-items: end; }
+.chip { display: flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 999px; background: #10151acc; font-size: 13px; font-variant-numeric: tabular-nums; }
+.chip b { font-size: 12px; letter-spacing: .04em; }
+.chip i { display: block; width: 76px; height: 7px; border-radius: 7px; background: #ffffff22; overflow: hidden; }
+.chip u { display: block; height: 100%; width: 100%; border-radius: 7px; transform-origin: left; }
+.chip.nos { border: 1.5px solid #4fe6ff; color: #bff4ff; } .chip.nos u { background: linear-gradient(90deg, #4fe6ff, #ffffff); }
+.chip.slow { border: 1.5px solid #ff7b7b; color: #ffd0d0; } .chip.slow u { background: #ff7b7b; }
+#speedfx { position: absolute; inset: 0; opacity: 0; transition: opacity .25s; background: repeating-conic-gradient(from 0deg at 50% 58%, #0000 0 5deg, #9eeeff 5deg 5.6deg); -webkit-mask: radial-gradient(ellipse at 50% 58%, transparent 38%, #000 92%); mask: radial-gradient(ellipse at 50% 58%, transparent 38%, #000 92%); }
+#speedfx.on { opacity: .24; }

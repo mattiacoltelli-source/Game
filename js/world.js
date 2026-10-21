@@ -34,7 +34,7 @@ const ROAD_STYLE = { // [colore, quota y, scala larghezza]
 const AREA_Y = { green: 0.03, wood: 0.04, water: 0.05, river: 0.05 };
 
 export const GROUND_COLOR = C.ground;
-const HUMP_H = 5.5;
+const HUMP_H = 9; // Ponte Matteotti: gobba alta, pensata per i salti col NOS
 const humpY = (h, t) => h.H * (1 - Math.abs(2 * t / h.L - 1)); // gobba a V: cresta a metà ponte
 const ARC_COLOR = [0.86, 0.62, 0.46];
 const TYPE_STYLE = [null,

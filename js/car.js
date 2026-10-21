@@ -1,7 +1,8 @@
 // Fisica arcade: velocità come vettore mondo, presa laterale variabile (drift), collisioni che scivolano.
 const VMAX = 45, VREV = 8, ACC = 24, BRAKE = 22, REV_ACC = 10, COAST = 3, WHEELBASE = 2.7;
 const GRIP = 9, GRIP_DRIFT = 1.7, MAX_SLIP = 0.5;
-const CIRCLES = [-1.4, 0, 1.4], RADIUS = 0.92, G = 18; // G: gravità arcade (m/s²)
+const CIRCLES = [-1.4, 0, 1.4], RADIUS = 0.92, G = 14; // G: gravità arcade (m/s²), bassa: i salti "galleggiano"
+const BOOST_TIME = 10, SLOW_TIME = 10;
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -10,12 +11,15 @@ export class Car {
   constructor() { this.place(0, 0, 0); }
 
   place(x, z, h, y = 0) {
-    this.x = x; this.z = z; this.h = h; this.vx = 0; this.vz = 0; this.y = y; this.vy = 0; this.air = false; this.airT = 0; this.jump = 0; this.landed = 0; this.clear = 0;
+    this.x = x; this.z = z; this.h = h; this.vx = 0; this.vz = 0; this.y = y; this.vy = 0; this.boost = 0; this.slow = 0; this.air = false; this.airT = 0; this.jump = 0; this.landed = 0; this.clear = 0;
     this.yaw = 0; this.steer = 0; this.drift = 0; this.speed = 0; this.lat = 0; this.contact = 0; this.stuck = 0;
   }
 
   step(dt, input, col, bounds, ground = () => 0) {
     const air = this.air, thr = air ? 0 : input.throttle, brk = air ? 0 : input.brake;
+    // NOS (+40% velocità massima, accelerazione quasi doppia) e rallentamento (dopo aver investito un pedone)
+    const vmax = VMAX * (this.boost > 0 ? 1.4 : 1) * (this.slow > 0 ? 0.7 : 1), acc = ACC * (this.boost > 0 ? 1.9 : 1) * (this.slow > 0 ? 0.75 : 1);
+    this.boost = Math.max(0, this.boost - dt); this.slow = Math.max(0, this.slow - dt);
     let fx = Math.cos(this.h), fz = Math.sin(this.h), rx = -fz, rz = fx;
     let vf = this.vx * fx + this.vz * fz;
 
@@ -25,7 +29,7 @@ export class Car {
 
     // acceleratore / freno / retromarcia
     let a = 0;
-    if (thr > 0) a += ACC * thr * (1 - Math.max(0, vf) / VMAX) + (vf < 0 ? BRAKE * thr : 0);
+    if (thr > 0) a += acc * thr * (1 - Math.max(0, vf) / vmax) + (vf < 0 ? BRAKE * thr : 0);
     if (brk > 0) a += vf > 0.8 ? -BRAKE * brk : -REV_ACC * brk * (1 + Math.min(0, vf) / VREV);
     if (!thr && !brk && !air) a -= Math.sign(vf) * Math.min(Math.abs(vf) / dt, COAST);
     a -= this.drift * 2.5 * Math.sign(vf);
@@ -117,6 +121,10 @@ export class Car {
     const active = input.throttle > 0 || input.brake > 0;
     if (active && Math.hypot(this.vx, this.vz) < 1.5) this.stuck += dt; else this.stuck = Math.max(0, this.stuck - 2 * dt);
   }
+
+  // NOS: 10 s di boost più uno scatto in avanti. Rallentamento: 10 s con velocità massima ridotta.
+  giveBoost() { this.boost = BOOST_TIME; const fx = Math.cos(this.h), fz = Math.sin(this.h); this.vx += fx * 6; this.vz += fz * 6; }
+  hitSlow() { this.slow = SLOW_TIME; }
 
   // Ritorna true se serve riposizionare (incastrata per >2 s).
   needsRescue() { return this.stuck > 2.0; }

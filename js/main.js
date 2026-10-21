@@ -11,6 +11,7 @@ import { Minimap } from './minimap.js';
 import { buildMarker } from './marker.js';
 import { Labels } from './labels.js';
 import { initPWA } from './pwa.js';
+import { NosPickups, buildFlames } from './nos.js';
 import { Atmosphere, PRESET_NAMES } from './atmosphere.js';
 import { Props } from './props.js';
 import { Traffic, Pedestrians } from './traffic.js';
@@ -92,6 +93,8 @@ async function boot() {
     return { ...st, x: q ? q.x : p[0], z: q ? q.z : p[1], r: st.raggio };
   });
   let target = stops[0], marker = null;
+  const nos = new NosPickups(scene, world, roads, free, [{ x: sx, z: sz, r: 60 }, ...stops.map((st) => ({ x: st.x, z: st.z, r: 45 }))]);
+  const flames = buildFlames(taxi);
   const mini = new Minimap($('mini'), roads);
   const labels = new Labels(scene, camera, data.labels);
   const run = { state: 'menu', t: 0, warned: false, stop: 0 }; // menu | running | done
@@ -135,7 +138,7 @@ async function boot() {
     let d = car.h - camH; d = Math.atan2(Math.sin(d), Math.cos(d));
     camH += d * (1 - Math.exp(-4.5 * dt));
     const speed = Math.hypot(car.vx, car.vz);
-    const want = 8.2 + Math.min(speed, 45) * 0.07;
+    const want = 8.2 + Math.min(speed, 64) * 0.06;
     const bx = -Math.cos(camH), bz = -Math.sin(camH);
     let limit = col.ray(car.x, car.z, bx, bz, want + 1.5);
     let target = Math.max(2.6, Math.min(want, limit - 1.2));
@@ -148,8 +151,8 @@ async function boot() {
     camPos.set(px, height + camY, pz);
     camera.position.copy(camPos);
     camera.lookAt(car.x + Math.cos(camH) * 7, 0.9 + car.y * 0.8 + (car.y - camY) * 0.4, car.z + Math.sin(camH) * 7);
-    const fov = 62 + Math.min(1, speed / 45) * 8;
-    if (Math.abs(camera.fov - fov) > 0.2) { camera.fov = fov; camera.updateProjectionMatrix(); }
+    const fov = 62 + Math.min(1, speed / 50) * 9 + (car.boost > 0 ? 7 : 0);
+    if (Math.abs(camera.fov - fov) > 0.2) { camera.fov += (fov - camera.fov) * Math.min(1, 5 * dt); camera.updateProjectionMatrix(); }
   }
 
   function poseCar(dt) {
@@ -169,7 +172,7 @@ async function boot() {
   function beginRun() {
     car.place(sx, sz, startH, groundY(sx, sz)); camH = startH; camD = 8; input.override = null; input.keys.clear();
     run.state = 'running'; run.t = 0; setStop(0); playing = true;
-    traffic.reset(); peds.reset(); props.reset(); if (!NOTRAFFIC) { traffic.fill(car); peds.fill(car); }
+    traffic.reset(); peds.reset(); props.reset(); nos.reset(); if (!NOTRAFFIC) { traffic.fill(car); peds.fill(car); }
     $('screen-start').hidden = true; $('screen-end').hidden = true; $('hud').hidden = false; $('controls').hidden = false;
   }
   function finishRun() {
@@ -201,8 +204,9 @@ async function boot() {
       if (!NOTRAFFIC) {
         traffic.update(dt, car); peds.update(dt, car); props.update(dt, car);
         const bump = traffic.collide(car); if (bump > 5) toast('Botta!');
-        if (peds.collide(car)) toast('Occhio ai pedoni!');
+        if (peds.collide(car)) { car.hitSlow(); toast('Pedone! Rallentato per 10 s'); }
       }
+      if (nos.update(dt, car)) { car.giveBoost(); toast('NOS! 10 secondi di boost'); }
       if (car.jump > 0) { if (car.jump >= 12) toast(`Salto di ${Math.round(car.jump)} m!`); car.jump = 0; }
       run.t += Math.min(0.25, (now - lastT) / 1000);
       const d = Math.hypot(target.x - car.x, target.z - car.z);
@@ -215,6 +219,7 @@ async function boot() {
     }
     lastT = now;
     world.update(car.x, car.z, 1);
+    flames(car.boost > 0, now / 1000);
     poseCar(dt); updateCamera(dt); fx.update(dt, car, camera); labels.update(dt, car, camH); atmo.update(dt, car);
     if (run.state === 'running') {
       $('kmh').textContent = Math.round(Math.abs(car.speed) * 3.6);
@@ -222,7 +227,11 @@ async function boot() {
       const dx = target.x - car.x, dz = target.z - car.z;
       $('dist').textContent = `${Math.round(Math.hypot(dx, dz))} m`;
       $('arrow').style.transform = `rotate(${Math.atan2(dz, dx) - camH}rad)`;
-      mini.update(dt, car, target);
+      mini.update(dt, car, target, nos.active());
+      const sNos = $('st-nos'), sSlow = $('st-slow'); sNos.hidden = !(car.boost > 0); sSlow.hidden = !(car.slow > 0);
+      if (car.boost > 0) { sNos.querySelector('u').style.transform = `scaleX(${car.boost / 10})`; sNos.querySelector('span').textContent = car.boost.toFixed(1); }
+      if (car.slow > 0) { sSlow.querySelector('u').style.transform = `scaleX(${car.slow / 10})`; sSlow.querySelector('span').textContent = car.slow.toFixed(1); }
+      $('speedfx').classList.toggle('on', car.boost > 0);
     }
     renderer.render(scene, camera);
 
@@ -235,7 +244,7 @@ async function boot() {
   }
   requestAnimationFrame(frame);
 
-  window.__taxi = { props, traffic, peds, taxi, get target() { return target; }, stops, setStop, run, startPos: [sx, sz, startH], car, world, col, roads, input, camera, scene, renderer, get fps() { return fps; }, start() { $('go').click(); }, rescue, free };
+  window.__taxi = { nos, props, traffic, peds, taxi, get target() { return target; }, stops, setStop, run, startPos: [sx, sz, startH], car, world, col, roads, input, camera, scene, renderer, get fps() { return fps; }, start() { $('go').click(); }, rescue, free };
   if (DEBUG) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;left:8px;top:8px;font:12px monospace;color:#fff;text-shadow:0 1px 2px #000;z-index:9;pointer-events:none'; document.body.append(d); setInterval(() => { d.textContent = `fps ${fps.toFixed(0)} pr ${pixelRatio.toFixed(2)} cells ${world.cells.size} calls ${renderer.info.render.calls} tris ${renderer.info.render.triangles}`; }, 500); }
 }
 

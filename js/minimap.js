@@ -10,7 +10,7 @@ export class Minimap {
     this.g = canvas.getContext('2d');
   }
 
-  update(dt, car, target) {
+  update(dt, car, target, pick = []) {
     this.t -= dt; if (this.t > 0) return; this.t = 0.1;
     const g = this.g, S = this.size, k = S / (2 * RANGE);
     g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, S, S);
@@ -31,6 +31,9 @@ export class Minimap {
     let tx = target.x, tz = target.z; if (d > lim) { tx = car.x + dx / d * lim; tz = car.z + dz / d * lim; }
     g.fillStyle = '#ffc928'; g.strokeStyle = '#14181d'; g.lineWidth = 2 * (S / 132) / k;
     g.beginPath(); g.arc(tx, tz, (d > lim ? 5 : 8) * (S / 132) / k, 0, 7); g.fill(); g.stroke();
+    // pickup NOS (ciano)
+    g.fillStyle = '#4fe6ff'; g.strokeStyle = '#0b2a33';
+    for (const it of pick) { const ddx = it.x - car.x, ddz = it.z - car.z, dd = Math.hypot(ddx, ddz); if (dd > RANGE * 1.05) continue; g.beginPath(); g.arc(it.x, it.z, 4.5 * (S / 132) / k, 0, 7); g.fill(); g.stroke(); }
     g.restore();
     // auto
     g.translate(S / 2, S / 2); g.fillStyle = '#fff'; g.strokeStyle = '#14181d'; g.lineWidth = 2 * (S / 132);
