@@ -12,12 +12,14 @@ import { buildMarker } from './marker.js';
 import { Labels } from './labels.js';
 import { initPWA } from './pwa.js';
 import { NosPickups, buildFlames, NOS_COLORS } from './nos.js';
+import { Enemies } from './enemies.js';
+import { sfx } from './sfx.js';
 import { Atmosphere, PRESET_NAMES } from './atmosphere.js';
 import { Props } from './props.js';
 import { Traffic, Pedestrians } from './traffic.js';
 
 const $ = (id) => document.getElementById(id);
-const DEBUG = new URLSearchParams(location.search).has('debug'), NOTRAFFIC = new URLSearchParams(location.search).has('notraffic');
+const DEBUG = new URLSearchParams(location.search).has('debug'), NOTRAFFIC = new URLSearchParams(location.search).has('notraffic'), NOENEMIES = new URLSearchParams(location.search).has('noenemies');
 THREE.ColorManagement.enabled = false; // colori "as-is", niente conversione sRGB: più semplice e leggero
 const SKY = new THREE.Color(0xcfe0ea);
 
@@ -98,6 +100,13 @@ async function boot() {
   let target = stops[0], marker = null;
   const nos = new NosPickups(scene, world, roads, free, [{ x: sx, z: sz, r: 60 }, ...stops.map((st) => ({ x: st.x, z: st.z, r: 45 }))]);
   const flames = buildFlames(taxi);
+  const enemies = new Enemies(scene, world, roads, {
+    car, peds, traffic, props, toast,
+    onHit: (k) => { if (k > 0.25) toast('BOOM!'); },
+    onKo: (name) => { toast(`${name} distrutto! +1 NOS`); car.giveCharge(); sfx.ko(); },
+  });
+  const muteBtn = $('mute'); muteBtn.classList.toggle('off', sfx.muted);
+  muteBtn.addEventListener('click', () => { sfx.setMuted(!sfx.muted); muteBtn.classList.toggle('off', sfx.muted); });
   const mini = new Minimap($('mini'), roads);
   const labels = new Labels(scene, camera, data.labels);
   const run = { state: 'menu', t: 0, warned: false, stop: 0 }; // menu | running | done
@@ -153,6 +162,7 @@ async function boot() {
     camY += (car.y - camY) * Math.min(1, 6 * dt); // la camera segue la quota più lentamente: i salti si vedono
     camPos.set(px, height + camY, pz);
     camera.position.copy(camPos);
+    const sh = enemies.shake; if (sh > 0.02) camera.position.add(new THREE.Vector3((Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh));
     camera.lookAt(car.x + Math.cos(camH) * 7, 0.9 + car.y * 0.8 + (car.y - camY) * 0.4, car.z + Math.sin(camH) * 7);
     const fov = 62 + Math.min(1, speed / 50) * 9 + (car.boost > 0 ? 4 + 3 * car.level : 0);
     if (Math.abs(camera.fov - fov) > 0.2) { camera.fov += (fov - camera.fov) * Math.min(1, 5 * dt); camera.updateProjectionMatrix(); }
@@ -175,11 +185,11 @@ async function boot() {
   function beginRun() {
     car.place(sx, sz, startH, groundY(sx, sz)); camH = startH; camD = 8; input.override = null; input.keys.clear();
     run.state = 'running'; run.t = 0; setStop(0); playing = true;
-    traffic.reset(); peds.reset(); props.reset(); nos.reset(); if (!NOTRAFFIC) { traffic.fill(car); peds.fill(car); }
+    traffic.reset(); peds.reset(); props.reset(); nos.reset(); enemies.reset(); sfx.init(); if (!NOTRAFFIC) { traffic.fill(car); peds.fill(car); }
     $('screen-start').hidden = true; $('screen-end').hidden = true; $('hud').hidden = false; $('controls').hidden = false;
   }
   function finishRun() {
-    run.state = 'done'; playing = false; input.override = null;
+    run.state = 'done'; playing = false; input.override = null; enemies.reset();
     const prev = loadBest(ride.id), isNew = !prev || run.t < prev;
     if (isNew) saveBest(ride.id, run.t);
     $('end-time').textContent = fmt(run.t);
@@ -209,8 +219,9 @@ async function boot() {
         const bump = traffic.collide(car); if (bump > 5) toast('Botta!');
         if (peds.collide(car)) { car.hitSlow(); toast('Pedone! Rallentato per 10 s'); }
       }
-      if (nos.update(dt, car) && car.giveCharge()) toast(car.charges >= 3 ? 'NOS ×3 pronto!' : `NOS: ${car.charges}/3 cariche`);
-      if (input.takeNos()) { const lv = car.activate(); if (lv) toast(`NOS ×${lv}! 10 secondi`); }
+      if (!NOENEMIES) enemies.update(dt, car);
+      if (nos.update(dt, car) && car.giveCharge()) { sfx.pickup(); toast(car.charges >= 3 ? 'NOS ×3 pronto!' : `NOS: ${car.charges}/3 cariche`); }
+      if (input.takeNos()) { const lv = car.activate(); if (lv) { sfx.nos(lv); toast(`NOS ×${lv}! 10 secondi`); } }
       if (car.jump > 0) { if (car.jump >= 12) toast(`Salto di ${Math.round(car.jump)} m!`); car.jump = 0; }
       run.t += Math.min(0.25, (now - lastT) / 1000);
       const d = Math.hypot(target.x - car.x, target.z - car.z);
@@ -250,7 +261,7 @@ async function boot() {
   }
   requestAnimationFrame(frame);
 
-  window.__taxi = { nos, props, traffic, peds, taxi, get target() { return target; }, stops, setStop, run, startPos: [sx, sz, startH], car, world, col, roads, input, camera, scene, renderer, get fps() { return fps; }, start() { $('go').click(); }, rescue, free };
+  window.__taxi = { enemies, nos, props, traffic, peds, taxi, get target() { return target; }, stops, setStop, run, startPos: [sx, sz, startH], car, world, col, roads, input, camera, scene, renderer, get fps() { return fps; }, start() { $('go').click(); }, rescue, free };
   if (DEBUG) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;left:8px;top:8px;font:12px monospace;color:#fff;text-shadow:0 1px 2px #000;z-index:9;pointer-events:none'; document.body.append(d); setInterval(() => { d.textContent = `fps ${fps.toFixed(0)} pr ${pixelRatio.toFixed(2)} cells ${world.cells.size} calls ${renderer.info.render.calls} tris ${renderer.info.render.triangles}`; }, 500); }
 }
 

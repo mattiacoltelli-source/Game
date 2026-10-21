@@ -126,3 +126,8 @@ h1 { margin: 0 0 10px; font-size: 34px; letter-spacing: -.01em; }
   #screen-start .opt { font-size: 13px; }
   #screen-start .seg { margin-bottom: 8px; }
 }
+
+/* Audio */
+#mute { position: absolute; top: max(10px, env(safe-area-inset-top)); right: calc(max(14px, env(safe-area-inset-right)) + 132px); width: 44px; height: 44px; border-radius: 50%; border: 2px solid #ffffff33; background: #10151acc; color: var(--ink); display: grid; place-items: center; padding: 0; pointer-events: auto; touch-action: none; }
+#mute svg { width: 24px; height: 24px; fill: currentColor; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; } #mute svg path:first-child { fill: currentColor; }
+#mute .wave, #mute .x { fill: none; } #mute .x { display: none; } #mute.off .wave { display: none; } #mute.off .x { display: block; stroke: #ff7b7b; }

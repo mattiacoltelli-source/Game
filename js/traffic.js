@@ -9,7 +9,7 @@ const CRUISE = { trunk: 15, primary: 13, secondary: 12, tertiary: 11, unclassifi
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const rnd = (a, b) => a + Math.random() * (b - a);
 
-class Graph {
+export class Graph {
   constructor(roads, accept) {
     this.roads = roads; this.ok = new Set(); this.nodes = new Map();
     const key = (x, z) => Math.round(x * 4) + ',' + Math.round(z * 4); this.key = key;

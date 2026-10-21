@@ -126,6 +126,15 @@ export class Car {
   }
 
   // NOS: 10 s di boost più uno scatto in avanti. Rallentamento: 10 s con velocità massima ridotta.
+  // Onda d'urto: dentro il raggio R l'auto viene lanciata in aria e spinta via. Ritorna l'intensità 0..1.3 (0 = fuori portata).
+  blast(ex, ez, R, power = 1) {
+    const dx = this.x - ex, dz = this.z - ez, d = Math.hypot(dx, dz); if (d > R) return 0;
+    const k = Math.pow(1 - d / R, 0.6) * power, nx = d > 1e-3 ? dx / d : Math.cos(this.h), nz = d > 1e-3 ? dz / d : Math.sin(this.h);
+    this.vx += nx * 13 * k; this.vz += nz * 13 * k; this.vy = 7 + 7 * k; this.y += 0.3;
+    if (!this.air) { this.air = true; this.airT = 0; this.x0 = this.x; this.z0 = this.z; }
+    this.yaw += (Math.random() - 0.5) * 7 * k; return k;
+  }
+
   giveCharge() { if (this.charges >= 3) return false; this.charges++; return true; }
   // Attiva il NOS con tutte le cariche accumulate (livello = cariche). Ritorna il livello attivato, 0 se non possibile.
   activate() {
