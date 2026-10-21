@@ -34,6 +34,8 @@ const ROAD_STYLE = { // [colore, quota y, scala larghezza]
 const AREA_Y = { green: 0.03, wood: 0.04, water: 0.05, river: 0.05 };
 
 export const GROUND_COLOR = C.ground;
+const HUMP_H = 5.5;
+const humpY = (h, t) => h.H * (1 - Math.abs(2 * t / h.L - 1)); // gobba a V: cresta a metà ponte
 const ARC_COLOR = [0.86, 0.62, 0.46];
 const TYPE_STYLE = [null,
   { wall: [0.92, 0.86, 0.74], roof: [0.52, 0.32, 0.27] },                 // 1 chiesa
@@ -146,9 +148,27 @@ export class World {
       for (let x = mnx; x <= mxx + VIEW.cell; x += VIEW.cell) for (let z = mnz; z <= mxz + VIEW.cell; z += VIEW.cell) { const k = this.cellOf(Math.min(x, mxx), Math.min(z, mxz)); if (k >= 0 && !seen.has(k)) { seen.add(k); add(this.cP, k, ai); } }
     });
     const ex = data.extras;
-    for (let i = 0; i < ex.lamps.length; i += 2) add(this.cL, this.cellOf(ex.lamps[i], ex.lamps[i + 1]), ex.lamps[i], ex.lamps[i + 1]);
-    this.parapets = [];
-    for (const br of ex.bridges) {
+    // Ponte Matteotti: gobba a V (decollo) invece di ponte piatto
+    this.humps = ex.bridges.filter((b) => b.n.includes('Matteotti')).map((b) => {
+      const ax = b.p[0], az = b.p[1], bx = b.p[b.p.length - 2], bz = b.p[b.p.length - 1], L = Math.hypot(bx - ax, bz - az);
+      return { ax, az, ux: (bx - ax) / L, uz: (bz - az) / L, L, w: b.w, H: HUMP_H };
+    });
+    const nearHump = (x, z) => this.humps.some((h) => { const t = (x - h.ax) * h.ux + (z - h.az) * h.uz, d = Math.abs(-(x - h.ax) * h.uz + (z - h.az) * h.ux); return t > -8 && t < h.L + 8 && d < h.w / 2 + 4; });
+    for (let i = 0; i < ex.lamps.length; i += 2) if (!nearHump(ex.lamps[i], ex.lamps[i + 1])) add(this.cL, this.cellOf(ex.lamps[i], ex.lamps[i + 1]), ex.lamps[i], ex.lamps[i + 1]);
+    this.parapets = []; this.deck = []; this.cDeck = mk();
+    for (const h of this.humps) { // pezzi di impalcato da ~4 m; parapetti = solidi con collisione sul lato
+      const n = Math.ceil(h.L / 4), hw = h.w / 2 + 1.35;
+      for (let i = 0; i < n; i++) {
+        const t0 = i * h.L / n, t1 = (i + 1) * h.L / n, y0 = humpY(h, t0), y1 = humpY(h, t1);
+        const piece = { h, t0, t1, y0, y1, i, n }; this.deck.push(piece); add(this.cDeck, this.cellOf(h.ax + h.ux * (t0 + t1) / 2, h.az + h.uz * (t0 + t1) / 2), this.deck.length - 1);
+        for (const sd of [-1, 1]) {
+          const nx = -h.uz * sd, nz = h.ux * sd, cx = h.ax + h.ux * (t0 + t1) / 2 + nx * hw, cz = h.az + h.uz * (t0 + t1) / 2 + nz * hw, hl = (t1 - t0) / 2 + 0.15;
+          const rect = [cx - h.ux * hl - nx * 0.25, cz - h.uz * hl - nz * 0.25, cx + h.ux * hl - nx * 0.25, cz + h.uz * hl - nz * 0.25, cx + h.ux * hl + nx * 0.25, cz + h.uz * hl + nz * 0.25, cx - h.ux * hl + nx * 0.25, cz - h.uz * hl + nz * 0.25];
+          this.parapets.push({ pts: Float32Array.from(rect), h: 1.1, solid: true, noVisual: true });
+        }
+      }
+    }
+    for (const br of ex.bridges.filter((b) => !b.n.includes('Matteotti'))) {
       const p = br.p, hw = br.w / 2 + 0.35;
       for (let i = 0; i < p.length / 2 - 1; i++) {
         const ax = p[i * 2], az = p[i * 2 + 1], bx = p[i * 2 + 2], bz = p[i * 2 + 3], dx = bx - ax, dz = bz - az, L = Math.hypot(dx, dz); if (L < 0.5) continue;
@@ -225,6 +245,9 @@ export class World {
       const y = AREA_Y[a.k] || 0.03, col = C[a.k] || C.green;
       for (const t of idx) tri(gp, gc, [contour[t[0]].x, y, contour[t[0]].y], [contour[t[1]].x, y, contour[t[1]].y], [contour[t[2]].x, y, contour[t[2]].y], col, UP);
     }
+    const extraDeck = this.cDeck.get(key);
+    const deckBuf = { p: [], n: [], c: [] };
+    if (extraDeck) for (const di of extraDeck) this.addDeckPiece(this.deck[di], gp, gc, deckBuf, tri);
     const PP = { p: [], c: [], u: [] }, pcol = [0.84, 0.78, 0.70];
     for (const ai of this.cP.get(key) || []) {
       const a = this.plazas[ai], n = a.p.length / 2; let m = n;
@@ -308,7 +331,7 @@ export class World {
     for (const bi of this.cB.get(key) || []) this.addBuilding(this.buildings[bi], bi, W, Pl, Ar);
     if (Ar.p.length) { const m = this.makeMesh(Ar.p, Ar.c, Ar.n, this.matArcade); m.geometry.setAttribute('uv', new THREE.Float32BufferAttribute(Ar.u, 2)); g.add(m); }
     if (W.p.length) { const m = this.makeMesh(W.p, W.c, W.n, this.matBuilding); m.geometry.setAttribute('uv', new THREE.Float32BufferAttribute(W.u, 2)); g.add(m); }
-    for (const k2 of ['p', 'n', 'c']) for (let i = 0; i < extra[k2].length; i++) Pl[k2].push(extra[k2][i]);
+    for (const k2 of ['p', 'n', 'c']) { for (let i = 0; i < extra[k2].length; i++) Pl[k2].push(extra[k2][i]); for (let i = 0; i < deckBuf[k2].length; i++) Pl[k2].push(deckBuf[k2][i]); }
     if (Pl.p.length) g.add(this.makeMesh(Pl.p, Pl.c, Pl.n, this.matPlain));
     return g;
   }
@@ -320,6 +343,16 @@ export class World {
     if (nrm) geo.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
     geo.computeBoundingSphere();
     const m = new THREE.Mesh(geo, mat); m.matrixAutoUpdate = false; m.updateMatrix(); return m;
+  }
+
+  // Quota del terreno (impalcato del Ponte Matteotti), 0 altrove.
+  groundY(x, z) {
+    for (const h of this.humps) {
+      const dx = x - h.ax, dz = z - h.az, t = dx * h.ux + dz * h.uz;
+      if (t < 0 || t > h.L) continue;
+      if (Math.abs(-dx * h.uz + dz * h.ux) < h.w / 2 + 1.35) return humpY(h, t);
+    }
+    return 0;
   }
 
   // Posiziona alberi (deterministici) nei parchi, evitando edifici. Da chiamare dopo aver creato il Collider.
@@ -421,6 +454,25 @@ export class World {
     const contour = pts.map((q) => new THREE.Vector2(q[0], q[1]));
     let idx; try { idx = THREE.ShapeUtils.triangulateShape(contour, []); } catch (e) { return; }
     for (const t of idx) this.tri3(Pl, [contour[t[0]].x, h, contour[t[0]].y], [contour[t[1]].x, h, contour[t[1]].y], [contour[t[2]].x, h, contour[t[2]].y], [0, 1, 0], rf, rf, rf);
+  }
+
+  // Pezzo d'impalcato: asfalto, marciapiedi, mezzeria, fascia in cemento, parapetti e lampioni, tutti alla quota della gobba.
+  addDeckPiece(pc, gp, gc, B, tri) {
+    const h = pc.h, UP = [0, 1, 0], asp = C.roadMajor, hwR = h.w / 2, hwS = h.w / 2 + 1.35;
+    const P = (t, lat, dy) => { const y = humpY(h, t) + dy; return [h.ax + h.ux * t - h.uz * lat, y, h.az + h.uz * t + h.ux * lat]; };
+    const t0 = pc.t0, t1 = pc.t1, mid = P((t0 + t1) / 2, 0, -2);
+    const strip = (l0, l1, dy, col) => { tri(gp, gc, P(t0, l0, dy), P(t0, l1, dy), P(t1, l0, dy), col, UP); tri(gp, gc, P(t1, l0, dy), P(t0, l1, dy), P(t1, l1, dy), col, UP); };
+    strip(-hwR, hwR, 0.13, asp); strip(hwR, hwS, 0.15, SIDEWALK); strip(-hwS, -hwR, 0.15, SIDEWALK); strip(-0.1, 0.1, 0.16, LINE);
+    const wall = [0.62, 0.6, 0.57], par = [0.8, 0.79, 0.75];
+    const quad = (a, b, c, d, col, ctr = mid) => { this.triOut(B, a, b, c, ctr, col); this.triOut(B, a, c, d, ctr, col); };
+    for (const sd of [-1, 1]) { // fascia e parapetto su ciascun lato
+      const l = hwS * sd, ln = (hwS - 0.5) * sd;
+      quad(P(t0, l, 0.15), P(t1, l, 0.15), P(t1, l, -6), P(t0, l, -6), wall);                 // fascia esterna fino a terra
+      quad(P(t0, l, 0.15), P(t1, l, 0.15), P(t1, l, 1.25), P(t0, l, 1.25), par);               // parapetto, faccia esterna
+      quad(P(t0, ln, 0.15), P(t1, ln, 0.15), P(t1, ln, 1.25), P(t0, ln, 1.25), par, P((t0 + t1) / 2, l * 2, 0.7)); // faccia interna (verso la strada)
+      quad(P(t0, l, 1.25), P(t1, l, 1.25), P(t1, ln, 1.25), P(t0, ln, 1.25), [0.88, 0.87, 0.83]); // sommità
+    }
+    if (pc.i % 5 === 2) for (const sd of [-1, 1]) { const q = P((t0 + t1) / 2, (hwS - 0.25) * sd, 0.15); this.box(B, q[0], q[1] + 2.7, q[2], 0.16, 5.4, 0.16, 0, [0.2, 0.21, 0.24]); this.box(B, q[0], q[1] + 5.5, q[2], 0.7, 0.22, 0.7, 0, [1.4, 1.3, 0.95]); }
   }
 
   // Parallelepipedo orientato (rot = rotazione attorno a y, sx lungo l'asse locale u).

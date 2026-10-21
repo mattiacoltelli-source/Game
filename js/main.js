@@ -1,5 +1,5 @@
 import * as THREE from '../lib/three.module.min.js';
-import { RIDES, VIEW, STOP_SPEED } from './config.js';
+import { RIDES, VIEW, STOP_SPEED, CANTIERI } from './config.js';
 import { loadData, World } from './world.js';
 import { Collider, RoadIndex } from './collider.js';
 import { Car } from './car.js';
@@ -11,9 +11,11 @@ import { Minimap } from './minimap.js';
 import { buildMarker } from './marker.js';
 import { Labels } from './labels.js';
 import { initPWA } from './pwa.js';
+import { Props } from './props.js';
+import { Traffic, Pedestrians } from './traffic.js';
 
 const $ = (id) => document.getElementById(id);
-const DEBUG = new URLSearchParams(location.search).has('debug');
+const DEBUG = new URLSearchParams(location.search).has('debug'), NOTRAFFIC = new URLSearchParams(location.search).has('notraffic');
 THREE.ColorManagement.enabled = false; // colori "as-is", niente conversione sRGB: più semplice e leggero
 const SKY = new THREE.Color(0xcfe0ea);
 
@@ -49,6 +51,8 @@ async function boot() {
   const col = new Collider(world.buildings, world.meta.bounds);
   const roads = new RoadIndex(world.roads);
   world.plantTrees(col);
+  const props = new Props(scene, world, col, CANTIERI);
+  const traffic = new Traffic(scene, world, roads, props), peds = new Pedestrians(scene, world, roads);
   scene.add(world.group);
 
   // terreno piatto
@@ -58,7 +62,9 @@ async function boot() {
 
   // auto
   const taxi = buildTaxi(); scene.add(taxi.outer);
-  const car = new Car();
+  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 2.2).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false }));
+  shadow.visible = false; scene.add(shadow);
+  const car = new Car(), groundY = (x, z) => world.groundY(x, z);
   const fx = new DriftFX(scene);
   const free = (x, z) => !col.push(x, z, 1.6); // spazio libero per l'auto
   const ride = RIDES[0], START = ride.start;
@@ -67,7 +73,7 @@ async function boot() {
   const sx = snap ? snap.x : sp[0], sz = snap ? snap.z : sp[1];
   const startH = Math.atan2(fp[1] - sz, fp[0] - sx);
   car.place(sx, sz, startH);
-  let camH = startH, camD = 8, camPos = new THREE.Vector3();
+  let camH = startH, camD = 8, camY = 0, camPos = new THREE.Vector3();
 
   // corsa: partenza -> tappe in ordine (cliente, ..., destinazione). Cronometro unico per tutta la corsa.
   const stops = ride.stops.map((st) => {
@@ -102,7 +108,7 @@ async function boot() {
     if (!r) return;
     const d1 = r.dx * Math.cos(car.h) + r.dz * Math.sin(car.h);
     const h = d1 >= 0 ? Math.atan2(r.dz, r.dx) : Math.atan2(-r.dz, -r.dx);
-    car.place(r.x, r.z, h); camH = h; camD = 6; toast('Riposizionato sulla strada');
+    car.place(r.x, r.z, h, groundY(r.x, r.z)); camH = h; camD = 6; toast('Riposizionato sulla strada');
   }
 
   function updateCamera(dt) {
@@ -118,19 +124,22 @@ async function boot() {
     const t = (camD - 1.4) / 7;
     const height = 2.4 + Math.min(1, Math.max(0, t)) * 1.7 + speed * 0.012;
     const px = car.x + bx * camD, pz = car.z + bz * camD;
-    camPos.set(px, height, pz);
+    camY += (car.y - camY) * Math.min(1, 6 * dt); // la camera segue la quota più lentamente: i salti si vedono
+    camPos.set(px, height + camY, pz);
     camera.position.copy(camPos);
-    camera.lookAt(car.x + Math.cos(camH) * 7, 0.9, car.z + Math.sin(camH) * 7);
+    camera.lookAt(car.x + Math.cos(camH) * 7, 0.9 + car.y * 0.8 + (car.y - camY) * 0.4, car.z + Math.sin(camH) * 7);
     const fov = 62 + Math.min(1, speed / 45) * 8;
     if (Math.abs(camera.fov - fov) > 0.2) { camera.fov = fov; camera.updateProjectionMatrix(); }
   }
 
   function poseCar(dt) {
-    taxi.outer.position.set(car.x, 0.18, car.z);
+    taxi.outer.position.set(car.x, 0.18 + car.y, car.z);
+    shadow.position.set(car.x, groundY(car.x, car.z) + 0.2, car.z); shadow.rotation.y = -car.h; shadow.visible = car.air; shadow.scale.setScalar(1 - Math.min(0.5, car.clear * 0.06));
     taxi.outer.rotation.y = -car.h;
     const roll = THREE.MathUtils.clamp(-car.steer * Math.abs(car.speed) * 0.0035 + car.lat * 0.01, -0.12, 0.12);
     taxi.inner.rotation.x = THREE.MathUtils.lerp(taxi.inner.rotation.x, roll, Math.min(1, 8 * dt));
-    taxi.inner.rotation.z = THREE.MathUtils.lerp(taxi.inner.rotation.z, 0, Math.min(1, 8 * dt));
+    const pitch = car.air ? THREE.MathUtils.clamp(Math.atan2(car.vy, Math.max(8, Math.abs(car.speed))), -0.45, 0.45) : 0;
+    taxi.inner.rotation.z = THREE.MathUtils.lerp(taxi.inner.rotation.z, pitch, Math.min(1, 8 * dt));
   }
 
   // schermata iniziale
@@ -138,8 +147,9 @@ async function boot() {
   $('screen-start').hidden = false;
   let playing = false;
   function beginRun() {
-    car.place(sx, sz, startH); camH = startH; camD = 8; input.override = null; input.keys.clear();
+    car.place(sx, sz, startH, groundY(sx, sz)); camH = startH; camD = 8; input.override = null; input.keys.clear();
     run.state = 'running'; run.t = 0; setStop(0); playing = true;
+    traffic.reset(); peds.reset(); props.reset(); if (!NOTRAFFIC) { traffic.fill(car); peds.fill(car); }
     $('screen-start').hidden = true; $('screen-end').hidden = true; $('hud').hidden = false; $('controls').hidden = false;
   }
   function finishRun() {
@@ -166,8 +176,14 @@ async function boot() {
     const portrait = innerHeight > innerWidth;
     if (playing && !portrait && dt > 0) {
       const inp = input.value, n = Math.ceil(dt / (1 / 90)), h = dt / n;
-      for (let i = 0; i < n; i++) car.step(h, inp, col, world.meta.bounds);
+      for (let i = 0; i < n; i++) car.step(h, inp, col, world.meta.bounds, groundY);
       if (car.needsRescue()) rescue();
+      if (!NOTRAFFIC) {
+        traffic.update(dt, car); peds.update(dt, car); props.update(dt, car);
+        const bump = traffic.collide(car); if (bump > 5) toast('Botta!');
+        if (peds.collide(car)) toast('Occhio ai pedoni!');
+      }
+      if (car.jump > 0) { if (car.jump >= 12) toast(`Salto di ${Math.round(car.jump)} m!`); car.jump = 0; }
       run.t += Math.min(0.25, (now - lastT) / 1000);
       const d = Math.hypot(target.x - car.x, target.z - car.z);
       if (d < target.r) {
@@ -199,7 +215,7 @@ async function boot() {
   }
   requestAnimationFrame(frame);
 
-  window.__taxi = { get target() { return target; }, stops, setStop, run, startPos: [sx, sz, startH], car, world, col, roads, input, camera, scene, renderer, get fps() { return fps; }, start() { $('go').click(); }, rescue, free };
+  window.__taxi = { props, traffic, peds, taxi, get target() { return target; }, stops, setStop, run, startPos: [sx, sz, startH], car, world, col, roads, input, camera, scene, renderer, get fps() { return fps; }, start() { $('go').click(); }, rescue, free };
   if (DEBUG) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;left:8px;top:8px;font:12px monospace;color:#fff;text-shadow:0 1px 2px #000;z-index:9;pointer-events:none'; document.body.append(d); setInterval(() => { d.textContent = `fps ${fps.toFixed(0)} pr ${pixelRatio.toFixed(2)} cells ${world.cells.size} calls ${renderer.info.render.calls} tris ${renderer.info.render.triangles}`; }, 500); }
 }
 

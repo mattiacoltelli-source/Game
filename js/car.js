@@ -1,7 +1,7 @@
 // Fisica arcade: velocità come vettore mondo, presa laterale variabile (drift), collisioni che scivolano.
 const VMAX = 45, VREV = 8, ACC = 24, BRAKE = 22, REV_ACC = 10, COAST = 3, WHEELBASE = 2.7;
 const GRIP = 9, GRIP_DRIFT = 1.7, MAX_SLIP = 0.5;
-const CIRCLES = [-1.4, 0, 1.4], RADIUS = 0.92;
+const CIRCLES = [-1.4, 0, 1.4], RADIUS = 0.92, G = 18; // G: gravità arcade (m/s²)
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -9,13 +9,13 @@ const lerp = (a, b, t) => a + (b - a) * t;
 export class Car {
   constructor() { this.place(0, 0, 0); }
 
-  place(x, z, h) {
-    this.x = x; this.z = z; this.h = h; this.vx = 0; this.vz = 0;
+  place(x, z, h, y = 0) {
+    this.x = x; this.z = z; this.h = h; this.vx = 0; this.vz = 0; this.y = y; this.vy = 0; this.air = false; this.airT = 0; this.jump = 0; this.landed = 0; this.clear = 0;
     this.yaw = 0; this.steer = 0; this.drift = 0; this.speed = 0; this.lat = 0; this.contact = 0; this.stuck = 0;
   }
 
-  step(dt, input, col, bounds) {
-    const thr = input.throttle, brk = input.brake;
+  step(dt, input, col, bounds, ground = () => 0) {
+    const air = this.air, thr = air ? 0 : input.throttle, brk = air ? 0 : input.brake;
     let fx = Math.cos(this.h), fz = Math.sin(this.h), rx = -fz, rz = fx;
     let vf = this.vx * fx + this.vz * fz;
 
@@ -27,7 +27,7 @@ export class Car {
     let a = 0;
     if (thr > 0) a += ACC * thr * (1 - Math.max(0, vf) / VMAX) + (vf < 0 ? BRAKE * thr : 0);
     if (brk > 0) a += vf > 0.8 ? -BRAKE * brk : -REV_ACC * brk * (1 + Math.min(0, vf) / VREV);
-    if (!thr && !brk) a -= Math.sign(vf) * Math.min(Math.abs(vf) / dt, COAST);
+    if (!thr && !brk && !air) a -= Math.sign(vf) * Math.min(Math.abs(vf) / dt, COAST);
     a -= this.drift * 2.5 * Math.sign(vf);
     this.vx += fx * a * dt; this.vz += fz * a * dt;
 
@@ -39,10 +39,10 @@ export class Car {
 
     // imbardata: curvatura limitata dalla velocità, poi smorzata verso il target
     const dMax = lerp(0.62, 0.13, clamp(sp / 40, 0, 1));
-    let wT = vf * Math.tan(this.steer * dMax) / WHEELBASE * (1 + 0.25 * this.drift);
+    let wT = vf * Math.tan(this.steer * dMax) / WHEELBASE * (1 + 0.25 * this.drift) * (air ? 0.25 : 1);
     // auto-allineamento: senza sterzo l'auto riprende da sola la direzione di marcia
     const vl0 = this.vx * rx + this.vz * rz;
-    if (vf > 0.5) wT += 3 * (vl0 / (vf + 3)) * (1 - sAbs);
+    if (vf > 0.5 && !air) wT += 3 * (vl0 / (vf + 3)) * (1 - sAbs);
     this.yaw += (wT - this.yaw) * Math.min(1, 10 * dt);
     this.h += this.yaw * dt;
 
@@ -50,13 +50,31 @@ export class Car {
     fx = Math.cos(this.h); fz = Math.sin(this.h); rx = -fz; rz = fx;
     vf = this.vx * fx + this.vz * fz;
     let vl = this.vx * rx + this.vz * rz;
-    vl *= Math.exp(-lerp(GRIP, GRIP_DRIFT, this.drift) * dt);
-    const ms = MAX_SLIP * (Math.abs(vf) + 2); vl = clamp(vl, -ms, ms);
+    if (!air) { vl *= Math.exp(-lerp(GRIP, GRIP_DRIFT, this.drift) * dt); const ms = MAX_SLIP * (Math.abs(vf) + 2); vl = clamp(vl, -ms, ms); }
     this.vx = fx * vf + rx * vl; this.vz = fz * vf + rz * vl;
     this.speed = vf; this.lat = vl;
 
     this.x += this.vx * dt; this.z += this.vz * dt;
+    this.vertical(dt, ground);
     this.collide(dt, col, bounds, input);
+  }
+
+  // Quota: segue il terreno; se il terreno scende più in fretta della caduta libera, l'auto vola.
+  vertical(dt, ground) {
+    const g = ground(this.x, this.z), yb = this.y + this.vy * dt - 0.5 * G * dt * dt;
+    if (yb > g + 0.02) { // in volo
+      if (!this.air) { this.air = true; this.airT = 0; this.x0 = this.x; this.z0 = this.z; }
+      this.airT += dt; this.y = yb; this.vy -= G * dt;
+    } else {
+      const vyg = Math.max(-25, Math.min(25, (g - this.y) / dt));
+      if (this.air) { // atterraggio
+        const impact = -this.vy; this.jump = this.airT > 0.35 ? Math.hypot(this.x - this.x0, this.z - this.z0) : 0; this.landed = impact;
+        if (impact > 6) { const k = 1 - Math.min(0.18, (impact - 6) * 0.02); this.vx *= k; this.vz *= k; }
+        this.air = false;
+      }
+      this.y = g; this.vy = vyg;
+    }
+    this.clear = this.y - g;
   }
 
   collide(dt, col, bounds, input) {
@@ -65,7 +83,7 @@ export class Car {
       const fx = Math.cos(this.h), fz = Math.sin(this.h);
       let any = false;
       for (const off of CIRCLES) {
-        const p = col.push(this.x + fx * off, this.z + fz * off, RADIUS);
+        const p = col.push(this.x + fx * off, this.z + fz * off, RADIUS, this.clear);
         if (!p) continue;
         any = hit = true;
         this.x += p.x - (this.x + fx * off); this.z += p.z - (this.z + fz * off);

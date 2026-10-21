@@ -44,7 +44,7 @@ export class Labels {
     const fx = Math.cos(camH), fz = Math.sin(camH), cand = [];
     for (const it of this.items) {
       const dx = it.x - car.x, dz = it.z - car.z, d = Math.hypot(dx, dz);
-      if (d > it.range || d < (it.poi ? 50 : 28)) continue;
+      if (d > it.range || d < (it.poi ? 60 : 45)) continue;
       if ((dx * fx + dz * fz) / d < -0.2) continue; // dietro la camera
       cand.push({ it, d, score: d / it.range - (it.poi ? 0.35 : 0) - (it.major ? 0.15 : 0) });
     }

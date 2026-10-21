@@ -4,17 +4,23 @@ const CELL = 40;
 export class Collider {
   constructor(buildings, bounds) {
     this.polys = buildings; this.bounds = bounds; this.grid = new Map(); this.stamp = 0;
-    buildings.forEach((b, i) => {
-      const p = b.pts, n = p.length / 2;
-      let mnx = 1e9, mnz = 1e9, mxx = -1e9, mxz = -1e9;
-      for (let j = 0; j < n; j++) { mnx = Math.min(mnx, p[j * 2]); mxx = Math.max(mxx, p[j * 2]); mnz = Math.min(mnz, p[j * 2 + 1]); mxz = Math.max(mxz, p[j * 2 + 1]); }
-      b.bb = [mnx, mnz, mxx, mxz]; b.seen = 0;
-      for (let cx = Math.floor(mnx / CELL); cx <= Math.floor(mxx / CELL); cx++)
-        for (let cz = Math.floor(mnz / CELL); cz <= Math.floor(mxz / CELL); cz++) {
-          const k = cx * 100003 + cz; let a = this.grid.get(k); if (!a) this.grid.set(k, a = []); a.push(i);
-        }
-    });
+    buildings.forEach((b, i) => this.index(b, i));
   }
+
+  // Registra un solido nella griglia spaziale.
+  index(b, i) {
+    const p = b.pts, n = p.length / 2;
+    let mnx = 1e9, mnz = 1e9, mxx = -1e9, mxz = -1e9;
+    for (let j = 0; j < n; j++) { mnx = Math.min(mnx, p[j * 2]); mxx = Math.max(mxx, p[j * 2]); mnz = Math.min(mnz, p[j * 2 + 1]); mxz = Math.max(mxz, p[j * 2 + 1]); }
+    b.bb = [mnx, mnz, mxx, mxz]; b.seen = 0;
+    for (let cx = Math.floor(mnx / CELL); cx <= Math.floor(mxx / CELL); cx++)
+      for (let cz = Math.floor(mnz / CELL); cz <= Math.floor(mxz / CELL); cz++) {
+        const k = cx * 100003 + cz; let a = this.grid.get(k); if (!a) this.grid.set(k, a = []); a.push(i);
+      }
+  }
+
+  // Solido aggiunto a runtime (cantieri). pts = [x,z,...], h = altezza.
+  addSolid(pts, h) { const b = { pts: Float32Array.from(pts), h, solid: true }; this.polys.push(b); this.index(b, this.polys.length - 1); return b; }
 
   near(x0, z0, x1, z1, fn) {
     const st = ++this.stamp;
@@ -26,9 +32,10 @@ export class Collider {
   }
 
   // Spinge il cerchio fuori dagli edifici. Ritorna {x,z,nx,nz} (normale verso lo spazio libero) o null.
-  push(x, z, r) {
+  push(x, z, r, clear = 0) {
     let best = null, bd = 0;
     this.near(x - r, z - r, x + r, z + r, (b) => {
+      if (clear > b.h) return; // l'auto è più in alto del solido (salto)
       const bb = b.bb; if (x < bb[0] - r || x > bb[2] + r || z < bb[1] - r || z > bb[3] + r) return;
       const p = b.pts, n = p.length / 2; let inside = false, md = 1e9, qx = 0, qz = 0;
       for (let i = 0, j = n - 1; i < n; j = i++) {
