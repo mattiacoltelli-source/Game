@@ -135,6 +135,13 @@ export class Car {
     this.yaw += (Math.random() - 0.5) * 7 * k; return k;
   }
 
+  // Calcio del gigante: lancia l'auto lontano nella direzione (dx,dz) e in alto. k = intensità 0..1.
+  kick(dx, dz, k) {
+    this.vx = this.vx * 0.3 + dx * 34 * k; this.vz = this.vz * 0.3 + dz * 34 * k; this.vy = 12 + 6 * k; this.y += 0.3;
+    if (!this.air) { this.air = true; this.airT = 0; this.x0 = this.x; this.z0 = this.z; }
+    this.yaw += (Math.random() - 0.5) * 9 * k;
+  }
+
   giveCharge() { if (this.charges >= 3) return false; this.charges++; return true; }
   // Attiva il NOS con tutte le cariche accumulate (livello = cariche). Ritorna il livello attivato, 0 se non possibile.
   activate() {

@@ -10,7 +10,7 @@ export class Minimap {
     this.g = canvas.getContext('2d');
   }
 
-  update(dt, car, target, pick = []) {
+  update(dt, car, target, pick = [], foes = []) {
     this.t -= dt; if (this.t > 0) return; this.t = 0.1;
     const g = this.g, S = this.size, k = S / (2 * RANGE);
     g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, S, S);
@@ -31,6 +31,8 @@ export class Minimap {
     let tx = target.x, tz = target.z; if (d > lim) { tx = car.x + dx / d * lim; tz = car.z + dz / d * lim; }
     g.fillStyle = '#ffc928'; g.strokeStyle = '#14181d'; g.lineWidth = 2 * (S / 132) / k;
     g.beginPath(); g.arc(tx, tz, (d > lim ? 5 : 8) * (S / 132) / k, 0, 7); g.fill(); g.stroke();
+    g.fillStyle = '#ff3b30'; g.strokeStyle = '#2a0b09';
+    for (const it of foes) { const ddx = it.x - car.x, ddz = it.z - car.z, dd = Math.hypot(ddx, ddz); let ex = it.x, ez = it.z; if (dd > RANGE * 0.92) { ex = car.x + ddx / dd * RANGE * 0.92; ez = car.z + ddz / dd * RANGE * 0.92; } g.beginPath(); g.arc(ex, ez, 6 * (S / 132) / k, 0, 7); g.fill(); g.stroke(); }
     // pickup NOS (ciano)
     g.fillStyle = '#4fe6ff'; g.strokeStyle = '#0b2a33';
     for (const it of pick) { const ddx = it.x - car.x, ddz = it.z - car.z, dd = Math.hypot(ddx, ddz); if (dd > RANGE * 1.05) continue; g.beginPath(); g.arc(it.x, it.z, 4.5 * (S / 132) / k, 0, 7); g.fill(); g.stroke(); }

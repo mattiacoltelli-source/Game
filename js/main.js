@@ -103,6 +103,7 @@ async function boot() {
   const enemies = new Enemies(scene, world, roads, {
     car, peds, traffic, props, toast,
     onHit: (k) => { if (k > 0.25) toast('BOOM!'); },
+    onKicked: () => toast('Cos ti ha calciato!'),
     onKo: (name) => { toast(`${name} distrutto! +1 NOS`); car.giveCharge(); sfx.ko(); },
   });
   const muteBtn = $('mute'); muteBtn.classList.toggle('off', sfx.muted);
@@ -242,7 +243,7 @@ async function boot() {
       const dx = target.x - car.x, dz = target.z - car.z;
       $('dist').textContent = `${Math.round(Math.hypot(dx, dz))} m`;
       $('arrow').style.transform = `rotate(${Math.atan2(dz, dx) - camH}rad)`;
-      mini.update(dt, car, target, nos.active());
+      mini.update(dt, car, target, nos.active(), enemies.points());
       const sNos = $('st-nos'), sSlow = $('st-slow'); sNos.hidden = !(car.boost > 0); sSlow.hidden = !(car.slow > 0);
       const nc = '#' + NOS_COLORS[Math.max(0, car.boost > 0 ? car.level - 1 : Math.max(0, car.charges - 1))].toString(16).padStart(6, '0');
       if (car.boost > 0) { sNos.style.setProperty('--nc', nc); $('speedfx').style.setProperty('--nc', nc); sNos.querySelector('b').textContent = `NOS ×${car.level}`; sNos.querySelector('u').style.transform = `scaleX(${car.boost / 10})`; sNos.querySelector('span').textContent = car.boost.toFixed(1); }
