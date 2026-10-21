@@ -87,7 +87,7 @@ class Fx {
 }
 
 // ---- SIMO PAKELO, il tir con la cisterna: velocissimo, lascia chiazze d'olio che fanno sbandare
-const TRK_CAB = [0.75, 0.15, 0.12], TRK_DARK = [0.14, 0.14, 0.16], TRK_TANK = [0.82, 0.84, 0.88], MAX_OIL = 24;
+const TRK_CAB = [0.75, 0.15, 0.12], TRK_DARK = [0.14, 0.14, 0.16], TRK_TANK = [0.82, 0.84, 0.88], MAX_OIL = 14;
 class Truck {
   constructor(scene, world, roadIndex, fx, ctx) {
     this.fx = fx; this.ctx = ctx; this.ri = roadIndex; this.g = new Graph(world.roads, (r) => ROADS.has(r.c) && !r.n.includes('Matteotti') && r.w >= 6);
@@ -128,7 +128,7 @@ class Truck {
 
   drop(x, z, r) {
     if (this.oils.length >= MAX_OIL) this.oils.shift();
-    this.oils.push({ x, z, r, t: 14 });
+    this.oils.push({ x, z, r, t: 11 });
   }
 
   update(dt, player, runT) {
@@ -162,9 +162,9 @@ class Truck {
       const p = o[i]; p.t -= dt; if (p.t <= 0) { o.splice(i, 1); continue; }
       if (!player.air && player.clear < 0.5 && Math.hypot(player.x - p.x, player.z - p.z) < p.r) hit = true;
     }
-    for (let i = 0; i < o.length; i++) { const p = o[i], sc = p.r * Math.min(1, (14 - p.t) * 3) * Math.min(1, p.t); this.m.makeScale(sc, 1, sc); this.m.setPosition(p.x, 0.07, p.z); this.puddles.setMatrixAt(i, this.m); }
+    for (let i = 0; i < o.length; i++) { const p = o[i], sc = p.r * Math.min(1, (11 - p.t) * 3) * Math.min(1, p.t); this.m.makeScale(sc, 1, sc); this.m.setPosition(p.x, 0.07, p.z); this.puddles.setMatrixAt(i, this.m); }
     this.puddles.count = o.length; this.puddles.instanceMatrix.needsUpdate = true;
-    if (hit) { if (player.oil <= 0 && !this.told) { this.ctx.toast('Olio! Non hai più aderenza!'); this.told = true; } player.oil = 3.6; }
+    if (hit) { if (player.oil <= 0 && !this.told) { this.ctx.toast('Olio! Non hai più aderenza!'); this.told = true; } player.oil = 2.2; }
     if (this.state === 'off' && !o.length) this.told = false;
   }
 
