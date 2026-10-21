@@ -102,6 +102,17 @@ HW = {  # classe: (larghezza, guidabile)
 }
 def r1(v): return round(v, 1)
 
+CSS = {"white": "#f2f0ea", "beige": "#d9c7a3", "red": "#b5453a", "yellow": "#e3c46a", "brown": "#8a5a3c", "orange": "#d98a4a", "grey": "#9a9a98", "gray": "#9a9a98",
+       "pink": "#d9a090", "cream": "#ecdcb4", "tan": "#c9a878", "sand": "#d8c49a", "ochre": "#c8a050", "terracotta": "#b9593f", "darkgrey": "#6e6e6e", "lightgrey": "#c4c4c4",
+       "black": "#3a3a3a", "green": "#7a9a6a", "blue": "#7a96b8", "salmon": "#e0907a", "peru": "#c98a54", "maroon": "#80403a", "silver": "#c0c0c0"}
+def colour(v):
+    if not v: return None
+    v = v.strip().lower()
+    if v in CSS: return CSS[v]
+    if v.startswith("#") and len(v) in (4, 7):
+        return v if len(v) == 7 else "#" + "".join(c * 2 for c in v[1:])
+    return None
+
 def flat(geom, close=False):
     out = []
     for g in geom:
@@ -115,6 +126,7 @@ LANDMARKS = {
     149211166: ("torre", 25), 149211218: ("torre", 20), 148846459: ("torre", 30),
     1173957347: ("arengo", 40), 149041465: ("orologio", 30), 149040859: ("accursio", 22), 149040903: ("reenzo", 19),
     149040794: ("podesta", 24), 325434925: ("cattedrale", 33), 149041309: ("salaborsa", 22),
+    1173756093: ("porta", 14), 1173914722: ("castello", 12), 149899646: ("stazione", 18), 149211227: ("arengo", 70), 976135743: ("edicola", 3.2), 703276991: ("vetro", 60),
 }
 
 def height(t):
@@ -153,7 +165,11 @@ for e in els:
         if t.get("width"):
             try: w = max(2.5, min(20, float(t["width"])))
             except ValueError: pass
-        roads.append({"c": t["highway"], "w": w, "n": t.get("name", ""), "p": pts})
+        rd = {"c": t["highway"], "w": w, "n": t.get("name", ""), "p": pts}
+        ow = t.get("oneway")
+        if ow in ("yes", "true", "1") or t.get("junction") == "roundabout": rd["o"] = 1
+        elif ow in ("-1", "reverse"): rd["o"] = -1
+        roads.append(rd)
     elif "building" in t:
         if len(pts) < 8: continue
         h = height(t)
@@ -161,6 +177,10 @@ for e in els:
         bd = {"h": h, "p": pts}
         bt = BTYPE.get(t["building"])
         if bt: bd["t"] = bt
+        bc = colour(t.get("building:colour")) or colour(t.get("colour"))
+        if bc: bd["bc"] = bc
+        rsh = {"hipped": 1, "pyramidal": 2, "gabled": 3}.get(t.get("roof:shape"))
+        if rsh: bd["rs"] = rsh
         lm = LANDMARKS.get(e["id"])
         if lm:
             bd["k"] = lm[0]; bd["h"] = lm[1]

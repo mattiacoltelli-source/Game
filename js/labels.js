@@ -1,7 +1,7 @@
 import * as THREE from '../lib/three.module.min.js';
 
 // Etichette 3D per orientarsi: nomi di strade e luoghi noti. Pool fisso di sprite, texture a cache (LRU).
-const POOL = 16, REFRESH = 0.35, CACHE_MAX = 70;
+const POOL = 12, REFRESH = 0.35, CACHE_MAX = 70;
 const KIND_COLOR = { station: '#5aa9ff', gate: '#e2a15a', tower: '#e2a15a', hospital: '#ff7b7b', fair: '#c79bff', square: '#ffd25a', park: '#6fcf7a',
   sport: '#6fcf7a', civic: '#e2a15a', shop: '#7fd3d6', attraction: '#ffd25a', market: '#ffd25a', bridge: '#9db0c4', church: '#d9c6a0', museum: '#c79bff', school: '#ffd25a' };
 const RANGE = { poi1: 330, poi2: 170, street: 150 };

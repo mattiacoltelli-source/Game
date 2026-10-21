@@ -81,3 +81,9 @@ h1 { margin: 0 0 10px; font-size: 34px; letter-spacing: -.01em; }
 #update button:disabled { opacity: .7; }
 .ghost { appearance: none; margin-top: 4px; min-height: 44px; padding: 0 18px; border-radius: 14px; border: 2px solid #ffffff44; background: transparent; color: var(--ink); font: 700 14px/1 system-ui, sans-serif; }
 .ver { margin: 6px 0 0; color: #ffffff55; font-size: 11px; }
+
+/* Momento della giornata */
+.seg { display: inline-flex; gap: 0; margin: 0 0 12px; border: 2px solid #ffffff33; border-radius: 14px; overflow: hidden; }
+.seg button { appearance: none; border: 0; background: transparent; color: var(--muted); min-height: 44px; padding: 0 14px; font: 700 14px/1 system-ui, sans-serif; }
+.seg button[aria-checked="true"] { background: var(--accent); color: var(--accent-ink); }
+@media (max-height: 420px) { .seg { margin-bottom: 8px; } .seg button { min-height: 40px; padding: 0 11px; } }

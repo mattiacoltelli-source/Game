@@ -1,21 +1,20 @@
 import * as THREE from '../lib/three.module.min.js';
+import { mergeBoxes } from './geom.js';
 
-// Taxi low-poly (guarda verso +x). Gruppo esterno = posizione/imbardata, interno = rollio/beccheggio.
+// Taxi low-poly (guarda verso +x) in UNA sola mesh a colori per vertice. Gruppo esterno = posizione/imbardata, interno = rollio/beccheggio.
 export function buildTaxi() {
-  const mat = (c) => new THREE.MeshLambertMaterial({ color: c });
-  const white = mat(0xf3f1ea), dark = mat(0x23303a), black = mat(0x15151a), yellow = new THREE.MeshBasicMaterial({ color: 0xffc928 });
-  const head = new THREE.MeshBasicMaterial({ color: 0xfff3b0 }), tail = new THREE.MeshBasicMaterial({ color: 0xe0343a });
-  const box = (w, h, d, m, x, y, z) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); return o; };
-
-  const outer = new THREE.Group(), inner = new THREE.Group(); outer.add(inner);
-  inner.add(box(4.3, 0.7, 1.85, white, 0, 0.7, 0));         // scocca
-  inner.add(box(2.1, 0.62, 1.7, dark, -0.15, 1.3, 0));       // abitacolo (vetri)
-  inner.add(box(1.9, 0.08, 1.6, white, -0.15, 1.64, 0));     // tetto
-  inner.add(box(0.5, 0.22, 0.9, yellow, -0.15, 1.8, 0));     // insegna TAXI
-  inner.add(box(0.1, 0.18, 0.4, head, 2.17, 0.78, 0.6)); inner.add(box(0.1, 0.18, 0.4, head, 2.17, 0.78, -0.6));
-  inner.add(box(0.1, 0.18, 0.4, tail, -2.17, 0.78, 0.6)); inner.add(box(0.1, 0.18, 0.4, tail, -2.17, 0.78, -0.6));
-  inner.add(box(4.32, 0.1, 1.87, black, 0, 0.38, 0));        // paraurti/sottoscocca
-  const wg = new THREE.CylinderGeometry(0.36, 0.36, 0.28, 10); wg.rotateX(Math.PI / 2);
-  for (const [x, z] of [[1.4, 0.95], [1.4, -0.95], [-1.4, 0.95], [-1.4, -0.95]]) { const w = new THREE.Mesh(wg, black); w.position.set(x, 0.36, z); inner.add(w); }
+  const W = [0.95, 0.94, 0.9], D = [0.14, 0.19, 0.23], B = [0.07, 0.07, 0.08], Y = [1.6, 1.25, 0.2], H = [1.5, 1.4, 1.0], T = [1.4, 0.25, 0.25];
+  const parts = [
+    { x: 0, y: 0.7, z: 0, sx: 4.3, sy: 0.7, sz: 1.85, c: W },       // scocca
+    { x: -0.15, y: 1.3, z: 0, sx: 2.1, sy: 0.62, sz: 1.7, c: D },   // abitacolo (vetri)
+    { x: -0.15, y: 1.64, z: 0, sx: 1.9, sy: 0.08, sz: 1.6, c: W },  // tetto
+    { x: -0.15, y: 1.8, z: 0, sx: 0.5, sy: 0.22, sz: 0.9, c: Y },   // insegna TAXI
+    { x: 2.17, y: 0.78, z: 0.6, sx: 0.1, sy: 0.18, sz: 0.4, c: H }, { x: 2.17, y: 0.78, z: -0.6, sx: 0.1, sy: 0.18, sz: 0.4, c: H },
+    { x: -2.17, y: 0.78, z: 0.6, sx: 0.1, sy: 0.18, sz: 0.4, c: T }, { x: -2.17, y: 0.78, z: -0.6, sx: 0.1, sy: 0.18, sz: 0.4, c: T },
+    { x: 0, y: 0.38, z: 0, sx: 4.32, sy: 0.1, sz: 1.87, c: B },     // paraurti/sottoscocca
+    ...[[1.4, 0.95], [1.4, -0.95], [-1.4, 0.95], [-1.4, -0.95]].map(([x, z]) => ({ x, y: 0.36, z, sx: 0.72, sy: 0.72, sz: 0.28, c: B })),
+  ];
+  const mesh = new THREE.Mesh(mergeBoxes(parts), new THREE.MeshLambertMaterial({ vertexColors: true }));
+  const outer = new THREE.Group(), inner = new THREE.Group(); outer.add(inner); inner.add(mesh);
   return { outer, inner };
 }

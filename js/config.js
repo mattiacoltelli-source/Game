@@ -5,6 +5,7 @@ export const DATA_URLS = {
   areas: 'data/areas.json',
   labels: 'data/labels.json',
   extras: 'data/extras.json',
+  details: 'data/details.json',
 };
 
 // Corse: partenza + elenco di tappe (la prima è il cliente, l'ultima la destinazione). `raggio` = raggio del cerchio in metri;
@@ -34,4 +35,4 @@ export const CANTIERI = [
   { street: 'Via Guglielmo Marconi', every: 300, max: 2 },
 ];
 
-export const VIEW = { cell: 250, loadRadius: 520, fogNear: 110, fogFar: 330 };
+export const VIEW = { cell: 250, loadRadius: 520, fogNear: 100, fogFar: 290 };

@@ -11,6 +11,7 @@ import { Minimap } from './minimap.js';
 import { buildMarker } from './marker.js';
 import { Labels } from './labels.js';
 import { initPWA } from './pwa.js';
+import { Atmosphere, PRESET_NAMES } from './atmosphere.js';
 import { Props } from './props.js';
 import { Traffic, Pedestrians } from './traffic.js';
 
@@ -26,7 +27,7 @@ renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
 const scene = new THREE.Scene();
 scene.background = SKY; scene.fog = new THREE.Fog(SKY, VIEW.fogNear, VIEW.fogFar);
 const camera = new THREE.PerspectiveCamera(60, 2, 0.4, VIEW.fogFar + 40);
-scene.add(new THREE.HemisphereLight(0xffffff, 0x8e8c86, 2.5));
+const hemi = new THREE.HemisphereLight(0xffffff, 0x8e8c86, 2.5); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff0d8, 1.5); sun.position.set(-0.5, 1, 0.35); scene.add(sun);
 
 function resize() {
@@ -66,6 +67,16 @@ async function boot() {
   shadow.visible = false; scene.add(shadow);
   const car = new Car(), groundY = (x, z) => world.groundY(x, z);
   const fx = new DriftFX(scene);
+  const atmo = new Atmosphere({ scene, camera, world, hemi, sun, ground, taxi });
+  let tod = 'giorno'; try { tod = localStorage.getItem('taxi-bologna:tod') || 'giorno'; } catch (e) { /* storage non disponibile */ }
+  if (!PRESET_NAMES.includes(tod)) tod = 'giorno';
+  atmo.set(tod);
+  const markTod = () => document.querySelectorAll('#tod button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.tod === atmo.name)));
+  markTod();
+  document.querySelectorAll('#tod button').forEach((b) => b.addEventListener('click', () => {
+    atmo.set(b.dataset.tod); markTod(); try { localStorage.setItem('taxi-bologna:tod', atmo.name); } catch (e) { /* ignora */ }
+    world.update(car.x, car.z, 99); // ricostruisce subito le celle con le nuove ombre
+  }));
   const free = (x, z) => !col.push(x, z, 1.6); // spazio libero per l'auto
   const ride = RIDES[0], START = ride.start;
   const sp = world.project(START.lat, START.lon), fp = world.project(START.facing.lat, START.facing.lon);
@@ -203,7 +214,7 @@ async function boot() {
     }
     lastT = now;
     world.update(car.x, car.z, 1);
-    poseCar(dt); updateCamera(dt); fx.update(dt, car, camera); labels.update(dt, car, camH);
+    poseCar(dt); updateCamera(dt); fx.update(dt, car, camera); labels.update(dt, car, camH); atmo.update(dt, car);
     if (run.state === 'running') {
       $('kmh').textContent = Math.round(Math.abs(car.speed) * 3.6);
       $('time').textContent = fmt(run.t);
