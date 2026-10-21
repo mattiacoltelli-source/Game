@@ -67,3 +67,11 @@ h1 { margin: 0 0 10px; font-size: 34px; letter-spacing: -.01em; }
 .lcd { display: inline-block; padding: 8px 22px 6px; margin: 4px 0 12px; }
 .lcd b { font-size: 46px; }
 @media (max-height: 420px) { #mini { width: 112px; height: 112px; } .lcd b { font-size: 38px; } .card h1 { margin-bottom: 4px; } .lcd { margin: 0 0 8px; } .best { margin-bottom: 10px; } }
+
+/* Aggiornamento app e installazione */
+#update { position: fixed; bottom: max(24px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); z-index: 30; display: flex; align-items: center; gap: 12px;
+  padding: 6px 6px 6px 16px; border-radius: 999px; background: #10151af2; border: 2px solid var(--accent); box-shadow: 0 6px 20px #0008; font-size: 14px; touch-action: auto; }
+#update button { appearance: none; border: 0; border-radius: 999px; min-height: 44px; padding: 0 18px; background: var(--accent); color: var(--accent-ink); font: 800 15px/1 system-ui, sans-serif; }
+#update button:disabled { opacity: .7; }
+.ghost { appearance: none; margin-top: 4px; min-height: 44px; padding: 0 18px; border-radius: 14px; border: 2px solid #ffffff44; background: transparent; color: var(--ink); font: 700 14px/1 system-ui, sans-serif; }
+.ver { margin: 6px 0 0; color: #ffffff55; font-size: 11px; }

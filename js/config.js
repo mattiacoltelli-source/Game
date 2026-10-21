@@ -3,6 +3,7 @@ export const DATA_URLS = {
   roads: 'data/roads.json',
   buildings: 'data/buildings.json',
   areas: 'data/areas.json',
+  labels: 'data/labels.json',
 };
 
 // Partenza: vicolo laterale su Via Alfonso Lombardi (Bolognina). Viene agganciata alla strada più vicina.

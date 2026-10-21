@@ -9,6 +9,8 @@ import { DriftFX } from './fx.js';
 import { GROUND_COLOR } from './world.js';
 import { Minimap } from './minimap.js';
 import { buildMarker } from './marker.js';
+import { Labels } from './labels.js';
+import { initPWA } from './pwa.js';
 
 const $ = (id) => document.getElementById(id);
 const DEBUG = new URLSearchParams(location.search).has('debug');
@@ -46,6 +48,7 @@ async function boot() {
   const world = new World(data);
   const col = new Collider(world.buildings, world.meta.bounds);
   const roads = new RoadIndex(world.roads);
+  world.plantTrees(col);
   scene.add(world.group);
 
   // terreno piatto
@@ -71,6 +74,7 @@ async function boot() {
   const target = { x: cs ? cs.x : cp[0], z: cs ? cs.z : cp[1], r: cust.raggio, id: cust.id, nome: cust.nome };
   const marker = buildMarker(target.r); marker.position.set(target.x, 0, target.z); scene.add(marker);
   const mini = new Minimap($('mini'), roads);
+  const labels = new Labels(scene, camera, data.labels);
   const run = { state: 'menu', t: 0, warned: false }; // menu | running | done
   $('cust-name').textContent = target.nome;
   $('goal-txt').textContent = 'Vai dal cliente';
@@ -164,7 +168,7 @@ async function boot() {
     }
     lastT = now;
     world.update(car.x, car.z, 1);
-    poseCar(dt); updateCamera(dt); fx.update(dt, car, camera);
+    poseCar(dt); updateCamera(dt); fx.update(dt, car, camera); labels.update(dt, car, camH);
     if (run.state === 'running') {
       $('kmh').textContent = Math.round(Math.abs(car.speed) * 3.6);
       $('time').textContent = fmt(run.t);
@@ -188,4 +192,5 @@ async function boot() {
   if (DEBUG) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;left:8px;top:8px;font:12px monospace;color:#fff;text-shadow:0 1px 2px #000;z-index:9;pointer-events:none'; document.body.append(d); setInterval(() => { d.textContent = `fps ${fps.toFixed(0)} pr ${pixelRatio.toFixed(2)} cells ${world.cells.size} calls ${renderer.info.render.calls} tris ${renderer.info.render.triangles}`; }, 500); }
 }
 
+initPWA();
 boot().catch((e) => { console.error(e); $('load-msg').textContent = `Errore: ${e.message}`; });

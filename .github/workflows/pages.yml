@@ -24,7 +24,14 @@ jobs:
       - name: Stage site
         run: |
           mkdir _site
-          cp -r index.html css js lib data _site/
+          cp -r index.html manifest.webmanifest sw.js css js lib data icons _site/
+          # versione = SHA breve (cambia sw.js a ogni deploy -> i telefoni vedono l'aggiornamento);
+          # hash dei dati = la cache dei dati si rinnova solo quando i dati cambiano
+          VERSION=$(echo "$GITHUB_SHA" | cut -c1-7)
+          DATA_HASH=$(cat data/*.json | sha1sum | cut -c1-8)
+          sed -i "s/__VERSION__/$VERSION/; s/__DATA_HASH__/$DATA_HASH/" _site/sw.js
+          sed -i "s/'dev'/'$VERSION'/" _site/js/version.js
+          grep -n "VERSION\|DATA_HASH" _site/sw.js | head -3
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

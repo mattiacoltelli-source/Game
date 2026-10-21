@@ -8,7 +8,7 @@ export function makeProjector(origin) {
 }
 
 export async function loadData(onProgress) {
-  const names = ['roads', 'buildings', 'areas'];
+  const names = ['roads', 'buildings', 'areas', 'labels'];
   const { DATA_URLS } = await import('./config.js');
   const out = {};
   let done = 0;
@@ -34,12 +34,32 @@ const ROAD_STYLE = { // [colore, quota y, scala larghezza]
 const AREA_Y = { green: 0.03, wood: 0.04, water: 0.05, river: 0.05 };
 
 export const GROUND_COLOR = C.ground;
+const ARC_COLOR = [0.86, 0.62, 0.46];
+const TYPE_STYLE = [null,
+  { wall: [0.92, 0.86, 0.74], roof: [0.52, 0.32, 0.27] },                 // 1 chiesa
+  { wall: [0.88, 0.91, 0.94], roof: [0.55, 0.58, 0.62] },                 // 2 ospedale
+  { wall: [0.95, 0.86, 0.58], roof: [0.55, 0.35, 0.28] },                 // 3 scuola/università
+  { wall: [0.68, 0.70, 0.72], roof: [0.55, 0.57, 0.59], plain: true },    // 4 capannone
+  { wall: [0.84, 0.86, 0.88], roof: [0.52, 0.54, 0.57] },                 // 5 uffici/negozi
+];
 const SIDEWALK_ROADS = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential']);
 const SIDEWALK = [0.74, 0.72, 0.68], LINE = [0.86, 0.84, 0.76];
 
 // Facciate tipiche bolognesi: terracotta, ocra, rosa, crema.
 const PALETTE = [[0.80, 0.47, 0.34], [0.86, 0.68, 0.40], [0.88, 0.60, 0.50], [0.90, 0.82, 0.66], [0.66, 0.37, 0.29], [0.76, 0.56, 0.38], [0.72, 0.68, 0.62], [0.92, 0.76, 0.55]];
 const hash = (i) => ((i + 1) * 2654435761 >>> 0) / 4294967296;
+
+// Portico: arcata scura con pilastri chiari (tile 4.2 m x 4.6 m).
+function makeArcadeTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, 64, 64);
+  g.fillStyle = '#2b2321'; g.beginPath(); g.moveTo(10, 64); g.lineTo(10, 26); g.arc(32, 26, 22, Math.PI, 0); g.lineTo(54, 64); g.closePath(); g.fill();
+  g.fillStyle = '#6a4d40'; g.fillRect(10, 58, 44, 6);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 2;
+  return t;
+}
 
 // Una sola texture 64x64 (piano con finestra) ripetuta sulle facciate: un piano ~3.1 m x 3.4 m.
 function makeFacadeTexture() {
@@ -73,7 +93,7 @@ export class World {
       let p = b.p, n = p.length / 2;
       if (p[0] === p[p.length - 2] && p[1] === p[p.length - 1]) n--;
       if (n < 3) continue;
-      this.buildings.push({ pts: Float32Array.from(p.slice(0, n * 2)), h: b.h, k: b.k });
+      this.buildings.push({ pts: Float32Array.from(p.slice(0, n * 2)), h: b.h, k: b.k, t: b.t || 0, a: b.a ? new Set(b.a) : null });
     }
 
     this.cellOf = (x, z) => {
@@ -81,7 +101,8 @@ export class World {
       return (cx < 0 || cz < 0 || cx >= this.cols || cz >= this.rows) ? -1 : cz * this.cols + cx;
     };
     const mk = () => new Map();
-    this.cB = mk(); this.cS = mk(); this.cV = mk(); this.cA = mk();
+    this.cB = mk(); this.cS = mk(); this.cV = mk(); this.cA = mk(); this.cRail = mk(); this.cWater = mk(); this.cT = mk();
+    this.rails = data.roads.rails;
     const add = (m, k, ...v) => { if (k < 0) return; let a = m.get(k); if (!a) m.set(k, a = []); a.push(...v); };
 
     this.buildings.forEach((b, i) => {
@@ -103,6 +124,10 @@ export class World {
         if (need) add(this.cV, this.cellOf(p[i * 2], p[i * 2 + 1]), ri, i);
       }
     });
+    const lineSegs = (list, map) => list.forEach((r, ri) => {
+      for (let i = 0; i < r.p.length / 2 - 1; i++) add(map, this.cellOf((r.p[i * 2] + r.p[i * 2 + 2]) / 2, (r.p[i * 2 + 1] + r.p[i * 2 + 3]) / 2), ri, i);
+    });
+    lineSegs(this.rails, this.cRail); lineSegs(this.rivers, this.cWater);
     this.areas.forEach((a, ai) => {
       let mnx = 1e9, mnz = 1e9, mxx = -1e9, mxz = -1e9;
       for (let i = 0; i < a.p.length; i += 2) { mnx = Math.min(mnx, a.p[i]); mxx = Math.max(mxx, a.p[i]); mnz = Math.min(mnz, a.p[i + 1]); mxz = Math.max(mxz, a.p[i + 1]); }
@@ -117,6 +142,7 @@ export class World {
     this.matGround = new THREE.MeshBasicMaterial({ vertexColors: true });
     this.matPlain = new THREE.MeshLambertMaterial({ vertexColors: true });
     this.matBuilding = new THREE.MeshLambertMaterial({ vertexColors: true, map: makeFacadeTexture() });
+    this.matArcade = new THREE.MeshLambertMaterial({ vertexColors: true, map: makeArcadeTexture() });
   }
 
   // Carica al massimo `maxBuild` celle vicine a (x,z), scarica quelle lontane.
@@ -200,11 +226,34 @@ export class World {
         tri(gp, gc, [cx, y, cz], [cx + Math.cos(a0) * hw, y, cz + Math.sin(a0) * hw], [cx + Math.cos(a1) * hw, y, cz + Math.sin(a1) * hw], col, UP);
       }
     }
+    // ferrovia (massicciata + traversine scure) e canali (Navile ecc.)
+    const ribbon = (list, segsArr, w, y, col, ext) => {
+      for (let q = 0; q < segsArr.length; q += 2) {
+        const p = list[segsArr[q]].p, i = segsArr[q + 1], hw = w / 2;
+        let ax = p[i * 2], az = p[i * 2 + 1], bx = p[i * 2 + 2], bz = p[i * 2 + 3];
+        const dx = bx - ax, dz = bz - az, L = Math.hypot(dx, dz); if (L < 0.01) continue;
+        const ux = dx / L, uz = dz / L; ax -= ux * ext; az -= uz * ext; bx += ux * ext; bz += uz * ext;
+        const nx = -uz * hw, nz = ux * hw;
+        tri(gp, gc, [ax + nx, y, az + nz], [ax - nx, y, az - nz], [bx + nx, y, bz + nz], col, UP);
+        tri(gp, gc, [bx + nx, y, bz + nz], [ax - nx, y, az - nz], [bx - nx, y, bz - nz], col, UP);
+      }
+    };
+    const rl = this.cRail.get(key); if (rl) { ribbon(this.rails, rl, 3.4, 0.05, [0.47, 0.43, 0.38], 0.3); ribbon(this.rails, rl, 1.5, 0.06, [0.25, 0.24, 0.26], 0.3); }
+    const wt = this.cWater.get(key); if (wt) ribbon(this.rivers, wt, 7, 0.045, C.water, 3);
     if (gp.length) g.add(this.makeMesh(gp, gc, null, this.matGround));
 
+    // alberi (parchi): tronco + chioma low-poly
+    const tr = this.cT.get(key);
+    if (tr) {
+      const T = { p: [], n: [], c: [] };
+      for (let q = 0; q < tr.length; q += 3) this.addTree(T, tr[q], tr[q + 1], tr[q + 2]);
+      g.add(this.makeMesh(T.p, T.c, T.n, this.matPlain));
+    }
+
     // edifici: pareti con texture finestre (W), tetti e monumenti a tinta unita (Pl)
-    const W = { p: [], n: [], c: [], u: [] }, Pl = { p: [], n: [], c: [] };
-    for (const bi of this.cB.get(key) || []) this.addBuilding(this.buildings[bi], bi, W, Pl);
+    const W = { p: [], n: [], c: [], u: [] }, Pl = { p: [], n: [], c: [] }, Ar = { p: [], n: [], c: [], u: [] };
+    for (const bi of this.cB.get(key) || []) this.addBuilding(this.buildings[bi], bi, W, Pl, Ar);
+    if (Ar.p.length) { const m = this.makeMesh(Ar.p, Ar.c, Ar.n, this.matArcade); m.geometry.setAttribute('uv', new THREE.Float32BufferAttribute(Ar.u, 2)); g.add(m); }
     if (W.p.length) { const m = this.makeMesh(W.p, W.c, W.n, this.matBuilding); m.geometry.setAttribute('uv', new THREE.Float32BufferAttribute(W.u, 2)); g.add(m); }
     if (Pl.p.length) g.add(this.makeMesh(Pl.p, Pl.c, Pl.n, this.matPlain));
     return g;
@@ -219,6 +268,49 @@ export class World {
     const m = new THREE.Mesh(geo, mat); m.matrixAutoUpdate = false; m.updateMatrix(); return m;
   }
 
+  // Posiziona alberi (deterministici) nei parchi, evitando edifici. Da chiamare dopo aver creato il Collider.
+  plantTrees(col) {
+    let total = 0;
+    this.areas.forEach((a, ai) => {
+      if (a.k !== 'green' && a.k !== 'wood') return;
+      const p = a.p, n = p.length / 2; let A = 0, mnx = 1e9, mnz = 1e9, mxx = -1e9, mxz = -1e9;
+      for (let i = 0; i < n; i++) { const j = (i + 1) % n; A += p[i * 2] * p[j * 2 + 1] - p[j * 2] * p[i * 2 + 1]; mnx = Math.min(mnx, p[i * 2]); mxx = Math.max(mxx, p[i * 2]); mnz = Math.min(mnz, p[i * 2 + 1]); mxz = Math.max(mxz, p[i * 2 + 1]); }
+      A = Math.abs(A) / 2; if (A < 900) return;
+      const step = a.k === 'wood' ? 7 : 12, jit = step * 0.35;
+      let cnt = 0;
+      for (let x = mnx; x < mxx && cnt < 120; x += step) for (let z = mnz; z < mxz && cnt < 120; z += step) {
+        const h1 = hash(ai * 7919 + Math.floor(x * 3) + Math.floor(z * 5)), px = x + (h1 - 0.5) * jit * 2, pz = z + (hash(ai + Math.floor(z * 7) + 3) - 0.5) * jit * 2;
+        if (h1 > 0.7) continue;
+        let ins = false; for (let i = 0, j = n - 1; i < n; j = i++) if ((p[i * 2 + 1] > pz) !== (p[j * 2 + 1] > pz) && px < (p[j * 2] - p[i * 2]) * (pz - p[i * 2 + 1]) / (p[j * 2 + 1] - p[i * 2 + 1]) + p[i * 2]) ins = !ins;
+        if (!ins || col.inside(px, pz) || col.push(px, pz, 2.5)) continue;
+        const k = this.cellOf(px, pz); if (k < 0) continue;
+        let arr = this.cT.get(k); if (!arr) this.cT.set(k, arr = []); arr.push(px, pz, 0.8 + hash(x + z) * 0.6); cnt++; total++;
+      }
+    });
+    return total;
+  }
+
+  // Triangolo con normale calcolata, orientato verso l'esterno rispetto a `ctr`.
+  triOut(B, a, b, c, ctr, col) {
+    const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+    let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const L = Math.hypot(nx, ny, nz) || 1; nx /= L; ny /= L; nz /= L;
+    if (nx * ((a[0] + b[0] + c[0]) / 3 - ctr[0]) + ny * ((a[1] + b[1] + c[1]) / 3 - ctr[1]) + nz * ((a[2] + b[2] + c[2]) / 3 - ctr[2]) < 0) { const t = b; b = c; c = t; nx = -nx; ny = -ny; nz = -nz; }
+    B.p.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
+    for (let k = 0; k < 3; k++) { B.n.push(nx, ny, nz); B.c.push(col[0], col[1], col[2]); }
+  }
+
+  addTree(B, x, z, sc) {
+    const trunk = [0.38, 0.27, 0.2], g0 = 0.85 + hash(x * 13 + z) * 0.3, leaf = [0.26 * g0, 0.5 * g0, 0.27 * g0];
+    const tw = 0.22 * sc, th = 1.9 * sc, c0 = [x, th / 2, z];
+    const q = [[x - tw, z - tw], [x + tw, z - tw], [x + tw, z + tw], [x - tw, z + tw]];
+    for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; this.triOut(B, [q[i][0], 0, q[i][1]], [q[j][0], 0, q[j][1]], [q[j][0], th, q[j][1]], c0, trunk); this.triOut(B, [q[i][0], 0, q[i][1]], [q[j][0], th, q[j][1]], [q[i][0], th, q[i][1]], c0, trunk); }
+    const R = 1.9 * sc, y0 = th * 0.75, y1 = th + 1.5 * sc, y2 = th + 4.2 * sc, cc = [x, (y0 + y2) / 2, z];
+    for (let i = 0; i < 6; i++) {
+      const a0 = i / 6 * Math.PI * 2, a1 = (i + 1) / 6 * Math.PI * 2, p0 = [x + Math.cos(a0) * R, y1, z + Math.sin(a0) * R], p1 = [x + Math.cos(a1) * R, y1, z + Math.sin(a1) * R];
+      this.triOut(B, p0, p1, [x, y2, z], cc, leaf); this.triOut(B, p0, p1, [x, y0, z], cc, [leaf[0] * 0.8, leaf[1] * 0.8, leaf[2] * 0.8]);
+    }
+  }
+
   // Triangolo orientato secondo la normale nn; colori per vertice (c0,c1,c2); uv opzionali.
   tri3(B, a, b, c, nn, c0, c1, c2, uvs) {
     const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
@@ -227,7 +319,7 @@ export class World {
     B.p.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
     for (let k = 0; k < 3; k++) B.n.push(nn[0], nn[1], nn[2]);
     B.c.push(c0[0], c0[1], c0[2], c1[0], c1[1], c1[2], c2[0], c2[1], c2[2]);
-    if (uvs) for (const q of uvs) B.u.push(q[0], q[1]);
+    if (uvs && B.u) for (const q of uvs) B.u.push(q[0], q[1]);
   }
 
   // Anello di pareti lungo il contorno `pts` ([x,z]...) tra le quote y0 e y1; shear(x,y,z)->[x,y,z] opzionale.
@@ -244,17 +336,34 @@ export class World {
     }
   }
 
-  addBuilding(b, bi, W, Pl) {
+  // Singolo lato di parete con uv (tile u,v in metri).
+  wallSeg(B, ax, az, bx, bz, s, y0, y1, cLow, cHigh, tu, tv) {
+    const dx = bx - ax, dz = bz - az, L = Math.hypot(dx, dz); if (L < 0.05) return;
+    const nn = [s * dz / L, 0, -s * dx / L], uL = L / tu, vH = (y1 - y0) / tv;
+    this.tri3(B, [ax, y0, az], [bx, y0, bz], [bx, y1, bz], nn, cLow, cLow, cHigh, [[0, 0], [uL, 0], [uL, vH]]);
+    this.tri3(B, [ax, y0, az], [bx, y1, bz], [ax, y1, az], nn, cLow, cHigh, cHigh, [[0, 0], [uL, vH], [0, vH]]);
+  }
+
+  addBuilding(b, bi, W, Pl, Ar) {
     const p = b.pts, n = p.length / 2, h = b.h;
     const pts = []; for (let i = 0; i < n; i++) pts.push([p[i * 2], p[i * 2 + 1]]);
     let A = 0; for (let i = 0; i < n; i++) { const j = (i + 1) % n; A += pts[i][0] * pts[j][1] - pts[j][0] * pts[i][1]; }
     const s = A > 0 ? 1 : -1;
     if (b.k) return this.addLandmark(b, pts, s, Pl);
 
-    const base = PALETTE[Math.floor(hash(bi) * PALETTE.length)], tone = 0.92 + hash(bi + 7) * 0.16;
+    const tone = 0.92 + hash(bi + 7) * 0.16, ty = TYPE_STYLE[b.t];
+    const base = ty ? ty.wall : PALETTE[Math.floor(hash(bi) * PALETTE.length)];
     const top = base.map((v) => Math.min(1, v * tone)), low = top.map((v) => v * 0.8);
-    this.wallRing(W, pts, s, 0, h, low, top, true);
-    const rf = [0.44 * tone, 0.30 * tone, 0.27 * tone];
+    const flat = ty && ty.plain; // capannoni: pareti lisce
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n, ax = pts[i][0], az = pts[i][1], bx = pts[j][0], bz = pts[j][1];
+      if (b.a && b.a.has(i) && h > 6) { // portico al piano terra
+        this.wallSeg(Ar, ax, az, bx, bz, s, 0, 4.6, ARC_COLOR, ARC_COLOR, 4.2, 4.6);
+        this.wallSeg(W, ax, az, bx, bz, s, 4.6, h, low, top, 3.4, 3.1);
+      } else if (flat) this.wallSeg(Pl, ax, az, bx, bz, s, 0, h, low, top, 3.4, 3.1);
+      else this.wallSeg(W, ax, az, bx, bz, s, 0, h, low, top, 3.4, 3.1);
+    }
+    const rf = ty ? ty.roof.map((v) => v * tone) : [0.44 * tone, 0.30 * tone, 0.27 * tone];
     const contour = pts.map((q) => new THREE.Vector2(q[0], q[1]));
     let idx; try { idx = THREE.ShapeUtils.triangulateShape(contour, []); } catch (e) { return; }
     for (const t of idx) this.tri3(Pl, [contour[t[0]].x, h, contour[t[0]].y], [contour[t[1]].x, h, contour[t[1]].y], [contour[t[2]].x, h, contour[t[2]].y], [0, 1, 0], rf, rf, rf);
