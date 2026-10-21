@@ -24,7 +24,7 @@ export class NosPickups {
       for (const back of [45, 100, 155]) add(ex - h.ux * dir * back, ez - h.uz * dir * back);
     }
     for (let d = 110; d < total - 120; d += 240) { const p = at(d); if (p) add(p[0], p[1]); }
-    const n = Math.max(1, this.items.length) + 8, mats = (op) => new THREE.MeshBasicMaterial({ color: COLOR, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+    const n = Math.max(1, this.items.length) + 20, mats = (op) => new THREE.MeshBasicMaterial({ color: COLOR, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
     this.beam = new THREE.InstancedMesh(new THREE.CylinderGeometry(1.5, 2.1, 26, 12, 1, true).translate(0, 13, 0), mats(0.5), n);
     this.ring = new THREE.InstancedMesh(new THREE.TorusGeometry(2.7, 0.3, 8, 28), mats(1), n);
     this.orb = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1.0, 0), new THREE.MeshBasicMaterial({ color: 0xffffff }), n);

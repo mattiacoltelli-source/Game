@@ -8,7 +8,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 
 export class Car {
-  constructor() { this.gadget = null; this.shield = 0; this.antiOil = 0; this.magnet = 0; this.jam = 0; this.onRoof = false; this.place(0, 0, 0); }
+  constructor() { this.rampH = () => 0; this.rampAssist = () => null; this.superJump = false; this.onRamp = false; this.gadget = null; this.shield = 0; this.antiOil = 0; this.magnet = 0; this.jam = 0; this.onRoof = false; this.place(0, 0, 0); }
 
   place(x, z, h, y = 0) {
     this.x = x; this.z = z; this.h = h; this.vx = 0; this.vz = 0; this.y = y; this.vy = 0; this.boost = 0; this.level = 0; this.charges = 0; this.slow = 0; this.oil = 0; this.oilPh = 0; this.air = false; this.airT = 0; this.jump = 0; this.landed = 0; this.clear = 0;
@@ -74,18 +74,20 @@ export class Car {
   vertical(dt, ground, base) {
     const g = ground(this.x, this.z, this.y), yb = this.y + this.vy * dt - 0.5 * G * dt * dt;
     if (yb > g + 0.02) { // in volo
-      if (!this.air) { this.air = true; this.airT = 0; this.x0 = this.x; this.z0 = this.z; if (this.onRoof && this.boost > 0) { this.vy = Math.max(this.vy, 5 + 2 * this.level); this.vx += Math.cos(this.h) * 9 * this.level; this.vz += Math.sin(this.h) * 9 * this.level; } } // dal tetto col NOS: la propulsione spinge in alto e in avanti
+      if (!this.air) { this.air = true; this.airT = 0; this.x0 = this.x; this.z0 = this.z; if (this.onRamp && this.boost > 0) { const a = this.rampAssist(this.x, this.z, this.vx, this.vz); if (a) { this.vx = a.vx; this.vz = a.vz; this.vy = a.vy; this.superJump = true; } else { this.vy += 4 + 3 * this.level; this.vx += Math.cos(this.h) * 5 * this.level; this.vz += Math.sin(this.h) * 5 * this.level; } } // dalla rampa col NOS: super salto (verso un tetto) o spinta in più
+      if (this.onRoof && this.boost > 0) { this.vy = Math.max(this.vy, 5 + 2 * this.level); this.vx += Math.cos(this.h) * 9 * this.level; this.vz += Math.sin(this.h) * 9 * this.level; } } // dal tetto col NOS: la propulsione spinge in alto e in avanti
       this.airT += dt; this.y = yb; this.vy -= G * dt;
     } else {
       const vyg = Math.max(-25, Math.min(25, (g - this.y) / dt));
       if (this.air) { // atterraggio
+        if (g > base(this.x, this.z) + 0.5) { this.vx *= 0.45; this.vz *= 0.45; } // atterrando su un tetto si frena
         const impact = -this.vy; this.jump = this.airT > 0.35 ? Math.hypot(this.x - this.x0, this.z - this.z0) : 0; this.landed = impact;
         if (impact > 6) { const k = 1 - Math.min(0.18, (impact - 6) * 0.02); this.vx *= k; this.vz *= k; }
         this.air = false;
       }
       this.y = g; this.vy = vyg;
     }
-    const b0 = base(this.x, this.z); this.onRoof = !this.air && g > b0 + 0.5; this.clear = this.y - b0;
+    const b0 = base(this.x, this.z); this.onRamp = !this.air && this.rampH(this.x, this.z) > 0.6; this.onRoof = !this.air && g > b0 + 0.5; this.clear = this.y - b0;
   }
 
   collide(dt, col, bounds, input) {
@@ -135,7 +137,7 @@ export class Car {
     if (this.shield > 0) return 0; // lo scudo assorbe le esplosioni
     const dx = this.x - ex, dz = this.z - ez, d = Math.hypot(dx, dz); if (d > R) return 0;
     const k = Math.pow(1 - d / R, 0.6) * power, nx = d > 1e-3 ? dx / d : Math.cos(this.h), nz = d > 1e-3 ? dz / d : Math.sin(this.h);
-    this.vx += nx * 13 * k; this.vz += nz * 13 * k; this.vy = 10 + 10 * k; this.y += 0.3;
+    this.vx += nx * 13 * k; this.vz += nz * 13 * k; this.vy = 7 + 7 * k; this.y += 0.3;
     if (!this.air) { this.air = true; this.airT = 0; this.x0 = this.x; this.z0 = this.z; }
     this.yaw += (Math.random() - 0.5) * 7 * k; return k;
   }
@@ -143,7 +145,7 @@ export class Car {
   // Calcio del gigante: lancia l'auto lontano nella direzione (dx,dz) e in alto. k = intensità 0..1.
   kick(dx, dz, k) {
     if (this.shield > 0) { this.vx = this.vx * 0.6 + dx * 9 * k; this.vz = this.vz * 0.6 + dz * 9 * k; return; } // lo scudo respinge il calcio
-    this.vx = this.vx * 0.3 + dx * 44 * k; this.vz = this.vz * 0.3 + dz * 44 * k; this.vy = 16 + 8 * k; this.y += 0.3;
+    this.vx = this.vx * 0.3 + dx * 44 * k; this.vz = this.vz * 0.3 + dz * 44 * k; this.vy = 14 + 7 * k; this.y += 0.3;
     if (!this.air) { this.air = true; this.airT = 0; this.x0 = this.x; this.z0 = this.z; }
     this.yaw += (Math.random() - 0.5) * 9 * k;
   }

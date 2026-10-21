@@ -19,6 +19,7 @@ import { Props } from './props.js';
 import { Particles } from './particles.js';
 import { Post } from './post.js';
 import { Street } from './street.js';
+import { Ramps } from './ramps.js';
 import { GadgetPickups, GADGETS, buildShield } from './gadgets.js';
 import { Traffic, Pedestrians } from './traffic.js';
 
@@ -79,7 +80,8 @@ async function boot() {
   const taxi = buildTaxi(); scene.add(taxi.outer);
   const shadow = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 2.2).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false }));
   shadow.visible = false; scene.add(shadow);
-  const car = new Car(), groundY = (x, z) => world.groundY(x, z);
+  let groundBase = (x, z) => world.groundY(x, z);
+  const car = new Car(), groundY = (x, z) => groundBase(x, z);
   const fx = new DriftFX(scene), parts = new Particles(scene);
   const atmo = new Atmosphere({ scene, camera, world, hemi, sun, ground, taxi });
   { // Piazza Maggiore: ovale rosato sul lastricato (come nelle foto)
@@ -120,7 +122,11 @@ async function boot() {
   const nos = new NosPickups(scene, world, roads, free, [{ x: sx, z: sz, r: 60 }, ...stops.map((st) => ({ x: st.x, z: st.z, r: 45 }))]);
   const flames = buildFlames(taxi), shieldFx = buildShield(taxi);
   const gadgets = new GadgetPickups(scene, world, roads, free, [{ x: sx, z: sz, r: 60 }, ...stops.map((st) => ({ x: st.x, z: st.z, r: 45 })), ...nos.items.map((i) => ({ x: i.x, z: i.z, r: 45 }))]);
-  const groundCar = (x, z, y) => Math.max(world.groundY(x, z), col.roofAt(x, z, y)); // l'auto può stare sui tetti
+  const ramps = new Ramps(scene, world, roads, col, [{ x: sx, z: sz, r: 140 }, ...stops.map((st) => ({ x: st.x, z: st.z, r: 80 }))]);
+  for (const r of ramps.list) nos.addAt(r.x - r.ux * 40, r.z - r.uz * 40); // un NOS prima di ogni rampa
+  props.circles.push(...ramps.circles); car.rampH = (x, z) => ramps.h(x, z); car.rampAssist = (x, z, vx, vz) => ramps.assist(x, z, vx, vz);
+  groundBase = (x, z) => world.groundY(x, z) + ramps.h(x, z);
+  const groundCar = (x, z, y) => Math.max(groundBase(x, z), col.roofAt(x, z, y)); // l'auto può stare sui tetti
   let wasRoof = false, roofToastT = 0;
   const enemies = new Enemies(scene, world, roads, {
     car, peds, traffic, props, toast, sparks: (x, y, z, n, dx, dz) => parts.sparks(x, y, z, n, dx, dz),
@@ -270,6 +276,7 @@ async function boot() {
       if (car.onRoof && !wasRoof && now - roofToastT > 15000) { roofToastT = now; toast('Sei sui tetti! Scendi guidando o usa il NOS per un salto lungo'); } wasRoof = car.onRoof;
       if (nos.update(dt, car) && car.giveCharge()) { sfx.pickup(); toast(car.charges >= 3 ? 'NOS ×3 pronto!' : `NOS: ${car.charges}/3 cariche`); }
       if (input.takeNos()) { const lv = car.activate(); if (lv) { sfx.nos(lv); toast(`NOS ×${lv}! 10 secondi`); } }
+      if (car.superJump) { car.superJump = false; toast('Super salto verso il tetto!'); }
       if (car.jump > 0) { if (car.jump >= 12) toast(`Salto di ${Math.round(car.jump)} m!`); car.jump = 0; }
       run.t += Math.min(0.25, (now - lastT) / 1000);
       const d = Math.hypot(target.x - car.x, target.z - car.z);
@@ -317,7 +324,7 @@ async function boot() {
   }
   requestAnimationFrame(frame);
 
-  window.__taxi = { gadgets, street, post, parts, enemies, nos, props, traffic, peds, taxi, get target() { return target; }, stops, setStop, run, startPos: [sx, sz, startH], car, world, col, roads, input, camera, scene, renderer, get fps() { return fps; }, start() { $('go').click(); }, rescue, free };
+  window.__taxi = { ramps, gadgets, street, post, parts, enemies, nos, props, traffic, peds, taxi, get target() { return target; }, stops, setStop, run, startPos: [sx, sz, startH], car, world, col, roads, input, camera, scene, renderer, get fps() { return fps; }, start() { $('go').click(); }, rescue, free };
   if (DEBUG) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;left:8px;top:8px;font:12px monospace;color:#fff;text-shadow:0 1px 2px #000;z-index:9;pointer-events:none'; document.body.append(d); setInterval(() => { d.textContent = `fps ${fps.toFixed(0)} pr ${pixelRatio.toFixed(2)} cells ${world.cells.size} calls ${renderer.info.render.calls} tris ${renderer.info.render.triangles}`; }, 500); }
 }
 

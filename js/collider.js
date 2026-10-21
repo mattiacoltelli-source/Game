@@ -67,6 +67,18 @@ export class Collider {
     return best;
   }
 
+  // Edificio (non monumento) di altezza massima che contiene il punto, oppure null.
+  buildingAt(x, z) {
+    let best = null;
+    this.near(x, z, x, z, (b) => {
+      if (b.solid || b.k || (best && b.h <= best.h)) return; const bb = b.bb; if (x < bb[0] || x > bb[2] || z < bb[1] || z > bb[3]) return;
+      const p = b.pts, n = p.length / 2; let ins = false;
+      for (let i = 0, j = n - 1; i < n; j = i++) { const ax = p[j * 2], az = p[j * 2 + 1], bx = p[i * 2], bz = p[i * 2 + 1]; if ((az > z) !== (bz > z) && x < (bx - ax) * (z - az) / (bz - az) + ax) ins = !ins; }
+      if (ins) best = b;
+    });
+    return best;
+  }
+
   inside(x, z, minH = 0) {
     let res = false;
     this.near(x, z, x, z, (b) => {
