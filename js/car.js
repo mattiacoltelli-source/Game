@@ -1,5 +1,5 @@
 // Fisica arcade: velocità come vettore mondo, presa laterale variabile (drift), collisioni che scivolano.
-const VMAX = 35, VREV = 8, ACC = 19, BRAKE = 22, REV_ACC = 10, COAST = 3, WHEELBASE = 2.7;
+const VMAX = 45, VREV = 8, ACC = 24, BRAKE = 22, REV_ACC = 10, COAST = 3, WHEELBASE = 2.7;
 const GRIP = 9, GRIP_DRIFT = 1.7, MAX_SLIP = 0.5;
 const CIRCLES = [-1.4, 0, 1.4], RADIUS = 0.92;
 
@@ -38,7 +38,7 @@ export class Car {
     this.drift += (dTgt - this.drift) * Math.min(1, (dTgt > this.drift ? 6 : 3) * dt);
 
     // imbardata: curvatura limitata dalla velocità, poi smorzata verso il target
-    const dMax = lerp(0.62, 0.2, clamp(sp / 30, 0, 1));
+    const dMax = lerp(0.62, 0.13, clamp(sp / 40, 0, 1));
     let wT = vf * Math.tan(this.steer * dMax) / WHEELBASE * (1 + 0.25 * this.drift);
     // auto-allineamento: senza sterzo l'auto riprende da sola la direzione di marcia
     const vl0 = this.vx * rx + this.vz * rz;

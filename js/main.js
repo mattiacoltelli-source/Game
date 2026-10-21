@@ -101,7 +101,7 @@ async function boot() {
     let d = car.h - camH; d = Math.atan2(Math.sin(d), Math.cos(d));
     camH += d * (1 - Math.exp(-4.5 * dt));
     const speed = Math.hypot(car.vx, car.vz);
-    const want = 8.2 + Math.min(speed, 35) * 0.085;
+    const want = 8.2 + Math.min(speed, 45) * 0.07;
     const bx = -Math.cos(camH), bz = -Math.sin(camH);
     let limit = col.ray(car.x, car.z, bx, bz, want + 1.5);
     let target = Math.max(2.6, Math.min(want, limit - 1.2));
@@ -113,7 +113,7 @@ async function boot() {
     camPos.set(px, height, pz);
     camera.position.copy(camPos);
     camera.lookAt(car.x + Math.cos(camH) * 7, 0.9, car.z + Math.sin(camH) * 7);
-    const fov = 62 + Math.min(1, speed / 35) * 8;
+    const fov = 62 + Math.min(1, speed / 45) * 8;
     if (Math.abs(camera.fov - fov) > 0.2) { camera.fov = fov; camera.updateProjectionMatrix(); }
   }
 
