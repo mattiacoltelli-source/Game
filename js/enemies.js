@@ -93,6 +93,8 @@ class Tank {
     const hull = new THREE.Mesh(mergeBoxes([
       { x: 0, y: 0.95, z: 0, sx: 5.6, sy: 1.0, sz: 2.9, c: TANK_GREEN }, { x: 2.9, y: 0.8, z: 0, sx: 0.9, sy: 0.7, sz: 2.7, c: TANK_GREEN },
       { x: 0, y: 0.45, z: 1.6, sx: 5.9, sy: 0.9, sz: 0.75, c: TANK_DARK }, { x: 0, y: 0.45, z: -1.6, sx: 5.9, sy: 0.9, sz: 0.75, c: TANK_DARK },
+      ...[-2.3, -1.15, 0, 1.15, 2.3].flatMap((x) => [{ x, y: 0.42, z: 2.0, sx: 0.8, sy: 0.8, sz: 0.1, c: [0.28, 0.3, 0.26] }, { x, y: 0.42, z: -2.0, sx: 0.8, sy: 0.8, sz: 0.1, c: [0.28, 0.3, 0.26] }]),
+      { x: 3.1, y: 1.2, z: 0.9, sx: 0.12, sy: 0.22, sz: 0.4, c: [1.4, 1.3, 0.9] }, { x: 3.1, y: 1.2, z: -0.9, sx: 0.12, sy: 0.22, sz: 0.4, c: [1.4, 1.3, 0.9] }, { x: -2.9, y: 1.1, z: 0.9, sx: 0.5, sy: 0.4, sz: 0.5, c: TANK_DARK }, { x: -2.9, y: 1.1, z: -0.9, sx: 0.5, sy: 0.4, sz: 0.5, c: TANK_DARK }, { x: -2.9, y: 1.7, z: 0.9, sx: 0.12, sy: 0.9, sz: 0.12, c: TANK_DARK },
     ]), new THREE.MeshLambertMaterial({ vertexColors: true }));
     this.turret = new THREE.Mesh(mergeBoxes([
       { x: -0.2, y: 1.85, z: 0, sx: 2.7, sy: 0.9, sz: 2.4, c: [0.34, 0.42, 0.25] }, { x: -0.6, y: 2.45, z: 0.5, sx: 0.8, sy: 0.3, sz: 0.8, c: TANK_DARK },
@@ -170,6 +172,9 @@ class Truck {
       { x: 5.0, y: 0.75, z: 0, sx: 10.6, sy: 0.5, sz: 2.3, c: TRK_DARK }, { x: 6.4, y: 0.5, z: 0, sx: 1.2, sy: 0.9, sz: 2.4, c: TRK_DARK },
       { x: -1.2, y: 2.0, z: 0, sx: 9.4, sy: 1.9, sz: 2.3, c: TRK_TANK }, { x: -1.2, y: 2.0, z: 0, sx: 9.8, sy: 0.35, sz: 2.4, c: TRK_DARK },
       { x: -5.9, y: 2.0, z: 0, sx: 0.5, sy: 1.5, sz: 2.0, c: TRK_TANK }, { x: -1.2, y: 3.15, z: 0, sx: 1.0, sy: 0.4, sz: 1.0, c: TRK_DARK },
+      { x: 7.52, y: 0.95, z: 0.8, sx: 0.12, sy: 0.3, sz: 0.5, c: [1.5, 1.4, 1.0] }, { x: 7.52, y: 0.95, z: -0.8, sx: 0.12, sy: 0.3, sz: 0.5, c: [1.5, 1.4, 1.0] }, { x: 7.55, y: 0.6, z: 0, sx: 0.1, sy: 0.5, sz: 1.5, c: TRK_DARK },
+      { x: 4.9, y: 3.6, z: 1.0, sx: 0.25, sy: 2.2, sz: 0.25, c: [0.75, 0.76, 0.8] }, { x: 4.9, y: 3.6, z: -1.0, sx: 0.25, sy: 2.2, sz: 0.25, c: [0.75, 0.76, 0.8] }, { x: 7.1, y: 2.0, z: 1.55, sx: 0.3, sy: 0.7, sz: 0.1, c: TRK_DARK }, { x: 7.1, y: 2.0, z: -1.55, sx: 0.3, sy: 0.7, sz: 0.1, c: TRK_DARK },
+      { x: 6.9, y: 3.3, z: 0.7, sx: 0.2, sy: 0.15, sz: 0.2, c: [1.5, 0.9, 0.1] }, { x: 6.9, y: 3.3, z: 0, sx: 0.2, sy: 0.15, sz: 0.2, c: [1.5, 0.9, 0.1] }, { x: 6.9, y: 3.3, z: -0.7, sx: 0.2, sy: 0.15, sz: 0.2, c: [1.5, 0.9, 0.1] }, { x: -6.1, y: 1.0, z: 0.8, sx: 0.12, sy: 0.25, sz: 0.4, c: [1.2, 0.1, 0.08] }, { x: -6.1, y: 1.0, z: -0.8, sx: 0.12, sy: 0.25, sz: 0.4, c: [1.2, 0.1, 0.08] },
       { x: 2.6, y: 0.45, z: 1.15, sx: 1.0, sy: 0.9, sz: 0.3, c: TRK_DARK }, { x: 2.6, y: 0.45, z: -1.15, sx: 1.0, sy: 0.9, sz: 0.3, c: TRK_DARK },
       { x: -4.2, y: 0.45, z: 1.15, sx: 1.0, sy: 0.9, sz: 0.3, c: TRK_DARK }, { x: -4.2, y: 0.45, z: -1.15, sx: 1.0, sy: 0.9, sz: 0.3, c: TRK_DARK },
     ]), new THREE.MeshLambertMaterial({ vertexColors: true })));
@@ -260,6 +265,8 @@ class Heli {
       { x: 0, y: 0, z: 0, sx: 4.2, sy: 1.5, sz: 1.8, c: BLUE }, { x: 0, y: 0.35, z: 0, sx: 4.25, sy: 0.22, sz: 1.85, c: YEL }, { x: 1.55, y: 0.25, z: 0, sx: 1.5, sy: 0.95, sz: 1.6, c: [0.55, 0.72, 0.9] },
       { x: -3.8, y: 0.45, z: 0, sx: 4.2, sy: 0.4, sz: 0.4, c: BLUE }, { x: -5.7, y: 1.0, z: 0, sx: 0.18, sy: 1.4, sz: 0.9, c: YEL },
       { x: 0, y: -1.0, z: 0.85, sx: 3.6, sy: 0.12, sz: 0.12, c: DK }, { x: 0, y: -1.0, z: -0.85, sx: 3.6, sy: 0.12, sz: 0.12, c: DK }, { x: 0, y: 0.95, z: 0, sx: 0.3, sy: 0.5, sz: 0.3, c: DK },
+      { x: -5.8, y: 1.0, z: 0.55, sx: 0.12, sy: 1.5, sz: 0.1, c: DK }, { x: -5.8, y: 1.0, z: 0.55, sx: 1.5, sy: 0.12, sz: 0.1, c: DK }, { x: 2.35, y: -0.2, z: 0, sx: 0.12, sy: 0.3, sz: 0.5, c: [1.5, 1.45, 1.0] },
+      { x: 0.4, y: 0.1, z: 0.92, sx: 1.1, sy: 0.9, sz: 0.04, c: [0.1, 0.16, 0.3] }, { x: 0.4, y: 0.1, z: -0.92, sx: 1.1, sy: 0.9, sz: 0.04, c: [0.1, 0.16, 0.3] }, { x: -0.3, y: 1.0, z: 0.4, sx: 0.2, sy: 0.2, sz: 0.2, c: [1.5, 0.1, 0.1] },
     ]), new THREE.MeshLambertMaterial({ vertexColors: true }));
     this.rotor = new THREE.Mesh(mergeBoxes([{ x: 0, y: 0, z: 0, sx: 10, sy: 0.07, sz: 0.5, c: DK }, { x: 0, y: 0, z: 0, sx: 0.5, sy: 0.07, sz: 10, c: DK }]), new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.85 }));
     this.rotor.position.y = 1.25;
@@ -307,7 +314,8 @@ class Giant {
     const torso = []; for (let i = 0; i < 5; i++) torso.push({ x: 0, y: 23.5, z: -2.8 + i * 1.4, sx: 4.2, sy: 9, sz: 1.4, c: i % 2 ? BLU : RED }); // maglia rossoblu
     this.root = new THREE.Group(); this.group = new THREE.Group(); this.group.add(this.root);
     this.root.add(new THREE.Mesh(mergeBoxes([...torso, { x: 0, y: 28.6, z: 0, sx: 3.2, sy: 1.0, sz: 3.0, c: SK }, { x: 0, y: 31.1, z: 0, sx: 3.8, sy: 4.2, sz: 3.8, c: SK }, { x: -0.1, y: 33.5, z: 0, sx: 4.0, sy: 1.2, sz: 4.0, c: HAIR },
-      { x: 1.95, y: 31.7, z: 0.9, sx: 0.2, sy: 0.6, sz: 0.6, c: BK }, { x: 1.95, y: 31.7, z: -0.9, sx: 0.2, sy: 0.6, sz: 0.6, c: BK }, { x: 1.95, y: 30.1, z: 0, sx: 0.2, sy: 0.4, sz: 1.6, c: [0.6, 0.15, 0.15] }, { x: 0, y: 18.7, z: 0, sx: 4.3, sy: 1.6, sz: 7.2, c: JEAN }]), L));
+      { x: 1.93, y: 31.7, z: 0.9, sx: 0.12, sy: 0.9, sz: 0.95, c: WH }, { x: 1.93, y: 31.7, z: -0.9, sx: 0.12, sy: 0.9, sz: 0.95, c: WH }, { x: 2.0, y: 31.6, z: 0.9, sx: 0.2, sy: 0.55, sz: 0.5, c: BK }, { x: 2.0, y: 31.6, z: -0.9, sx: 0.2, sy: 0.55, sz: 0.5, c: BK },
+      { x: 1.95, y: 32.5, z: 0.9, sx: 0.25, sy: 0.25, sz: 1.3, c: HAIR, r: 0.2 }, { x: 1.95, y: 32.5, z: -0.9, sx: 0.25, sy: 0.25, sz: 1.3, c: HAIR, r: -0.2 }, { x: 2.3, y: 30.9, z: 0, sx: 0.8, sy: 0.9, sz: 0.7, c: [0.88, 0.68, 0.55] }, { x: 0, y: 19.7, z: 0, sx: 4.4, sy: 0.4, sz: 7.3, c: BK }, { x: 1.95, y: 30.1, z: 0, sx: 0.2, sy: 0.4, sz: 1.6, c: [0.6, 0.15, 0.15] }, { x: 0, y: 18.7, z: 0, sx: 4.3, sy: 1.6, sz: 7.2, c: JEAN }]), L));
     const limb = (parts, y, z) => { const g = new THREE.Group(); g.position.set(0, y, z); g.add(new THREE.Mesh(mergeBoxes(parts), L)); this.root.add(g); return g; };
     this.legL = limb([{ x: 0, y: -7, z: 0, sx: 2.8, sy: 14, sz: 2.9, c: JEAN }, { x: 1.4, y: -14.4, z: 0, sx: 5.2, sy: 1.8, sz: 3.1, c: WH }], 17.4, 1.9);
     this.legR = limb([{ x: 0, y: -7, z: 0, sx: 2.8, sy: 14, sz: 2.9, c: JEAN }, { x: 1.4, y: -14.4, z: 0, sx: 5.2, sy: 1.8, sz: 3.1, c: WH }], 17.4, -1.9);

@@ -16,9 +16,13 @@ import { Enemies } from './enemies.js';
 import { sfx } from './sfx.js';
 import { Atmosphere, PRESET_NAMES } from './atmosphere.js';
 import { Props } from './props.js';
+import { Particles } from './particles.js';
+import { Post } from './post.js';
+import { Street } from './street.js';
 import { Traffic, Pedestrians } from './traffic.js';
 
 const $ = (id) => document.getElementById(id);
+const FXFORCE = new URLSearchParams(location.search).has('fxforce');
 const DEBUG = new URLSearchParams(location.search).has('debug'), NOTRAFFIC = new URLSearchParams(location.search).has('notraffic'), NOENEMIES = new URLSearchParams(location.search).has('noenemies');
 THREE.ColorManagement.enabled = false; // colori "as-is", niente conversione sRGB: più semplice e leggero
 const SKY = new THREE.Color(0xcfe0ea);
@@ -33,9 +37,12 @@ const camera = new THREE.PerspectiveCamera(60, 2, 0.4, VIEW.fogFar + 40);
 const hemi = new THREE.HemisphereLight(0xffffff, 0x8e8c86, 2.5); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff0d8, 1.5); sun.position.set(-0.5, 1, 0.35); scene.add(sun);
 
+const post = new Post(renderer);
+let fxQ = true; try { fxQ = localStorage.getItem('taxi-bologna:fx') !== '0'; } catch (e) { /* storage non disponibile */ }
+post.on = fxQ && !new URLSearchParams(location.search).has('nofx');
 function resize() {
   const w = innerWidth, h = innerHeight;
-  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); post.setSize();
 }
 addEventListener('resize', resize); resize();
 
@@ -58,7 +65,7 @@ async function boot() {
   const roads = new RoadIndex(world.roads);
   await step('Pianto gli alberi…', 80);
   world.plantTrees(col);
-  const props = new Props(scene, world, col, CANTIERI);
+  const props = new Props(scene, world, col, CANTIERI), street = new Street(scene, world, col);
   const traffic = new Traffic(scene, world, roads, props), peds = new Pedestrians(scene, world, roads);
   scene.add(world.group);
 
@@ -72,7 +79,7 @@ async function boot() {
   const shadow = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 2.2).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false }));
   shadow.visible = false; scene.add(shadow);
   const car = new Car(), groundY = (x, z) => world.groundY(x, z);
-  const fx = new DriftFX(scene);
+  const fx = new DriftFX(scene), parts = new Particles(scene);
   const atmo = new Atmosphere({ scene, camera, world, hemi, sun, ground, taxi });
   let tod = 'giorno'; try { tod = localStorage.getItem('taxi-bologna:tod') || 'giorno'; } catch (e) { /* storage non disponibile */ }
   if (!PRESET_NAMES.includes(tod)) tod = 'giorno';
@@ -126,6 +133,7 @@ async function boot() {
   showBest();
 
   const input = new Input();
+  { const fc = $('fxq'); fc.checked = post.on; fc.addEventListener('change', () => { post.on = fc.checked; try { localStorage.setItem('taxi-bologna:fx', post.on ? '1' : '0'); } catch (e) { /* ignora */ } }); }
   $('auto').addEventListener('change', (e) => { input.auto = e.target.checked; });
 
   // precarico le celle attorno alla partenza
@@ -175,7 +183,7 @@ async function boot() {
   function poseCar(dt) {
     taxi.outer.position.set(car.x, 0.18 + car.y, car.z);
     shadow.position.set(car.x, groundY(car.x, car.z) + 0.2, car.z); shadow.rotation.y = -car.h; shadow.visible = car.air; shadow.scale.setScalar(1 - Math.min(0.5, car.clear * 0.06));
-    taxi.outer.rotation.y = -car.h;
+    taxi.outer.rotation.y = -car.h; taxi.update(car.steer, input.value.brake > 0.3 && car.speed > 1 && !car.air, car.air);
     const roll = THREE.MathUtils.clamp(-car.steer * Math.abs(car.speed) * 0.0035 + car.lat * 0.01, -0.12, 0.12);
     taxi.inner.rotation.x = THREE.MathUtils.lerp(taxi.inner.rotation.x, roll, Math.min(1, 8 * dt));
     const pitch = car.air ? THREE.MathUtils.clamp(Math.atan2(car.vy, Math.max(8, Math.abs(car.speed))), -0.45, 0.45) : 0;
@@ -247,7 +255,7 @@ async function boot() {
     lastT = now;
     world.update(car.x, car.z, 1);
     flames(car.boost > 0 ? car.level : 0, now / 1000);
-    poseCar(dt); updateCamera(dt); fx.update(dt, car, camera); labels.update(dt, car, camH); atmo.update(dt, car);
+    poseCar(dt); if (!window.__freeCam) updateCamera(dt); fx.update(dt, car, camera); parts.update(dt, car, camera, scene.fog.color); labels.update(dt, car, camH); atmo.update(dt, car);
     if (run.state === 'running') {
       $('kmh').textContent = Math.round(Math.abs(car.speed) * 3.6);
       $('time').textContent = fmt(run.t);
@@ -262,18 +270,19 @@ async function boot() {
       if (car.slow > 0) { sSlow.querySelector('u').style.transform = `scaleX(${car.slow / 10})`; sSlow.querySelector('span').textContent = car.slow.toFixed(1); }
       $('speedfx').classList.toggle('on', car.boost > 0);
     }
-    renderer.render(scene, camera);
+    post.render(scene, camera);
 
     // pixel ratio adattivo
     frames++; fpsT += dt;
     if (fpsT >= 2) {
       fps = frames / fpsT; frames = 0; fpsT = 0;
-      if (playing && fps < 27 && pixelRatio > 0.7) { pixelRatio = Math.max(0.7, pixelRatio - 0.15); renderer.setPixelRatio(pixelRatio); resize(); }
+      if (playing && fps < 30 && post.on && !FXFORCE) { post.on = false; fxQ = false; const fc = $('fxq'); if (fc) fc.checked = false; } // troppo lento: spengo il bloom
+      else if (playing && fps < 27 && pixelRatio > 0.7) { pixelRatio = Math.max(0.7, pixelRatio - 0.15); renderer.setPixelRatio(pixelRatio); resize(); }
     }
   }
   requestAnimationFrame(frame);
 
-  window.__taxi = { enemies, nos, props, traffic, peds, taxi, get target() { return target; }, stops, setStop, run, startPos: [sx, sz, startH], car, world, col, roads, input, camera, scene, renderer, get fps() { return fps; }, start() { $('go').click(); }, rescue, free };
+  window.__taxi = { street, post, parts, enemies, nos, props, traffic, peds, taxi, get target() { return target; }, stops, setStop, run, startPos: [sx, sz, startH], car, world, col, roads, input, camera, scene, renderer, get fps() { return fps; }, start() { $('go').click(); }, rescue, free };
   if (DEBUG) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;left:8px;top:8px;font:12px monospace;color:#fff;text-shadow:0 1px 2px #000;z-index:9;pointer-events:none'; document.body.append(d); setInterval(() => { d.textContent = `fps ${fps.toFixed(0)} pr ${pixelRatio.toFixed(2)} cells ${world.cells.size} calls ${renderer.info.render.calls} tris ${renderer.info.render.triangles}`; }, 500); }
 }
 

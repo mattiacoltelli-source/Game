@@ -102,14 +102,21 @@ function makeFacadeTextures() {
   const c = mk(), g = c.getContext('2d'), e = mk(), ge = e.getContext('2d'); let seed = 7;
   const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
   g.fillStyle = '#fff'; g.fillRect(0, 0, 256, 256); ge.fillStyle = '#000'; ge.fillRect(0, 0, 256, 256);
+  const SHUT = ['#4f7a52', '#8a5436', '#c9bda0', '#5b6f8c'], types = [0, 1, 1, 2, 3, 4, 5, 0, 1, 2, 4, 3, 5, 0, 1, 4];
   for (let r = 0; r < 4; r++) for (let q = 0; q < 4; q++) {
-    const x = q * 64, y = r * 64;
+    const x = q * 64, y = r * 64, ty = types[(r * 4 + q * 3 + r * q) % 16], sh = SHUT[Math.floor(rnd() * SHUT.length)];
     g.fillStyle = '#e8e8e8'; g.fillRect(x, y + 56, 64, 8);            // cornice di piano
-    g.fillStyle = '#4b5663'; g.fillRect(x + 19, y + 12, 26, 32);      // vetro
-    g.fillStyle = '#9aa5b1'; g.fillRect(x + 19, y + 12, 26, 5);       // riflesso
-    g.fillStyle = '#d9d2c4'; g.fillRect(x + 16, y + 44, 32, 4);       // davanzale
-    g.fillStyle = '#7b6a58'; g.fillRect(x + 31, y + 12, 2, 32);       // telaio
-    if (rnd() < 0.32) { const warm = rnd() < 0.8; ge.fillStyle = warm ? (rnd() < 0.5 ? '#ffc470' : '#ffdca0') : '#9ec6ff'; ge.fillRect(x + 20, y + 13, 24, 30); }
+    if (ty === 4) { g.fillStyle = '#4b5663'; g.fillRect(x + 19, y + 18, 26, 26); g.beginPath(); g.arc(x + 32, y + 18, 13, Math.PI, 0); g.fill(); g.fillStyle = '#d9d2c4'; g.beginPath(); g.arc(x + 32, y + 18, 15, Math.PI, 0); g.lineWidth = 2; g.strokeStyle = '#d9d2c4'; g.stroke(); } // finestra ad arco
+    else if (ty === 2) { g.fillStyle = '#4b5663'; g.fillRect(x + 20, y + 6, 24, 42); g.fillStyle = '#cfc8ba'; g.fillRect(x + 8, y + 46, 48, 6); g.fillStyle = '#2b2b30'; for (let k = 0; k < 8; k++) g.fillRect(x + 10 + k * 6, y + 38, 2, 8); g.fillRect(x + 8, y + 37, 48, 2); } // porta-finestra con balcone
+    else { g.fillStyle = '#4b5663'; g.fillRect(x + 19, y + 12, 26, 32); }
+    g.fillStyle = '#9aa5b1'; g.fillRect(x + 19, y + (ty === 2 ? 6 : 12), 26, 5); // riflesso
+    if (ty !== 2) { g.fillStyle = '#d9d2c4'; g.fillRect(x + 16, y + 44, 32, 4); }
+    g.fillStyle = '#7b6a58'; g.fillRect(x + 31, y + (ty === 2 ? 6 : 12), 2, ty === 2 ? 42 : 32); // telaio
+    if (ty === 1) { g.fillStyle = sh; g.fillRect(x + 9, y + 10, 9, 36); g.fillRect(x + 46, y + 10, 9, 36); g.fillStyle = 'rgba(0,0,0,0.25)'; for (let k = 0; k < 6; k++) { g.fillRect(x + 9, y + 13 + k * 6, 9, 1); g.fillRect(x + 46, y + 13 + k * 6, 9, 1); } } // persiane
+    if (ty === 3) { g.fillStyle = rnd() < 0.5 ? 'rgba(250,240,225,0.85)' : 'rgba(210,90,70,0.8)'; g.fillRect(x + 19, y + 12, 26, 14); g.fillStyle = 'rgba(0,0,0,0.15)'; g.fillRect(x + 19, y + 26, 26, 2); } // tenda
+    if (ty === 5) { g.fillStyle = '#6b4a38'; g.fillRect(x + 18, y + 40, 28, 5); for (let k = 0; k < 5; k++) { g.fillStyle = k % 2 ? '#d44a4a' : '#e8a8c0'; g.fillRect(x + 19 + k * 6, y + 36, 5, 5); } g.fillStyle = '#3f7a3f'; g.fillRect(x + 18, y + 40, 28, 2); } // fiori
+    if (rnd() < 0.1) { g.fillStyle = '#b9bbbe'; g.fillRect(x + 50, y + 28, 10, 8); g.fillStyle = '#8b8d90'; g.fillRect(x + 52, y + 30, 6, 4); } // condizionatore
+    if (rnd() < 0.32) { const warm = rnd() < 0.8; ge.fillStyle = warm ? (rnd() < 0.5 ? '#ffc470' : '#ffdca0') : '#9ec6ff'; ge.fillRect(x + 20, y + (ty === 2 ? 8 : 13), 24, ty === 2 ? 38 : 30); }
   }
   const t = new THREE.CanvasTexture(c), te = new THREE.CanvasTexture(e);
   for (const x of [t, te]) { x.wrapS = x.wrapT = THREE.RepeatWrapping; x.anisotropy = 2; }
