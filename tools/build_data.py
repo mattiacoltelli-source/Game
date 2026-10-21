@@ -75,6 +75,9 @@ def flat(geom, close=False):
         x, z = proj(g["lat"], g["lon"]); out += [r1(x), r1(z)]
     return out
 
+# Monumenti con modello dedicato nel gioco: nome OSM -> (chiave, altezza m)
+LANDMARKS = {"Asinelli": ("asinelli", 97), "Garisenda": ("garisenda", 48), "Basilica di San Petronio": ("petronio", 42)}
+
 def height(t):
     h = t.get("height") or t.get("building:height")
     try:
@@ -105,7 +108,11 @@ for e in els:
         if len(pts) < 8: continue
         h = height(t)
         if h: hsum += h; hn += 1
-        buildings.append({"h": h, "p": pts})
+        bd = {"h": h, "p": pts}
+        lm = LANDMARKS.get(t.get("name", ""))
+        if lm and not any(b.get("k") == lm[0] for b in buildings):
+            bd["k"] = lm[0]; bd["h"] = lm[1]
+        buildings.append(bd)
     elif "railway" in t:
         rails.append({"p": pts})
     elif "waterway" in t:
@@ -146,7 +153,7 @@ for bd in buildings:
                     if (zs[i] > z) != (zs[j] > z) and x < (xs[j] - xs[i]) * (z - zs[i]) / (zs[j] - zs[i]) + xs[i]: ins = not ins
                 if ins and min(seg_dist(x, z, xs[i], zs[i], xs[(i+1) % n], zs[(i+1) % n]) for i in range(n)) > 1.5:
                     cnt += 1; names.add(nm)
-    if cnt >= 2:
+    if cnt >= 2 and not bd.get("k"):
         for nm in names: dropped[nm] = dropped.get(nm, 0) + 1
     else: kept.append(bd)
 print(f"edifici scartati perché coprono una strada: {len(buildings) - len(kept)}", sorted(dropped.items(), key=lambda kv: -kv[1])[:8])
@@ -157,6 +164,7 @@ DEFAULT_H = 12.0  # ~4 piani, plausibile per il centro di Bologna
 print(f"strade: {len(roads)}  edifici: {len(buildings)} (con altezza {hn}, media {avg:.1f} m)  aree: {len(areas)}  ferrovia: {len(rails)}")
 for bd in buildings:
     bd["h"] = round(bd["h"], 1) if bd["h"] else DEFAULT_H
+print("monumenti:", sorted(b["k"] for b in buildings if b.get("k")))
 
 os.makedirs(OUT, exist_ok=True)
 x0, z0 = proj(BBOX[2], BBOX[1]); x1, z1 = proj(BBOX[0], BBOX[3])
