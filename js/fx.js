@@ -4,7 +4,7 @@ import * as THREE from '../lib/three.module.min.js';
 export class DriftFX {
   constructor(scene) {
     this.puffs = []; this.t = 0; this.pi = 0; this.mi = 0; this.marks = [];
-    const pg = new THREE.CircleGeometry(1, 8);
+    const pg = new THREE.CircleGeometry(1, 14);
     for (let i = 0; i < 16; i++) {
       const m = new THREE.Mesh(pg, new THREE.MeshBasicMaterial({ color: 0xe8e8e8, transparent: true, opacity: 0, depthWrite: false, fog: true }));
       m.visible = false; m.userData = { age: 9, life: 1, vy: 0 }; scene.add(m); this.puffs.push(m);
@@ -29,7 +29,7 @@ export class DriftFX {
     for (const p of this.puffs) {
       const u = p.userData; if (u.age > u.life) { p.visible = false; continue; }
       u.age += dt; const f = u.age / u.life;
-      p.scale.setScalar(0.6 + f * 1.8); p.position.y += dt * 0.8; p.material.opacity = 0.45 * (1 - f);
+      p.scale.setScalar(0.45 + f * 1.2); p.position.y += dt * 0.8; p.material.opacity = 0.45 * (1 - f);
       p.quaternion.copy(camera.quaternion);
     }
   }

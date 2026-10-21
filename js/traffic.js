@@ -47,17 +47,36 @@ const carGeometry = () => mergeBoxes([
   { x: -0.2, y: 1.3, z: 0, sx: 2.1, sy: 0.62, sz: 1.6, c: [0.16, 0.19, 0.24] },
   ...[[1.35, 0.95], [1.35, -0.95], [-1.35, 0.95], [-1.35, -0.95]].map(([x, z]) => ({ x, y: 0.35, z, sx: 0.72, sy: 0.7, sz: 0.3, c: [0.06, 0.06, 0.07] })),
 ]);
+// Tipi di veicolo: geometria, lunghezza, raggio di collisione, centri dei cerchi di collisione e fattore di velocità.
+const G = [0.07, 0.07, 0.08], GL = [0.18, 0.22, 0.28], W1 = [1, 1, 1];
+const wheels = (xs, z, r = 0.35, w = 0.3) => xs.flatMap((x) => [{ x, y: r, z, sx: r * 2, sy: r * 2, sz: w, c: G }, { x, y: r, z: -z, sx: r * 2, sy: r * 2, sz: w, c: G }]);
+const hatchGeo = () => mergeBoxes([{ x: 0, y: 0.65, z: 0, sx: 3.5, sy: 0.8, sz: 1.7, c: W1 }, { x: -0.25, y: 1.3, z: 0, sx: 2.0, sy: 0.7, sz: 1.55, c: GL }, ...wheels([1.1, -1.1], 0.9)]);
+const vanGeo = () => mergeBoxes([{ x: -0.3, y: 1.45, z: 0, sx: 3.8, sy: 1.9, sz: 1.95, c: W1 }, { x: 2.0, y: 0.85, z: 0, sx: 1.5, sy: 1.0, sz: 1.9, c: W1 }, { x: 1.7, y: 1.55, z: 0, sx: 0.9, sy: 0.7, sz: 1.8, c: GL }, ...wheels([1.7, -1.5], 0.95, 0.4)]);
+const RED = [0.78, 0.12, 0.14], CREAM = [0.93, 0.9, 0.82];
+const busGeo = () => mergeBoxes([{ x: 0, y: 1.8, z: 0, sx: 11, sy: 2.5, sz: 2.5, c: RED }, { x: 0, y: 1.0, z: 0, sx: 11.02, sy: 0.5, sz: 2.52, c: CREAM }, { x: 0, y: 2.45, z: 0, sx: 10.6, sy: 0.8, sz: 2.54, c: GL }, { x: 0, y: 3.15, z: 0, sx: 10.6, sy: 0.12, sz: 2.3, c: CREAM }, { x: 5.55, y: 1.9, z: 0, sx: 0.12, sy: 1.6, sz: 2.3, c: GL }, ...wheels([3.6, -3.4], 1.25, 0.5, 0.35)]);
+const boxTruckGeo = () => mergeBoxes([{ x: -1.4, y: 1.9, z: 0, sx: 5.2, sy: 2.6, sz: 2.3, c: [0.92, 0.92, 0.9] }, { x: 1.9, y: 1.1, z: 0, sx: 1.8, sy: 1.5, sz: 2.2, c: [0.15, 0.3, 0.55] }, { x: 2.1, y: 1.7, z: 0, sx: 1.2, sy: 0.7, sz: 2.0, c: GL }, { x: -1.4, y: 3.1, z: 0, sx: 5.1, sy: 0.1, sz: 2.2, c: [0.7, 0.7, 0.72] }, ...wheels([1.9, -0.8, -2.6], 1.15, 0.45, 0.35)]);
+const scooterGeo = () => mergeBoxes([{ x: 0, y: 0.4, z: 0, sx: 1.4, sy: 0.3, sz: 0.4, c: [0.75, 0.15, 0.12] }, { x: 0.55, y: 0.85, z: 0, sx: 0.12, sy: 0.7, sz: 0.55, c: G }, { x: -0.3, y: 1.1, z: 0, sx: 0.4, sy: 0.7, sz: 0.5, c: [0.2, 0.25, 0.5] }, { x: -0.3, y: 1.6, z: 0, sx: 0.3, sy: 0.3, sz: 0.3, c: [0.93, 0.78, 0.65] }, { x: -0.3, y: 1.8, z: 0, sx: 0.34, sy: 0.14, sz: 0.34, c: G }, ...wheels([0.6, -0.6], 0, 0.2, 0.12)]);
+const TYPES = {
+  car: { geo: carGeometry, len: 4.2, r: 1.05, offs: [-1.2, 1.2], spd: 1, tint: true, w: 62 },
+  hatch: { geo: hatchGeo, len: 3.5, r: 1.0, offs: [-0.8, 0.8], spd: 1.05, tint: true, w: 12 },
+  van: { geo: vanGeo, len: 5.4, r: 1.15, offs: [-1.6, 1.4], spd: 0.95, tint: true, w: 9 },
+  bus: { geo: busGeo, len: 11, r: 1.4, offs: [-4, 0, 4], spd: 0.85, tint: false, w: 6 },
+  truck: { geo: boxTruckGeo, len: 7, r: 1.3, offs: [-2.4, 0, 2.2], spd: 0.9, tint: false, w: 5 },
+  scooter: { geo: scooterGeo, len: 1.6, r: 0.6, offs: [0], spd: 1.15, tint: false, w: 6 },
+};
+const TYPE_KEYS = Object.keys(TYPES), TYPE_W = TYPE_KEYS.reduce((a, k) => a + TYPES[k].w, 0);
+const pickType = () => { let r = Math.random() * TYPE_W; for (const k of TYPE_KEYS) { r -= TYPES[k].w; if (r <= 0) return k; } return 'car'; };
 const CAR_COLORS = [0xe8e8e8, 0xc9ccd1, 0x2b2d33, 0xb23a3a, 0x3d5a8a, 0x5a7a52, 0xcdb98a, 0x8a8f99, 0xd9d4c4];
 
 export class Traffic {
   constructor(scene, world, roadIndex, props, max = 16) {
     this.world = world; this.ri = roadIndex; this.props = props; this.max = max; this.cars = []; this.t = 0;
     this.g = new Graph(world.roads, (r) => DRIVE.has(r.c) && !r.n.includes('Matteotti') && r.w >= 5);
-    this.mesh = new THREE.InstancedMesh(carGeometry(), new THREE.MeshLambertMaterial({ vertexColors: true }), 32);
-    this.mesh.frustumCulled = false; this.mesh.count = 0; scene.add(this.mesh);
+    this.meshes = {}; const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+    for (const k of TYPE_KEYS) { const m = new THREE.InstancedMesh(TYPES[k].geo(), mat, 32); m.frustumCulled = false; m.count = 0; scene.add(m); this.meshes[k] = m; }
   }
 
-  reset() { this.cars.length = 0; this.mesh.count = 0; }
+  reset() { this.cars.length = 0; for (const k of TYPE_KEYS) this.meshes[k].count = 0; }
 
   fill(player) { for (let i = 0; i < this.max * 3 && this.cars.length < this.max; i++) this.spawn(player, 60, 300); }
 
@@ -71,8 +90,9 @@ export class Traffic {
     if (!pick) return;
     const [r, i] = pick, d = Math.random() < 0.5 ? 1 : -1, a = d > 0 ? i : i + 1, b = d > 0 ? i + 1 : i, sg = this.g.seg(r._i, a, b), s = Math.random() * sg.L;
     const lane = Math.min(2.3, r.w * 0.27), x = sg.ax + sg.ux * s - sg.uz * lane, z = sg.az + sg.uz * s + sg.ux * lane;
-    for (const o of this.cars) if (Math.hypot(o.x - x, o.z - z) < 9) return;
-    this.cars.push({ ri: r._i, a, b, s, x, z, h: Math.atan2(sg.uz, sg.ux), spd: 0, cruise: (CRUISE[r.c] || 8) * rnd(0.8, 1.2), offx: 0, offz: 0, still: 0, col: new THREE.Color(CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)]), nxt: null });
+    for (const o of this.cars) if (Math.hypot(o.x - x, o.z - z) < 12) return;
+    const type = pickType(), T = TYPES[type];
+    this.cars.push({ type, ri: r._i, a, b, s, x, z, h: Math.atan2(sg.uz, sg.ux), spd: 0, cruise: (CRUISE[r.c] || 8) * rnd(0.8, 1.2) * T.spd, offx: 0, offz: 0, still: 0, col: new THREE.Color(T.tint ? CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)] : 0xffffff), nxt: null });
   }
 
   update(dt, player) {
@@ -83,7 +103,7 @@ export class Traffic {
       if (dp > 380 || (c.still > 6 && dp > 30)) { cars.splice(k, 1); continue; }
       let sg = this.g.seg(c.ri, c.a, c.b), lim = c.cruise;
       const hx = Math.cos(c.h), hz = Math.sin(c.h);
-      const lead = (x, z, v) => { const dx = x - c.x, dz = z - c.z, f = dx * hx + dz * hz, l = Math.abs(-dx * hz + dz * hx); if (f > 0 && f < 18 && l < 2.2) { const gap = f - 4.2; lim = Math.min(lim, gap < 1.5 ? 0 : Math.max(0, v * 0.9 + (gap - 2) * 0.8)); } };
+      const lead = (x, z, v) => { const dx = x - c.x, dz = z - c.z, f = dx * hx + dz * hz, l = Math.abs(-dx * hz + dz * hx); if (f > 0 && f < 22 && l < 2.2) { const gap = f - (TYPES[c.type].len / 2 + 2.1); lim = Math.min(lim, gap < 1.5 ? 0 : Math.max(0, v * 0.9 + (gap - 2) * 0.8)); } };
       for (const o of cars) if (o !== c) lead(o.x, o.z, o.spd);
       lead(player.x, player.z, Math.max(0, player.vx * hx + player.vz * hz));
       if (this.props) for (const q of this.props.circles) if (Math.abs(q.x - c.x) < 20 && Math.abs(q.z - c.z) < 20) lead(q.x, q.z, 0);
@@ -107,11 +127,11 @@ export class Traffic {
     if (player.clear > 1.6) return 0;
     const pf = [Math.cos(player.h), Math.sin(player.h)]; let worst = 0;
     for (const c of this.cars) {
-      if (Math.hypot(c.x - player.x, c.z - player.z) > 7) continue;
+      if (Math.hypot(c.x - player.x, c.z - player.z) > 10) continue;
       const cx = Math.cos(c.h), cz = Math.sin(c.h), ax = c.x + c.offx, az = c.z + c.offz;
-      for (const ao of [-1.2, 1.2]) for (const po of [-1.4, 0, 1.4]) {
+      const T = TYPES[c.type]; for (const ao of T.offs) for (const po of [-1.4, 0, 1.4]) {
         const qx = ax + cx * ao, qz = az + cz * ao, px = player.x + pf[0] * po, pz = player.z + pf[1] * po;
-        let dx = px - qx, dz = pz - qz; const d = Math.hypot(dx, dz), pen = 1.05 + 0.92 - d; if (pen <= 0) continue;
+        let dx = px - qx, dz = pz - qz; const d = Math.hypot(dx, dz), pen = T.r + 0.92 - d; if (pen <= 0) continue;
         if (d < 1e-4) { dx = 1; dz = 0; } else { dx /= d; dz /= d; }
         player.x += dx * pen * 0.55; player.z += dz * pen * 0.55; c.offx -= dx * pen * 0.45; c.offz -= dz * pen * 0.45;
         const vrel = (player.vx - c.spd * cx) * dx + (player.vz - c.spd * cz) * dz;
@@ -124,9 +144,10 @@ export class Traffic {
   }
 
   draw() {
-    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sc = new THREE.Vector3(1, 1, 1), pos = new THREE.Vector3();
-    this.cars.forEach((c, i) => { e.set(0, -c.h, 0); q.setFromEuler(e); pos.set(c.x + c.offx, 0.18, c.z + c.offz); m.compose(pos, q, sc); this.mesh.setMatrixAt(i, m); this.mesh.setColorAt(i, c.col); });
-    this.mesh.count = this.cars.length; this.mesh.instanceMatrix.needsUpdate = true; if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sc = new THREE.Vector3(1, 1, 1), pos = new THREE.Vector3(), n = {};
+    for (const k of TYPE_KEYS) n[k] = 0;
+    for (const c of this.cars) { const k = c.type, i = n[k]++; if (i >= 32) { n[k] = 32; continue; } e.set(0, -c.h, 0); q.setFromEuler(e); pos.set(c.x + c.offx, 0.18, c.z + c.offz); m.compose(pos, q, sc); this.meshes[k].setMatrixAt(i, m); this.meshes[k].setColorAt(i, c.col); }
+    for (const k of TYPE_KEYS) { const mm = this.meshes[k]; mm.count = n[k]; mm.instanceMatrix.needsUpdate = true; if (mm.instanceColor) mm.instanceColor.needsUpdate = true; }
   }
 }
 

@@ -81,6 +81,17 @@ async function boot() {
   const car = new Car(), groundY = (x, z) => world.groundY(x, z);
   const fx = new DriftFX(scene), parts = new Particles(scene);
   const atmo = new Atmosphere({ scene, camera, world, hemi, sun, ground, taxi });
+  { // Piazza Maggiore: ovale rosato sul lastricato (come nelle foto)
+    const poi = (data.labels.pois || []).find((q) => q.n === 'Piazza Maggiore'), pz = poi && { x: poi.x, z: poi.z };
+    if (pz) {
+      const c = document.createElement('canvas'); c.width = 256; c.height = 128; const g = c.getContext('2d');
+      const el = (rx, ry, col) => { g.fillStyle = col; g.beginPath(); g.ellipse(128, 64, rx, ry, 0, 0, 7); g.fill(); };
+      el(126, 62, '#a8695f'); el(118, 55, '#e6d8c4'); el(104, 46, '#b97a6e'); el(98, 41, '#efe3d0');
+      g.strokeStyle = '#c9a99a'; g.lineWidth = 2; for (let k = -3; k <= 3; k++) { g.beginPath(); g.moveTo(128 + k * 28, 28); g.lineTo(128 + k * 28, 100); g.stroke(); } g.beginPath(); g.moveTo(40, 64); g.lineTo(216, 64); g.stroke();
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(70, 35).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
+      m.position.set(pz.x, 0.075, pz.z); m.renderOrder = 1; scene.add(m); atmo.decals = [m];
+    }
+  }
   let tod = 'giorno'; try { tod = localStorage.getItem('taxi-bologna:tod') || 'giorno'; } catch (e) { /* storage non disponibile */ }
   if (!PRESET_NAMES.includes(tod)) tod = 'giorno';
   atmo.set(tod);

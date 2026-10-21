@@ -55,6 +55,7 @@ export class Atmosphere {
     const az = (P.az == null ? 135 : P.az) * Math.PI / 180, el = P.el * Math.PI / 180; this.sun.position.set(Math.cos(az) * Math.cos(el), Math.sin(el), Math.sin(az) * Math.cos(el));
     const tint = new THREE.Color(...P.tint);
     this.ground.material.color.copy(this.groundBase).multiply(tint); this.world.matGround.color.copy(tint); this.world.matPlaza.color.copy(tint);
+    for (const d of this.decals || []) d.material.color.setRGB(tint.r, tint.g, tint.b); // decalcomanie sul terreno (es. ovale di Piazza Maggiore)
     this.world.matBuilding.emissiveIntensity = P.emissive; this.world.matArcade.emissiveIntensity = 0;
     this.world.setSun(P.az, P.el, P.shadow);
     // nuvole/sole/stelle secondo il preset

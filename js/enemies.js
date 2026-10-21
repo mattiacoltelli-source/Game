@@ -3,6 +3,7 @@ import { mergeBoxes } from './geom.js';
 import { Graph } from './traffic.js';
 import { sfx } from './sfx.js';
 import { Train } from './train.js';
+import { Tarta } from './tarta.js';
 
 // Nemici arcade: il treno LUCCHIO (sui binari) e l'elicottero MACCO (in aria).
 // I colpi sono "mortai": prima compare un cerchio rosso a terra dove cadranno (si può schivare), poi esplodono.
@@ -103,8 +104,8 @@ class Truck {
       { x: 2.6, y: 0.45, z: 1.15, sx: 1.0, sy: 0.9, sz: 0.3, c: TRK_DARK }, { x: 2.6, y: 0.45, z: -1.15, sx: 1.0, sy: 0.9, sz: 0.3, c: TRK_DARK },
       { x: -4.2, y: 0.45, z: 1.15, sx: 1.0, sy: 0.9, sz: 0.3, c: TRK_DARK }, { x: -4.2, y: 0.45, z: -1.15, sx: 1.0, sy: 0.9, sz: 0.3, c: TRK_DARK },
     ]), new THREE.MeshLambertMaterial({ vertexColors: true })));
-    this.group.visible = false; scene.add(this.group);
-    this.tag = nameTag('SIMO PAKELO', '#7a3b00'); this.tag.visible = false; scene.add(this.tag);
+    this.group.scale.setScalar(1.4); this.group.visible = false; scene.add(this.group);
+    this.tag = nameTag('SIMO PAKELO', '#7a3b00'); this.tag.scale.set(18, 4.5, 1); this.tag.visible = false; scene.add(this.tag);
     // chiazze d'olio (istanze piatte)
     const geo = new THREE.CircleGeometry(1, 20); geo.rotateX(-Math.PI / 2);
     this.puddles = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({ color: 0x0b0710, transparent: true, opacity: 0.88, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), MAX_OIL);
@@ -118,7 +119,7 @@ class Truck {
     let pick = null, n = 0; const hx = Math.cos(player.h), hz = Math.sin(player.h);
     this.ri.segmentsNear(player.x, player.z, 140, (r, i) => {
       if (!this.g.ok.has(r)) return; const p = r.p, mx = (p[i * 2] + p[i * 2 + 2]) / 2, mz = (p[i * 2 + 1] + p[i * 2 + 3]) / 2, dx = mx - player.x, dz = mz - player.z, d = Math.hypot(dx, dz);
-      if (d < 70 || d > 120 || (dx * hx + dz * hz) / d < 0.55) return; if (++n * Math.random() < 1) pick = [r, i];
+      if (d < 55 || d > 90 || (dx * hx + dz * hz) / d < 0.55) return; if (++n * Math.random() < 1) pick = [r, i];
     });
     if (!pick) return false;
     const [r, i] = pick, fw = (r.p[i * 2 + 2] - r.p[i * 2]) * hx + (r.p[i * 2 + 3] - r.p[i * 2 + 1]) * hz >= 0, a = fw ? i : i + 1, b = fw ? i + 1 : i, sg = this.g.seg(r._i, a, b);
@@ -139,7 +140,7 @@ class Truck {
       if (d > 300 || this.age > 45) { this.group.visible = this.tag.visible = false; this.state = 'off'; this.cool = 18; }
       else {
         const pf = [Math.cos(player.h), Math.sin(player.h)], gap = dx * -pf[0] + dz * -pf[1]; // gap > 0: il tir sta davanti
-        const psp = Math.hypot(player.vx, player.vz); let want = psp + clamp((55 - gap) * 0.35, -6, 14); if (gap < -10) want = 40; // se lo superi, accelera e scappa
+        const psp = Math.hypot(player.vx, player.vz); let want = psp + clamp((40 - gap) * 0.35, -6, 14); if (gap < -10) want = 40; // se lo superi, accelera e scappa
         let sg = this.g.seg(this.cr, this.a, this.b); this.spd += clamp(clamp(want, 14, 46) - this.spd, -22 * dt, 12 * dt); this.s += this.spd * dt;
         while (this.s >= sg.L) {
           this.s -= sg.L; let best = null, bd = 1e9;
@@ -148,11 +149,11 @@ class Truck {
         }
         const tx = sg.ax + sg.ux * this.s, tz = sg.az + sg.uz * this.s; this.x += (tx - this.x) * Math.min(1, 10 * dt); this.z += (tz - this.z) * Math.min(1, 10 * dt);
         let dh = Math.atan2(sg.uz, sg.ux) - this.h; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); this.h += dh * Math.min(1, 5 * dt);
-        this.group.position.set(this.x, 0.1, this.z); this.group.rotation.y = -this.h; this.tag.position.set(this.x, 6.4, this.z);
+        this.group.position.set(this.x, 0.1, this.z); this.group.rotation.y = -this.h; this.tag.position.set(this.x, 8.6, this.z);
         // olio: il tir lo scarica dalla coda della cisterna sulla strada che hai davanti
         this.dropT -= dt;
         if (this.dropT <= 0 && d < 160) {
-          const tl = [Math.cos(this.h), Math.sin(this.h)]; this.drop(this.x - tl[0] * 10 + rnd(-1, 1), this.z - tl[1] * 10 + rnd(-1, 1), rnd(6, 8)); this.dropT = rnd(0.7, 1.1); sfx.thud && sfx.thud(0.25);
+          const tl = [Math.cos(this.h), Math.sin(this.h)]; this.drop(this.x - tl[0] * 13 + rnd(-1, 1), this.z - tl[1] * 13 + rnd(-1, 1), rnd(4.2, 5.6)); this.dropT = rnd(0.7, 1.1); sfx.thud && sfx.thud(0.25);
         }
       }
     }
@@ -172,8 +173,8 @@ class Truck {
   collide(player) {
     if (this.state !== 'on' || player.clear > 2.2) return false;
     const pf = [Math.cos(player.h), Math.sin(player.h)], tf = [Math.cos(this.h), Math.sin(this.h)];
-    for (const to of [-5.5, -2.5, 0.5, 3.5, 6.5]) for (const po of [-1.4, 0, 1.4]) {
-      let dx = player.x + pf[0] * po - (this.x + tf[0] * to), dz = player.z + pf[1] * po - (this.z + tf[1] * to); const d = Math.hypot(dx, dz), pen = 1.5 + 0.92 - d; if (pen <= 0) continue;
+    for (const to of [-7.5, -3.5, 0.5, 4.5, 8.5]) for (const po of [-1.4, 0, 1.4]) {
+      let dx = player.x + pf[0] * po - (this.x + tf[0] * to), dz = player.z + pf[1] * po - (this.z + tf[1] * to); const d = Math.hypot(dx, dz), pen = 2.1 + 0.92 - d; if (pen <= 0) continue;
       if (d > 1e-3) { dx /= d; dz /= d; } else { dx = 0; dz = 1; }
       player.x += dx * pen; player.z += dz * pen; const vn = player.vx * dx + player.vz * dz; if (vn < 0) { player.vx -= vn * dx * 1.5; player.vz -= vn * dz * 1.5; } player.oil = Math.max(player.oil, 1.5); return 'bump';
     }
@@ -389,21 +390,21 @@ class Giant {
 
 export class Enemies {
   constructor(scene, world, roadIndex, ctx) {
-    this.fx = new Fx(scene, ctx); this.train = new Train(scene, this.fx, ctx, nameTag); this.truck = new Truck(scene, world, roadIndex, this.fx, ctx); this.heli = new Heli(scene, this.fx, ctx); this.giant = new Giant(scene, this.fx, ctx); this.ctx = ctx; this.t = 0; this.last = null;
+    this.fx = new Fx(scene, ctx); this.train = new Train(scene, this.fx, ctx, nameTag); this.tarta = new Tarta(scene, world, roadIndex, this.fx, ctx, nameTag); this.truck = new Truck(scene, world, roadIndex, this.fx, ctx); this.heli = new Heli(scene, this.fx, ctx); this.giant = new Giant(scene, this.fx, ctx); this.ctx = ctx; this.t = 0; this.last = null;
     this.giant.onPhase = (ph) => { // fase 2: arriva Macco, fase 3: arriva Lucchio
       if (ph === 2) { this.heli.forceSpawn(this.last); ctx.toast('Fase 2: Macco si unisce a Cos!'); }
       if (ph === 3) { this.train.hold = false; this.train.summon(this.last); ctx.toast('Fase 3: arriva anche Lucchio!'); }
     };
   }
-  reset() { this.t = 0; this.fx.reset(); this.train.reset(); this.train.hold = false; this.truck.reset(); this.heli.reset(); this.giant.reset(); this.last = null; }
+  reset() { this.t = 0; this.fx.reset(); this.train.reset(); this.train.hold = false; this.tarta.reset(); this.truck.reset(); this.heli.reset(); this.giant.reset(); this.last = null; }
   // Inizia il boss finale: sospende le apparizioni normali e fa comparire Cos con la barra della vita.
-  startBoss(player) { this.reset(); this.last = player; this.t = 1e5; this.train.hold = true; this.truck.cool = 1e9; this.heli.cool = 1e9; this.giant.startBoss(player); }
+  startBoss(player) { this.reset(); this.last = player; this.t = 1e5; this.train.hold = true; this.tarta.hold = true; this.truck.cool = 1e9; this.heli.cool = 1e9; this.giant.startBoss(player); }
   get boss() { return this.giant.boss; }
   // Posizioni dei nemici attivi (per la minimappa).
-  points() { const o = []; if (this.train.near && this.train.state !== 'dead') o.push({ x: this.train.x, z: this.train.z }); if (this.truck.state === 'on') o.push({ x: this.truck.x, z: this.truck.z }); if (this.heli.state === 'on') o.push({ x: this.heli.x, z: this.heli.z }); if (this.giant.state !== 'off') o.push({ x: this.giant.x, z: this.giant.z }); return o; }
+  points() { const o = []; if (this.train.near && this.train.state !== 'dead') o.push({ x: this.train.x, z: this.train.z }); if (this.truck.state === 'on') o.push({ x: this.truck.x, z: this.truck.z }); if (this.tarta.state !== 'off') o.push({ x: this.tarta.x, z: this.tarta.z }); if (this.heli.state === 'on') o.push({ x: this.heli.x, z: this.heli.z }); if (this.giant.state !== 'off') o.push({ x: this.giant.x, z: this.giant.z }); return o; }
   get shake() { return this.fx.shake; }
   update(dt, player) {
-    this.t += dt; this.last = player; this.fx.update(dt); this.train.update(dt, player, this.t); this.truck.update(dt, player, this.t); this.truck.collide(player); this.heli.update(dt, player, this.t); this.giant.update(dt, player, this.t); this.giant.collide(player);
+    this.t += dt; this.last = player; this.fx.update(dt); this.train.update(dt, player, this.t); this.tarta.update(dt, player, this.t); this.truck.update(dt, player, this.t); this.truck.collide(player); this.heli.update(dt, player, this.t); this.giant.update(dt, player, this.t); this.giant.collide(player);
     return this.train.collide(player);
   }
 }
