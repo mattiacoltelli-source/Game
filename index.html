@@ -14,6 +14,11 @@
 <canvas id="c"></canvas>
 
 <div id="hud" hidden>
+  <canvas id="mini" aria-label="Minimappa"></canvas>
+  <div id="top">
+    <div id="meter" aria-label="Cronometro"><b id="time">0:00.00</b></div>
+    <div id="goal"><svg id="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 20l-7-4-7 4z"/></svg><span id="goal-txt">Vai dal cliente</span><em id="dist"></em></div>
+  </div>
   <div id="speed"><b id="kmh">0</b><small>km/h</small></div>
   <div id="toast" aria-live="polite"></div>
 </div>
@@ -31,11 +36,21 @@
 
 <div id="screen-start" class="screen" hidden>
   <div class="card">
-    <p class="kicker">Corsa disponibile</p>
     <h1>Taxi Bologna</h1>
-    <p class="route"><span>Bolognina</span><i></i><span>Fiera</span><i></i><span>Piazza Maggiore</span></p>
+    <p class="job">Corsa disponibile</p>
+    <p class="route"><span>Bolognina</span><i></i><span id="cust-name">Fiera di Bologna</span></p>
+    <p class="best" id="best-start"></p>
     <button id="go" class="primary">Parti</button>
     <label class="opt"><input type="checkbox" id="auto"> Acceleratore automatico</label>
+  </div>
+</div>
+
+<div id="screen-end" class="screen" hidden>
+  <div class="card">
+    <h1>Cliente a destinazione</h1>
+    <div class="lcd"><b id="end-time">0:00.00</b></div>
+    <p class="best" id="end-best"></p>
+    <button id="again" class="primary">Rigioca</button>
   </div>
 </div>
 

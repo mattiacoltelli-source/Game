@@ -35,7 +35,6 @@ canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 .screen { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(120% 120% at 50% 0%, #1f2730 0%, var(--bg) 70%); z-index: 5; padding: 12px; }
 #screen-start { background: linear-gradient(180deg, #14181dcc, #14181de6); }
 .card { text-align: center; max-width: 420px; }
-.kicker { margin: 0 0 4px; color: var(--accent); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; font-weight: 700; }
 h1 { margin: 0 0 10px; font-size: 34px; letter-spacing: -.01em; }
 .route { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0 0 16px; color: var(--muted); font-size: 14px; }
 .route i { width: 22px; height: 2px; background: var(--accent); border-radius: 2px; }
@@ -53,3 +52,18 @@ h1 { margin: 0 0 10px; font-size: 34px; letter-spacing: -.01em; }
 #osm { position: fixed; left: 50%; bottom: 3px; transform: translateX(-50%); z-index: 6; font-size: 10px; color: #fffc; text-shadow: 0 1px 2px #000a; text-decoration: none; white-space: nowrap; pointer-events: auto; }
 
 @media (max-height: 420px) { h1 { font-size: 28px; } :root { --btn: 78px; } .gas { width: 98px; height: 98px; } }
+
+/* Minimappa, tassametro, obiettivo */
+#mini { position: absolute; top: max(10px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); width: 132px; height: 132px; border-radius: 50%; border: 3px solid #0d1116; box-shadow: 0 0 0 2px #ffffff33, 0 4px 14px #0007; }
+#top { position: absolute; top: max(8px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: grid; justify-items: center; gap: 6px; }
+#meter, .lcd { background: #0b0e11; border: 2px solid #ffffff2e; border-radius: 12px; padding: 4px 14px 2px; box-shadow: inset 0 2px 8px #000a; }
+#meter b, .lcd b { font: 700 30px/1.1 ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: #ffb000; font-variant-numeric: tabular-nums; letter-spacing: .04em; text-shadow: 0 0 10px #ffb00066; }
+#goal { display: flex; align-items: center; gap: 8px; padding: 5px 12px 5px 8px; border-radius: 999px; background: #10151acc; font-size: 14px; white-space: nowrap; }
+#goal em { font-style: normal; color: var(--accent); font-variant-numeric: tabular-nums; min-width: 3.4em; text-align: right; }
+#arrow { width: 22px; height: 22px; fill: var(--accent); stroke: #14181d; stroke-width: 1.2; stroke-linejoin: round; transition: transform .1s linear; }
+.job { margin: 0 0 6px; color: var(--ink); font-size: 18px; }
+.best { margin: 0 0 16px; min-height: 1.3em; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.best.new { color: var(--accent); font-weight: 700; }
+.lcd { display: inline-block; padding: 8px 22px 6px; margin: 4px 0 12px; }
+.lcd b { font-size: 46px; }
+@media (max-height: 420px) { #mini { width: 112px; height: 112px; } .lcd b { font-size: 38px; } .card h1 { margin-bottom: 4px; } .lcd { margin: 0 0 8px; } .best { margin-bottom: 10px; } }

@@ -95,6 +95,16 @@ export class RoadIndex {
     });
   }
 
+  // Chiama fn(strada, i) una volta per ogni segmento nel quadrato di lato 2r attorno a (x,z).
+  segmentsNear(x, z, r, fn) {
+    const seen = new Set();
+    for (let cx = Math.floor((x - r) / CELL); cx <= Math.floor((x + r) / CELL); cx++)
+      for (let cz = Math.floor((z - r) / CELL); cz <= Math.floor((z + r) / CELL); cz++) {
+        const a = this.grid.get(cx * 100003 + cz); if (!a) continue;
+        for (let s = 0; s < a.length; s += 2) { const k = a[s] * 100000 + a[s + 1]; if (seen.has(k)) continue; seen.add(k); fn(this.roads[a[s]], a[s + 1]); }
+      }
+  }
+
   // Punto di strada più vicino a (x,z) per cui accept(x,z) è vero. Campiona i segmenti ogni ~2 m.
   nearest(x, z, accept = () => true, maxR = 400) {
     let best = null;

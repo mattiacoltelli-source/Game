@@ -1,5 +1,5 @@
 import * as THREE from '../lib/three.module.min.js';
-import { START, VIEW } from './config.js';
+import { START, VIEW, CUSTOMERS, STOP_SPEED } from './config.js';
 import { loadData, World } from './world.js';
 import { Collider, RoadIndex } from './collider.js';
 import { Car } from './car.js';
@@ -7,6 +7,8 @@ import { Input } from './input.js';
 import { buildTaxi } from './carmodel.js';
 import { DriftFX } from './fx.js';
 import { GROUND_COLOR } from './world.js';
+import { Minimap } from './minimap.js';
+import { buildMarker } from './marker.js';
 
 const $ = (id) => document.getElementById(id);
 const DEBUG = new URLSearchParams(location.search).has('debug');
@@ -28,6 +30,11 @@ function resize() {
   renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
 }
 addEventListener('resize', resize); resize();
+
+const fmt = (t) => { const m = Math.floor(t / 60), sec = t - m * 60; return `${m}:${sec < 10 ? '0' : ''}${sec.toFixed(2)}`; };
+const bestKey = (id) => `taxi-bologna:best:${id}`;
+const loadBest = (id) => { try { const v = parseFloat(localStorage.getItem(bestKey(id))); return v > 0 ? v : null; } catch (e) { return null; } };
+const saveBest = (id, t) => { try { localStorage.setItem(bestKey(id), String(t)); } catch (e) { /* storage non disponibile */ } };
 
 let toastT = 0;
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1800); }
@@ -57,6 +64,18 @@ async function boot() {
   const startH = Math.atan2(fp[1] - sz, fp[0] - sx);
   car.place(sx, sz, startH);
   let camH = startH, camD = 8, camPos = new THREE.Vector3();
+
+  // corsa: per ora una sola tratta, partenza -> primo cliente (la lista CUSTOMERS è dati)
+  const cust = CUSTOMERS[0];
+  const cp = world.project(cust.lat, cust.lon), cs = roads.nearest(cp[0], cp[1], free);
+  const target = { x: cs ? cs.x : cp[0], z: cs ? cs.z : cp[1], r: cust.raggio, id: cust.id, nome: cust.nome };
+  const marker = buildMarker(target.r); marker.position.set(target.x, 0, target.z); scene.add(marker);
+  const mini = new Minimap($('mini'), roads);
+  const run = { state: 'menu', t: 0, warned: false }; // menu | running | done
+  $('cust-name').textContent = target.nome;
+  $('goal-txt').textContent = 'Vai dal cliente';
+  const showBest = () => { const b = loadBest(target.id); $('best-start').textContent = b ? `Record: ${fmt(b)}` : 'Nessun record ancora'; };
+  showBest();
 
   const input = new Input();
   $('auto').addEventListener('change', (e) => { input.auto = e.target.checked; });
@@ -106,13 +125,28 @@ async function boot() {
   $('screen-load').hidden = true;
   $('screen-start').hidden = false;
   let playing = false;
+  function beginRun() {
+    car.place(sx, sz, startH); camH = startH; camD = 8; input.override = null; input.keys.clear();
+    run.state = 'running'; run.t = 0; run.warned = false; playing = true;
+    $('screen-start').hidden = true; $('screen-end').hidden = true; $('hud').hidden = false; $('controls').hidden = false;
+  }
+  function finishRun() {
+    run.state = 'done'; playing = false; input.override = null;
+    const prev = loadBest(target.id), isNew = !prev || run.t < prev;
+    if (isNew) saveBest(target.id, run.t);
+    $('end-time').textContent = fmt(run.t);
+    const el = $('end-best'); el.classList.toggle('new', isNew);
+    el.textContent = isNew ? (prev ? `Nuovo record! Prima: ${fmt(prev)}` : 'Primo record salvato!') : `Record: ${fmt(prev)}`;
+    $('hud').hidden = true; $('controls').hidden = true; $('screen-end').hidden = false; showBest();
+  }
+  $('again').addEventListener('click', beginRun);
   $('go').addEventListener('click', () => {
-    $('screen-start').hidden = true; $('hud').hidden = false; $('controls').hidden = false; playing = true;
+    beginRun();
     const el = document.documentElement;
     try { (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el)?.catch?.(() => {}); screen.orientation?.lock?.('landscape')?.catch(() => {}); } catch (e) { /* best effort */ }
   });
 
-  let last = performance.now(), acc = 0, frames = 0, fpsT = 0, fps = 60;
+  let lastT = performance.now(), last = lastT, acc = 0, frames = 0, fpsT = 0, fps = 60;
   function frame(now) {
     requestAnimationFrame(frame);
     let dt = Math.min(0.05, (now - last) / 1000); last = now;
@@ -121,10 +155,24 @@ async function boot() {
       const inp = input.value, n = Math.ceil(dt / (1 / 90)), h = dt / n;
       for (let i = 0; i < n; i++) car.step(h, inp, col, world.meta.bounds);
       if (car.needsRescue()) rescue();
+      run.t += Math.min(0.25, (now - lastT) / 1000);
+      const d = Math.hypot(target.x - car.x, target.z - car.z);
+      if (d < target.r) {
+        if (Math.abs(car.speed) < STOP_SPEED) finishRun();
+        else if (!run.warned) { run.warned = true; toast('Fermati nel cerchio'); }
+      } else run.warned = false;
     }
+    lastT = now;
     world.update(car.x, car.z, 1);
     poseCar(dt); updateCamera(dt); fx.update(dt, car, camera);
-    $('kmh').textContent = Math.round(Math.abs(car.speed) * 3.6);
+    if (run.state === 'running') {
+      $('kmh').textContent = Math.round(Math.abs(car.speed) * 3.6);
+      $('time').textContent = fmt(run.t);
+      const dx = target.x - car.x, dz = target.z - car.z;
+      $('dist').textContent = `${Math.round(Math.hypot(dx, dz))} m`;
+      $('arrow').style.transform = `rotate(${Math.atan2(dz, dx) - camH}rad)`;
+      mini.update(dt, car, target);
+    }
     renderer.render(scene, camera);
 
     // pixel ratio adattivo
@@ -136,7 +184,7 @@ async function boot() {
   }
   requestAnimationFrame(frame);
 
-  window.__taxi = { car, world, col, roads, input, camera, scene, renderer, get fps() { return fps; }, start() { $('go').click(); }, rescue, free };
+  window.__taxi = { target, run, startPos: [sx, sz, startH], car, world, col, roads, input, camera, scene, renderer, get fps() { return fps; }, start() { $('go').click(); }, rescue, free };
   if (DEBUG) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;left:8px;top:8px;font:12px monospace;color:#fff;text-shadow:0 1px 2px #000;z-index:9;pointer-events:none'; document.body.append(d); setInterval(() => { d.textContent = `fps ${fps.toFixed(0)} pr ${pixelRatio.toFixed(2)} cells ${world.cells.size} calls ${renderer.info.render.calls} tris ${renderer.info.render.triangles}`; }, 500); }
 }
 

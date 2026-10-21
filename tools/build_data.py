@@ -114,6 +114,44 @@ for e in els:
         k = "water" if t.get("natural") == "water" else ("wood" if (t.get("natural") == "wood" or t.get("landuse") == "forest") else "green")
         if len(pts) >= 8: areas.append({"k": k, "p": pts})
 
+# Edifici che coprono l'asse di una strada (cavalcavia, passaggi, portici mappati come "building"):
+# bloccherebbero strade reali, quindi si scartano. Serve che l'asse stia dentro per >= ~4 m e >1.5 m dal bordo.
+def seg_dist(px, pz, ax, az, bx, bz):
+    dx, dz = bx - ax, bz - az; L2 = dx * dx + dz * dz or 1e-9
+    t = max(0, min(1, ((px - ax) * dx + (pz - az) * dz) / L2))
+    return math.hypot(px - ax - t * dx, pz - az - t * dz)
+
+G = 50
+samples = {}
+for rd in roads:
+    p = rd["p"]
+    for i in range(len(p) // 2 - 1):
+        ax, az, bx, bz = p[i*2], p[i*2+1], p[i*2+2], p[i*2+3]
+        n = max(1, int(math.hypot(bx - ax, bz - az) // 2))
+        for k in range(n + 1):
+            x, z = ax + (bx - ax) * k / n, az + (bz - az) * k / n
+            samples.setdefault((int(x // G), int(z // G)), []).append((x, z, rd["n"] or rd["c"]))
+kept, dropped = [], {}
+for bd in buildings:
+    p = bd["p"]; n = len(p) // 2
+    xs, zs = p[0::2], p[1::2]
+    cnt = 0; names = set()
+    for gx in range(int(min(xs) // G), int(max(xs) // G) + 1):
+        for gz in range(int(min(zs) // G), int(max(zs) // G) + 1):
+            for x, z, nm in samples.get((gx, gz), ()):
+                if x < min(xs) or x > max(xs) or z < min(zs) or z > max(zs): continue
+                ins = False
+                for i in range(n):
+                    j = (i + 1) % n
+                    if (zs[i] > z) != (zs[j] > z) and x < (xs[j] - xs[i]) * (z - zs[i]) / (zs[j] - zs[i]) + xs[i]: ins = not ins
+                if ins and min(seg_dist(x, z, xs[i], zs[i], xs[(i+1) % n], zs[(i+1) % n]) for i in range(n)) > 1.5:
+                    cnt += 1; names.add(nm)
+    if cnt >= 2:
+        for nm in names: dropped[nm] = dropped.get(nm, 0) + 1
+    else: kept.append(bd)
+print(f"edifici scartati perché coprono una strada: {len(buildings) - len(kept)}", sorted(dropped.items(), key=lambda kv: -kv[1])[:8])
+buildings = kept
+
 avg = hsum / hn if hn else 12
 DEFAULT_H = 12.0  # ~4 piani, plausibile per il centro di Bologna
 print(f"strade: {len(roads)}  edifici: {len(buildings)} (con altezza {hn}, media {avg:.1f} m)  aree: {len(areas)}  ferrovia: {len(rails)}")
