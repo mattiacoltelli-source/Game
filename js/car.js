@@ -50,16 +50,16 @@ export class Car {
     // auto-allineamento: senza sterzo l'auto riprende da sola la direzione di marcia
     const vl0 = this.vx * rx + this.vz * rz;
     if (vf > 0.5 && !air && !oily) wT += 3 * (vl0 / (vf + 3)) * (1 - sAbs);
-    if (oily) { this.oilPh += dt * 6.5; wT += Math.sin(this.oilPh) * 1.1 * clamp(sp / 22, 0, 1) + (this.steer * 0.4); this.drift = Math.max(this.drift, 0.85); }
+    if (oily) { this.oilPh += dt * 6.5; wT += Math.sin(this.oilPh) * 1.7 * clamp(sp / 20, 0, 1) + (this.steer * 0.3); this.drift = Math.max(this.drift, 0.9); this.vx *= 1 - 0.12 * dt; this.vz *= 1 - 0.12 * dt; }
     wT = clamp(wT, -2.8, 2.8); // a velocità enormi l'auto resta guidabile
-    this.yaw += (wT - this.yaw) * Math.min(1, (oily ? 2.6 : 10) * dt);
+    this.yaw += (wT - this.yaw) * Math.min(1, (oily ? 2.0 : 10) * dt);
     this.h += this.yaw * dt;
 
     // riproietta la velocità sul nuovo asse; la componente laterale decade (poco in drift), con slip massimo
     fx = Math.cos(this.h); fz = Math.sin(this.h); rx = -fz; rz = fx;
     vf = this.vx * fx + this.vz * fz;
     let vl = this.vx * rx + this.vz * rz;
-    if (!air) { vl *= Math.exp(-(oily ? 0.5 : lerp(GRIP, GRIP_DRIFT, this.drift)) * dt); const ms = (oily ? 1.5 : MAX_SLIP) * (Math.abs(vf) + 2); vl = clamp(vl, -ms, ms); }
+    if (!air) { vl *= Math.exp(-(oily ? 0.25 : lerp(GRIP, GRIP_DRIFT, this.drift)) * dt); const ms = (oily ? 2.0 : MAX_SLIP) * (Math.abs(vf) + 2); vl = clamp(vl, -ms, ms); }
     this.vx = fx * vf + rx * vl; this.vz = fz * vf + rz * vl;
     this.speed = vf; this.lat = vl;
 

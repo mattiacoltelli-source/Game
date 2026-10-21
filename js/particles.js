@@ -47,7 +47,7 @@ export class Particles {
     // scia del NOS: particelle del colore del livello
     if (car.boost > 0) { this.tN -= dt; if (this.tN <= 0) { this.tN = 0.025; const c = new THREE.Color(NOS_COLORS[Math.max(0, car.level - 1)]); for (const z of [-0.55, 0.55]) this.add.emit(car.x - fx * 2.4 - fz * z, 0.6 + car.y, car.z - fz * 2.4 + fx * z, -fx * 5 + rnd(-1, 1) + car.vx * 0.6, rnd(-0.2, 1), -fz * 5 + rnd(-1, 1) + car.vz * 0.6, rnd(0.35, 0.6), 0.5 + 0.12 * car.level, 0.3, 0, c.r, c.g, c.b); } }
     // olio: gocce scure vicino alle ruote quando si sbanda
-    if (car.oil > 0 && !car.air && Math.random() < 0.4) this.soft.emit(car.x - fx * 1.2 + rnd(-1, 1), 0.2, car.z - fz * 1.2 + rnd(-1, 1), rnd(-1, 1), 0.5, rnd(-1, 1), 0.6, 0.6, 1.4, 0, 0.1, 0.08, 0.12);
+    if (car.oil > 0 && !car.air && Math.random() < 0.3) this.add.emit(car.x - fx * 1.2 + rnd(-1, 1), 0.3, car.z - fz * 1.2 + rnd(-1, 1), rnd(-2, 2), rnd(1, 3), rnd(-2, 2), 0.45, 0.22, 0, 12, 0.35, 0.2, 0.5);
     this.soft.update(dt, camera, fogColor); this.add.update(dt, camera, fogColor);
   }
 }
