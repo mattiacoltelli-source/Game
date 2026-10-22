@@ -282,7 +282,7 @@ async function boot() {
       const d = Math.hypot(target.x - car.x, target.z - car.z);
       if (d < target.r) {
         if (Math.abs(car.speed) < STOP_SPEED) {
-          if (run.stop < stops.length - 1) { toast(target.boarded || 'Tappa completata'); setStop(run.stop + 1); } else if (target.boss && !run.boss) beginBoss(); else finishRun();
+          if (run.stop < stops.length - 1) { toast(target.boarded || 'Tappa completata'); setStop(run.stop + 1); } else finishRun(); // alla Fiera la corsa finisce (niente boss)
         }
         else if (!run.warned) { run.warned = true; toast('Fermati nel cerchio'); }
       } else run.warned = false;
