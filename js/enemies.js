@@ -222,7 +222,7 @@ class Heli {
     if (leaving && this.y > 100) { this.reset(); this.cool = 26; return; }
     // raffica da 3 missili ogni ~5 s
     this.fireT -= dt;
-    if (!leaving && this.fireT <= 0 && this.t > 3 && !(this.ctx.car.jam > 0)) {
+    if (!leaving && this.fireT <= 0 && this.t > 3) {
       this.fireT = 0.32; this.burst++;
       const d = Math.hypot(player.x - this.x, player.z - this.z), T = 1.15 + d / 120, ax = player.x + player.vx * T * 0.8 + rnd(-9, 9), az = player.z + player.vz * T * 0.8 + rnd(-9, 9);
       this.fx.fire([this.x + Math.cos(yaw) * 2, this.y - 0.6, this.z + Math.sin(yaw) * 2], ax, az, T);

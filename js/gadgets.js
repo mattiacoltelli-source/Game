@@ -1,16 +1,13 @@
 import * as THREE from '../lib/three.module.min.js';
 
-// Gadget raccoglibili (uno alla volta, pulsante GADGET): scudo, anti-olio, estintore, molla, magnete, disturbatore.
+// Gadget raccoglibili (uno alla volta, pulsante GADGET): scudo, molla, magnete.
 // I pickup sono colonne di luce colorate per tipo (stesso disegno dei NOS, 4 InstancedMesh).
 export const GADGETS = {
   shield: { name: 'Scudo', icon: '🛡️', color: 0x4aa3ff, time: 8, tip: 'Scudo! Respinge colpi, fuoco e calci (8 s)' },
-  antiolio: { name: 'Anti-olio', icon: '🛞', color: 0xc3c8d0, time: 10, tip: 'Gomme anti-olio per 10 s' },
-  estintore: { name: 'Estintore', icon: '🧯', color: 0xff4a4a, time: 0, tip: 'Estintore: spegne il fuoco intorno a te' },
   molla: { name: 'Molla', icon: '🌀', color: 0x4be37a, time: 0, tip: 'Molla: salto per scavalcare ostacoli e treno' },
   magnete: { name: 'Magnete', icon: '🧲', color: 0xffd23a, time: 10, tip: 'Magnete: attira NOS e gadget (10 s)' },
-  disturbatore: { name: 'Disturbatore', icon: '📡', color: 0xc26bff, time: 8, tip: 'Disturbatore: Macco e Tarta bloccati (8 s)' },
 };
-const KEYS = Object.keys(GADGETS), WEIGHT = { shield: 3, antiolio: 2, estintore: 2, molla: 2, magnete: 2, disturbatore: 2 };
+const KEYS = Object.keys(GADGETS), WEIGHT = { shield: 3, molla: 2, magnete: 2 };
 const pick = () => { const tot = KEYS.reduce((a, k) => a + WEIGHT[k], 0); let r = Math.random() * tot; for (const k of KEYS) { r -= WEIGHT[k]; if (r <= 0) return k; } return 'shield'; };
 const RESPAWN = 40, RADIUS = 4.2, MAGNET_R = 80;
 
@@ -78,12 +75,10 @@ export class GadgetFx {
   ring(x, z, hex, r0, r1, life = 0.7, y = 0.3) { if (this.rings.length >= this.n) this.rings.shift(); this.rings.push({ x, z, y, hex, r0, r1, life, t: 0 }); }
   reset() { this.rings.length = 0; this.mesh.count = 0; this.pulse = 0; }
   update(dt, car) {
-    // effetti continui: magnete (onda che attira), disturbatore (onda che si espande), anti-olio (anello sotto l'auto)
+    // effetto continuo: magnete (onda che attira)
     this.pulse -= dt;
     if (this.pulse <= 0 && !car.air) {
       if (car.magnet > 0) { this.ring(car.x, car.z, GADGETS.magnete.color, 16, 2, 0.8); this.pulse = 0.9; }
-      else if (car.jam > 0) { this.ring(car.x, car.z, GADGETS.disturbatore.color, 3, 20, 0.9); this.pulse = 1.0; }
-      else if (car.antiOil > 0) { this.ring(car.x, car.z, GADGETS.antiolio.color, 2.2, 3.4, 0.7); this.pulse = 0.7; }
     }
     const m = this.m, f = this.rings;
     for (let i = f.length - 1; i >= 0; i--) { f[i].t += dt; if (f[i].t >= f[i].life) f.splice(i, 1); }

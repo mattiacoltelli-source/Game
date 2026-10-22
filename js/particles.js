@@ -47,9 +47,6 @@ export class Particles {
     this.tS -= dt; if (car.contact > 0.3 && sp > 6 && !car.air && this.tS <= 0) { this.tS = 0.04; const side = Math.random() < 0.5 ? 1 : -1; this.sparks(car.x + fx * rnd(-1.5, 1.5) - fz * side * 0.9, 0.5, car.z + fz * rnd(-1.5, 1.5) + fx * side * 0.9, 3, car.vx * 0.2, car.vz * 0.2); }
     // scia del NOS: particelle del colore del livello
     if (car.boost > 0) { this.tN -= dt; if (this.tN <= 0) { this.tN = 0.025; const c = new THREE.Color(NOS_COLORS[Math.max(0, car.level - 1)]); for (const z of [-0.55, 0.55]) this.add.emit(car.x - fx * 2.4 - fz * z, 0.6 + car.y, car.z - fz * 2.4 + fx * z, -fx * 5 + rnd(-1, 1) + car.vx * 0.6, rnd(-0.2, 1), -fz * 5 + rnd(-1, 1) + car.vz * 0.6, rnd(0.35, 0.6), 0.5 + 0.12 * car.level, 0.3, 0, c.r, c.g, c.b); } }
-    // estintore: schiuma/fumo bianco dalle due fiancate e dal retro per ~1,4 s
-    if (car.foamT > 0) for (let k = 0; k < 3; k++) { const side = k % 2 ? 1 : -1, a = rnd(0.5, 1.1);
-      this.soft.emit(car.x - fz * side * 1.0 + fx * rnd(-1.2, 1.2), 0.7 + car.y, car.z + fx * side * 1.0 + fz * rnd(-1.2, 1.2), -fz * side * rnd(3, 7) + car.vx * 0.4, rnd(0.8, 2.2), fx * side * rnd(3, 7) + car.vz * 0.4, rnd(0.8, 1.3), rnd(0.7, 1.1), a * 1.4, 0, 0.97, 0.98, 1); }
     // prato: ciuffi d'erba e terra dalle ruote
     if (car.grass && sp > 6 && Math.random() < 0.5) this.soft.emit(car.x - fx * 1.2 + rnd(-0.9, 0.9), 0.3 + car.y, car.z - fz * 1.2 + rnd(-0.9, 0.9), rnd(-1.5, 1.5), rnd(1, 2.5), rnd(-1.5, 1.5), rnd(0.4, 0.7), rnd(0.35, 0.6), 0.6, 0, 0.42, 0.55, 0.25);
     // olio: gocce scure vicino alle ruote quando si sbanda

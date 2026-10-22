@@ -184,10 +184,9 @@ async function boot() {
   while (pending > 0) { pending = world.update(car.x, car.z, 4); $('load-bar').style.width = `${85 + 15 * (1 - Math.min(1, pending / 20))}%`; await new Promise((r) => setTimeout(r, 0)); }
 
   function useGadget() {
-    const t = car.gadget, g = GADGETS[t]; car.gadget = null; sfx.nos(1); gfx.ring(car.x, car.z, g.color, 1.5, t === 'estintore' ? 13 : 9, 0.6);
-    if (t === 'shield') car.shield = g.time; else if (t === 'antiolio') { car.antiOil = g.time; car.oil = 0; } else if (t === 'magnete') car.magnet = g.time; else if (t === 'disturbatore') car.jam = g.time;
+    const t = car.gadget, g = GADGETS[t]; car.gadget = null; sfx.nos(1); gfx.ring(car.x, car.z, g.color, 1.5, 9, 0.6);
+    if (t === 'shield') car.shield = g.time; else if (t === 'magnete') car.magnet = g.time;
     else if (t === 'molla') { car.spring(); parts.burst(car.x, car.z, 10, 6, [0.7, 1, 0.75]); gfx.ring(car.x, car.z, g.color, 1, 7, 0.9); }
-    else if (t === 'estintore') { car.foamT = 1.4; const n = enemies.tarta.extinguish(car.x, car.z, 12); parts.burst(car.x, car.z, 14, 8, [0.95, 0.97, 1]); toast(n ? 'Fuoco spento!' : 'Estintore usato'); return; }
     toast(g.name + '!');
   }
 
@@ -248,7 +247,7 @@ async function boot() {
   function beginRun() {
     car.place(sx, sz, startH, groundY(sx, sz)); camH = startH; camD = 8; input.override = null; input.keys.clear();
     run.state = 'running'; run.t = 0; run.boss = false; run.bossWon = false; $('boss').hidden = true; setStop(0); playing = true;
-    car.gadget = null; car.shield = car.antiOil = car.magnet = car.jam = car.foamT = 0; gfx.reset(); wasRoof = false; gadgets.reset();
+    car.gadget = null; car.shield = car.magnet = 0; gfx.reset(); wasRoof = false; gadgets.reset();
     traffic.reset(); peds.reset(); props.reset(); nos.reset(); enemies.reset(); events.reset(); sfx.init(); if (!NOTRAFFIC) { traffic.fill(car); peds.fill(car); }
     $('screen-start').hidden = true; $('screen-end').hidden = true; $('hud').hidden = false; $('controls').hidden = false;
   }
@@ -312,7 +311,7 @@ async function boot() {
     }
     lastT = now;
     world.update(car.x, car.z, 1); street.update(dt);
-    flames(car.boost > 0 ? car.level : 0, now / 1000); shieldFx(car.shield, now / 1000); gfx.update(dt, car); if (car.foamT > 0) enemies.tarta.extinguish(car.x, car.z, 12);
+    flames(car.boost > 0 ? car.level : 0, now / 1000); shieldFx(car.shield, now / 1000); gfx.update(dt, car);
     poseCar(dt); if (!window.__freeCam) updateCamera(dt); fx.update(dt, car, camera); parts.update(dt, car, camera, scene.fog.color); labels.update(dt, car, camH); atmo.update(dt, car);
     if (run.state === 'running') {
       $('kmh').textContent = Math.round(Math.abs(car.speed) * 3.6);
@@ -328,7 +327,7 @@ async function boot() {
         const gb = $('gad-btn'), gt = car.gadget && GADGETS[car.gadget];
         if (gt) { gb.classList.add('has'); gb.style.setProperty('--gc', '#' + gt.color.toString(16).padStart(6, '0')); gb.querySelector('.gi').textContent = gt.icon; gb.querySelector('.gl').textContent = gt.name.toUpperCase(); }
         else { gb.classList.remove('has'); gb.querySelector('.gi').textContent = '·'; gb.querySelector('.gl').textContent = 'GADGET'; }
-        const act = [['shield', car.shield], ['antiolio', car.antiOil], ['magnete', car.magnet], ['disturbatore', car.jam]].sort((a, b) => b[1] - a[1])[0], sg = $('st-gad');
+        const act = [['shield', car.shield], ['magnete', car.magnet]].sort((a, b) => b[1] - a[1])[0], sg = $('st-gad');
         sg.hidden = !(act[1] > 0); if (act[1] > 0) { const g2 = GADGETS[act[0]]; sg.style.setProperty('--gc', '#' + g2.color.toString(16).padStart(6, '0')); sg.querySelector('b').textContent = g2.name.toUpperCase(); sg.querySelector('u').style.transform = `scaleX(${Math.min(1, act[1] / g2.time)})`; sg.querySelector('span').textContent = act[1].toFixed(1); }
       }
       const nb = $('nos-btn'); nb.className = `btn nosbtn c${car.charges}` + (input.btn.nos ? ' on' : '');

@@ -8,7 +8,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 
 export class Car {
-  constructor() { this.grass = false; this.rampH = () => 0; this.rampAssist = () => null; this.superJump = false; this.onRamp = false; this.gadget = null; this.shield = 0; this.antiOil = 0; this.magnet = 0; this.jam = 0; this.foamT = 0; this.onRoof = false; this.place(0, 0, 0); }
+  constructor() { this.grass = false; this.rampH = () => 0; this.rampAssist = () => null; this.superJump = false; this.onRamp = false; this.gadget = null; this.shield = 0; this.magnet = 0; this.onRoof = false; this.place(0, 0, 0); }
 
   place(x, z, h, y = 0) {
     this.x = x; this.z = z; this.h = h; this.vx = 0; this.vz = 0; this.y = y; this.vy = 0; this.boost = 0; this.level = 0; this.charges = 0; this.slow = 0; this.oil = 0; this.oilPh = 0; this.air = false; this.airT = 0; this.jump = 0; this.landed = 0; this.clear = 0;
@@ -22,8 +22,7 @@ export class Car {
     const lv = this.boost > 0 ? this.level : 0;
     const vmax = VMAX * (lv ? Math.max(1.12, NOS_PEAK * (1 + 0.4 * lv)) : 1) * (this.slow > 0 ? 0.7 : 1) * (this.grass ? 0.9 : 1), acc = ACC * (1 + 0.9 * lv) * (this.slow > 0 ? 0.75 : 1);
     this.boost = Math.max(0, this.boost - dt); this.slow = Math.max(0, this.slow - dt);
-    this.shield = Math.max(0, this.shield - dt); this.antiOil = Math.max(0, this.antiOil - dt); this.magnet = Math.max(0, this.magnet - dt); this.jam = Math.max(0, this.jam - dt); this.foamT = Math.max(0, this.foamT - dt);
-    if (this.antiOil > 0) this.oil = 0;
+    this.shield = Math.max(0, this.shield - dt); this.magnet = Math.max(0, this.magnet - dt);
     const oily = this.oil > 0 && !air; this.oil = Math.max(0, this.oil - dt); // olio: poca aderenza, frenata debole, sbandate
     let fx = Math.cos(this.h), fz = Math.sin(this.h), rx = -fz, rz = fx;
     let vf = this.vx * fx + this.vz * fz;
