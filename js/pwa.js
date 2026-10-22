@@ -27,6 +27,22 @@ export function initPWA() {
     txt.innerHTML = steps + '<p>Si gioca bene anche senza installare.</p><button class="ghost" id="howto-copy" type="button">Copia link del gioco</button>';
     how.addEventListener('click', () => { txt.hidden = !txt.hidden; const c = document.getElementById('howto-copy'); if (c && !c.onclick) c.onclick = () => copy(c); });
   }
+  // Stato installazione: cosa vede il browser (per capire perché dice «già installata» o non propone l'installazione)
+  const stBtn = document.getElementById('install-state'), stTxt = document.getElementById('install-state-txt'); let promptSeen = false; addEventListener('beforeinstallprompt', () => { promptSeen = true; });
+  if (stBtn) {
+    stBtn.hidden = false;
+    stBtn.addEventListener('click', async () => {
+      stTxt.hidden = false; stTxt.textContent = 'Controllo…'; const L = [];
+      const yn = (v) => (v ? 'sì' : 'no');
+      L.push(`Aperta come app installata: ${yn(standalone)}`, `Browser: ${/crios/i.test(ua) ? 'Chrome iPhone' : /fxios/i.test(ua) ? 'Firefox iPhone' : /edgios/i.test(ua) ? 'Edge iPhone' : iosSafari ? 'Safari iPhone' : android ? 'Android' : 'altro'}`, `Browser interno (Instagram, ecc.): ${yn(inApp)}`);
+      try { const r = await fetch('manifest.webmanifest', { cache: 'no-store' }); const m = await r.json(); L.push(`Manifest: ok (${m.name}, id ${m.id || '-'})`); } catch (e) { L.push('Manifest: NON si legge'); }
+      try { const regs = await navigator.serviceWorker.getRegistrations(); L.push(`Service worker: ${regs.length ? 'attivo' : 'non registrato'}${regs[0] && regs[0].active ? ' (pronto)' : ''}`); const keys = await caches.keys(); L.push(`Cache offline: ${keys.length ? keys.length + ' (ok)' : 'vuota'}`); } catch (e) { L.push('Service worker: non disponibile'); }
+      L.push(`Il browser propone l'installazione: ${yn(promptSeen)}`);
+      try { if (navigator.getInstalledRelatedApps) { const a = await navigator.getInstalledRelatedApps(); L.push(`Il browser vede app già installate: ${a.length ? 'sì' : 'no'}`); } } catch (e) { /* non supportato */ }
+      L.push(`Indirizzo: ${location.origin}${location.pathname}`);
+      stTxt.textContent = L.join('\n'); const cp = document.createElement('button'); cp.className = 'ghost'; cp.type = 'button'; cp.textContent = 'Copia'; cp.onclick = async () => { try { await navigator.clipboard.writeText(L.join('\n')); cp.textContent = 'Copiato ✓'; } catch (e) { prompt('Copia:', L.join('\n')); } }; stTxt.appendChild(document.createElement('br')); stTxt.appendChild(cp);
+    });
+  }
   const local = ['localhost', '127.0.0.1'].includes(location.hostname) && !location.search.includes('sw');
   if (!('serviceWorker' in navigator) || local) return;
 
