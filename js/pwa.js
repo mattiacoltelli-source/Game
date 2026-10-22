@@ -20,9 +20,9 @@ export function initPWA() {
   const how = document.getElementById('howto'), txt = document.getElementById('howto-txt');
   if (how && !standalone) {
     how.hidden = false;
-    const steps = iosSafari ? '<ol><li>Tocca <b>Condividi</b> (il quadrato con la freccia in su) in basso.</li><li>Scorri e scegli <b>«Aggiungi alla schermata Home»</b>.</li><li>Tocca <b>Aggiungi</b>: trovi l\'icona nella Home.</li></ol>'
+    const steps = iosSafari ? '<ol><li>Tocca <b>Condividi</b> (il quadrato con la freccia in su) in basso.</li><li>Scorri e scegli <b>«Aggiungi alla schermata Home»</b>.</li><li>Tocca <b>Aggiungi</b>: trovi l\'icona nella Home.</li><li>Se l\'icona non c\'è: Impostazioni → Safari → Avanzate → Dati dei siti web → cancella il sito, poi riprova.</li></ol>'
       : ios ? '<ol><li>Su iPhone si installa <b>solo da Safari</b>.</li><li>Copia il link qui sotto, aprilo in Safari e scegli Condividi → «Aggiungi alla schermata Home».</li></ol>'
-      : android ? '<ol><li>Apri il menu <b>⋮</b> del browser (in alto a destra).</li><li>Scegli <b>«Installa app»</b> oppure «Aggiungi a schermata Home».</li><li>Se non c\'è, apri il link in <b>Chrome</b>.</li></ol>'
+      : android ? '<ol><li>Apri il menu <b>⋮</b> del browser (in alto a destra).</li><li>Scegli <b>«Installa app»</b> oppure «Aggiungi a schermata Home».</li><li>Se non c\'è, apri il link in <b>Chrome</b>.</li><li>Se dice <b>«già installata»</b> ma non la trovi: Impostazioni del telefono → App → «Taxi Bologna» → Disinstalla. Poi in Chrome: ⋮ → Impostazioni → Impostazioni sito → Tutti i siti → mattiacoltelli-source.github.io → Cancella e reimposta. Riapri il link e riprova.</li></ol>'
       : '<ol><li>Chrome/Edge: icona <b>Installa</b> nella barra degli indirizzi.</li><li>Oppure menu ⋮ → «Installa Taxi Bologna».</li></ol>';
     txt.innerHTML = steps + '<p>Si gioca bene anche senza installare.</p><button class="ghost" id="howto-copy" type="button">Copia link del gioco</button>';
     how.addEventListener('click', () => { txt.hidden = !txt.hidden; const c = document.getElementById('howto-copy'); if (c && !c.onclick) c.onclick = () => copy(c); });

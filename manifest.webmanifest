@@ -3,6 +3,7 @@
   "short_name": "Taxi Bologna",
   "description": "Gioco di taxi a tempo per le strade di Bologna.",
   "lang": "it",
+  "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
