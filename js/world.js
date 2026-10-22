@@ -186,6 +186,26 @@ export class World {
       const seen = new Set();
       for (let x = mnx; x <= mxx + VIEW.cell; x += VIEW.cell) for (let z = mnz; z <= mxz + VIEW.cell; z += VIEW.cell) { const k = this.cellOf(Math.min(x, mxx), Math.min(z, mxz)); if (k >= 0 && !seen.has(k)) { seen.add(k); add(this.cP, k, ai); } }
     });
+    // distanza dal bordo della carreggiata (per tenere alberi, lampioni e fermate fuori dalla strada) e prato (rallenta del 10%)
+    this.RC = 40; this.rg = new Map(); this.gg = new Map();
+    const DRV = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential', 'living_street', 'service']);
+    this.roads.forEach((r, ri) => {
+      if (!DRV.has(r.c)) return; const p = r.p;
+      for (let i = 0; i < p.length / 2 - 1; i++) {
+        const x0 = Math.min(p[i * 2], p[i * 2 + 2]), x1 = Math.max(p[i * 2], p[i * 2 + 2]), z0 = Math.min(p[i * 2 + 1], p[i * 2 + 3]), z1 = Math.max(p[i * 2 + 1], p[i * 2 + 3]);
+        for (let cx = Math.floor((x0 - 6) / this.RC); cx <= Math.floor((x1 + 6) / this.RC); cx++) for (let cz = Math.floor((z0 - 6) / this.RC); cz <= Math.floor((z1 + 6) / this.RC); cz++) { const k = cx * 100003 + cz; let a = this.rg.get(k); if (!a) this.rg.set(k, a = []); a.push(ri, i); }
+      }
+    });
+    this.areas.forEach((a, ai) => {
+      if (a.k !== 'green' && a.k !== 'wood') return; let mnx = 1e9, mnz = 1e9, mxx = -1e9, mxz = -1e9;
+      for (let i = 0; i < a.p.length; i += 2) { mnx = Math.min(mnx, a.p[i]); mxx = Math.max(mxx, a.p[i]); mnz = Math.min(mnz, a.p[i + 1]); mxz = Math.max(mxz, a.p[i + 1]); }
+      a.bb = [mnx, mnz, mxx, mxz];
+      for (let cx = Math.floor(mnx / this.RC); cx <= Math.floor(mxx / this.RC); cx++) for (let cz = Math.floor(mnz / this.RC); cz <= Math.floor(mxz / this.RC); cz++) { const k = cx * 100003 + cz; let g = this.gg.get(k); if (!g) this.gg.set(k, g = []); g.push(ai); }
+    });
+    // alberi, lampioni e fermate non devono stare sulla carreggiata: li sposto sul marciapiede
+    data.details.trees = data.details.trees.filter((c) => { const q = this.pushOut(c[0], c[1], 1.9), g = this.edgeGap(q[0], q[1]); c[0] = q[0]; c[1] = q[1]; return !g || g.gap > 1.0; }); // se non si riesce (incroci) l'albero viene tolto
+    for (const b of data.details.bus) { const g = this.edgeGap(b[0], b[1]); if (g && g.gap < 1.2) { const hw = g.hw, sx = -b[3] * b[4], sz = b[2] * b[4], L = Math.hypot(sx, sz) || 1; b[0] += sx / L * (hw + 1.3 - g.d); b[1] += sz / L * (hw + 1.3 - g.d); } }
+    { const keep = []; for (let i = 0; i < data.extras.lamps.length; i += 2) { const q = this.pushOut(data.extras.lamps[i], data.extras.lamps[i + 1], 0.7), g = this.edgeGap(q[0], q[1]); if (!g || g.gap > 0.35) keep.push(q[0], q[1]); } data.extras.lamps = keep; }
     // dettagli del corridoio di gioco (insegne, strisce pedonali, fermate, dissuasori, alberi, frecce dei sensi unici)
     const dt = data.details; this.cSign = mk(); this.cDet = mk(); this.signs = dt.signs;
     this.corridor = dt.corridor;
@@ -449,6 +469,34 @@ export class World {
   }
 
   // Posiziona alberi (deterministici) nei parchi, evitando edifici. Da chiamare dopo aver creato il Collider.
+  // Distanza dal bordo della carreggiata più vicina: {gap, d, hw, nx, nz} (n = versore dall'asse della strada al punto) oppure null.
+  edgeGap(x, z) {
+    let best = null;
+    for (let cx = Math.floor(x / this.RC) - 0; cx <= Math.floor(x / this.RC); cx++) {
+      const a = this.rg.get(cx * 100003 + Math.floor(z / this.RC)); if (!a) continue;
+      for (let s = 0; s < a.length; s += 2) {
+        const r = this.roads[a[s]], p = r.p, i = a[s + 1], ax = p[i * 2], az = p[i * 2 + 1], dx = p[i * 2 + 2] - ax, dz = p[i * 2 + 3] - az, L2 = dx * dx + dz * dz || 1;
+        const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2)), qx = ax + dx * t, qz = az + dz * t, d = Math.hypot(x - qx, z - qz), st = ROAD_STYLE[r.c] || ROAD_STYLE.residential, hw = r.w * st[2] / 2, gap = d - hw;
+        if (!best || gap < best.gap) { const L = Math.sqrt(L2); best = { gap, d, hw, nx: d > 0.05 ? (x - qx) / d : -dz / L, nz: d > 0.05 ? (z - qz) / d : dx / L }; }
+      }
+    }
+    return best;
+  }
+
+  pushOut(x, z, margin) { for (let k = 0; k < 5; k++) { const g = this.edgeGap(x, z); if (!g || g.gap >= margin) break; x += g.nx * (margin - g.gap); z += g.nz * (margin - g.gap); } return [x, z]; }
+
+  // Vero se (x,z) è su un prato/bosco (non su strada o marciapiede): lì l'auto rallenta.
+  isGrass(x, z) {
+    const g = this.gg.get(Math.floor(x / this.RC) * 100003 + Math.floor(z / this.RC)); if (!g) return false;
+    for (const ai of g) {
+      const a = this.areas[ai], bb = a.bb; if (x < bb[0] || x > bb[2] || z < bb[1] || z > bb[3]) continue;
+      const p = a.p, n = p.length / 2; let ins = false;
+      for (let i = 0, j = n - 1; i < n; j = i++) if ((p[i * 2 + 1] > z) !== (p[j * 2 + 1] > z) && x < (p[j * 2] - p[i * 2]) * (z - p[i * 2 + 1]) / (p[j * 2 + 1] - p[i * 2 + 1]) + p[i * 2]) ins = !ins;
+      if (ins) { const e = this.edgeGap(x, z); return !e || e.gap > 1.4; }
+    }
+    return false;
+  }
+
   plantTrees(col) {
     let total = 0;
     this.areas.forEach((a, ai) => {
@@ -462,7 +510,7 @@ export class World {
         const h1 = hash(ai * 7919 + Math.floor(x * 3) + Math.floor(z * 5)), px = x + (h1 - 0.5) * jit * 2, pz = z + (hash(ai + Math.floor(z * 7) + 3) - 0.5) * jit * 2;
         if (h1 > 0.7) continue;
         let ins = false; for (let i = 0, j = n - 1; i < n; j = i++) if ((p[i * 2 + 1] > pz) !== (p[j * 2 + 1] > pz) && px < (p[j * 2] - p[i * 2]) * (pz - p[i * 2 + 1]) / (p[j * 2 + 1] - p[i * 2 + 1]) + p[i * 2]) ins = !ins;
-        if (!ins || col.inside(px, pz) || col.push(px, pz, 2.5)) continue;
+        if (!ins || col.inside(px, pz) || col.push(px, pz, 2.5)) continue; { const eg = this.edgeGap(px, pz); if (eg && eg.gap < 1.8) continue; }
         const k = this.cellOf(px, pz); if (k < 0) continue;
         let arr = this.cT.get(k); if (!arr) this.cT.set(k, arr = []); arr.push(px, pz, 0.8 + hash(x + z) * 0.6); cnt++; total++;
       }

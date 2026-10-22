@@ -50,6 +50,8 @@ export class Particles {
     // estintore: schiuma/fumo bianco dalle due fiancate e dal retro per ~1,4 s
     if (car.foamT > 0) for (let k = 0; k < 3; k++) { const side = k % 2 ? 1 : -1, a = rnd(0.5, 1.1);
       this.soft.emit(car.x - fz * side * 1.0 + fx * rnd(-1.2, 1.2), 0.7 + car.y, car.z + fx * side * 1.0 + fz * rnd(-1.2, 1.2), -fz * side * rnd(3, 7) + car.vx * 0.4, rnd(0.8, 2.2), fx * side * rnd(3, 7) + car.vz * 0.4, rnd(0.8, 1.3), rnd(0.7, 1.1), a * 1.4, 0, 0.97, 0.98, 1); }
+    // prato: ciuffi d'erba e terra dalle ruote
+    if (car.grass && sp > 6 && Math.random() < 0.5) this.soft.emit(car.x - fx * 1.2 + rnd(-0.9, 0.9), 0.3 + car.y, car.z - fz * 1.2 + rnd(-0.9, 0.9), rnd(-1.5, 1.5), rnd(1, 2.5), rnd(-1.5, 1.5), rnd(0.4, 0.7), rnd(0.35, 0.6), 0.6, 0, 0.42, 0.55, 0.25);
     // olio: gocce scure vicino alle ruote quando si sbanda
     if (car.oil > 0 && !car.air && Math.random() < 0.3) this.add.emit(car.x - fx * 1.2 + rnd(-1, 1), 0.3, car.z - fz * 1.2 + rnd(-1, 1), rnd(-2, 2), rnd(1, 3), rnd(-2, 2), 0.45, 0.22, 0, 12, 0.35, 0.2, 0.5);
     this.soft.update(dt, camera, fogColor); this.add.update(dt, camera, fogColor);

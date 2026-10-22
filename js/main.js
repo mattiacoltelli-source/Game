@@ -281,6 +281,7 @@ async function boot() {
     const portrait = innerHeight > innerWidth;
     if (playing && !portrait && dt > 0) {
       const inp = input.value, n = Math.ceil(dt / (1 / 90)), h = dt / n;
+      car.grass = !car.air && car.onRoof !== true && world.isGrass(car.x, car.z); // prato: -10% di velocità massima
       for (let i = 0; i < n; i++) car.step(h, inp, col, world.meta.bounds, groundCar, groundY);
       if (car.needsRescue()) rescue();
       if (!NOTRAFFIC) {
