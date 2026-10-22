@@ -4,6 +4,7 @@ import { Graph } from './traffic.js';
 import { sfx } from './sfx.js';
 import { Train } from './train.js';
 import { Tarta } from './tarta.js';
+import { Lepore } from './lepore.js';
 
 // Nemici arcade: il treno LUCCHIO (sui binari) e l'elicottero MACCO (in aria).
 // I colpi sono "mortai": prima compare un cerchio rosso a terra dove cadranno (si può schivare), poi esplodono.
@@ -392,13 +393,13 @@ class Giant {
 
 export class Enemies {
   constructor(scene, world, roadIndex, ctx) {
-    this.fx = new Fx(scene, ctx); this.train = new Train(scene, this.fx, ctx, nameTag); this.tarta = new Tarta(scene, world, roadIndex, this.fx, ctx, nameTag); this.truck = new Truck(scene, world, roadIndex, this.fx, ctx); this.heli = new Heli(scene, this.fx, ctx); this.giant = new Giant(scene, this.fx, ctx); this.ctx = ctx; this.t = 0; this.last = null;
+    this.fx = new Fx(scene, ctx); this.train = new Train(scene, this.fx, ctx, nameTag); this.tarta = new Tarta(scene, world, roadIndex, this.fx, ctx, nameTag); this.lepore = new Lepore(scene, world, roadIndex, this.fx, ctx, nameTag); this.truck = new Truck(scene, world, roadIndex, this.fx, ctx); this.heli = new Heli(scene, this.fx, ctx); this.giant = new Giant(scene, this.fx, ctx); this.ctx = ctx; this.t = 0; this.last = null;
     this.giant.onPhase = (ph) => { // fase 2: arriva Macco, fase 3: arriva Lucchio
       if (ph === 2) { this.heli.forceSpawn(this.last); ctx.toast('Fase 2: Macco si unisce a Cos!'); }
       if (ph === 3) { this.train.hold = false; this.train.summon(this.last); ctx.toast('Fase 3: arriva anche Lucchio!'); }
     };
   }
-  reset() { this.t = 0; this.fx.reset(); this.train.reset(); this.train.hold = false; this.tarta.reset(); this.truck.reset(); this.heli.reset(); this.giant.reset(); this.last = null; }
+  reset() { this.t = 0; this.fx.reset(); this.train.reset(); this.train.hold = false; this.tarta.reset(); this.lepore.reset(); this.truck.reset(); this.heli.reset(); this.giant.reset(); this.last = null; }
   // Inizia il boss finale: sospende le apparizioni normali e fa comparire Cos con la barra della vita.
   startBoss(player) { this.reset(); this.last = player; this.t = 1e5; this.train.hold = true; this.tarta.hold = true; this.truck.cool = 1e9; this.heli.cool = 1e9; this.giant.startBoss(player); }
   get boss() { return this.giant.boss; }
@@ -408,13 +409,14 @@ export class Enemies {
     if (t.train.near && t.train.state !== 'dead') o.push({ x: t.train.x, z: t.train.z, y: 3, k: 'train', r: 240 });
     if (t.truck.state === 'on') o.push({ x: t.truck.x, z: t.truck.z, y: 3, k: 'truck', r: 220 });
     if (t.tarta.state !== 'off') o.push({ x: t.tarta.x, z: t.tarta.z, y: (t.tarta.ry || 12) + 3, k: 'tarta', r: 220 });
+    if (t.lepore.state === 'on') o.push({ x: t.lepore.x, z: t.lepore.z, y: 3, k: 'lepore', r: 220 });
     if (t.heli.state === 'on') o.push({ x: t.heli.x, z: t.heli.z, y: t.heli.y, k: 'heli', r: 300 });
     if (t.giant.state !== 'off') o.push({ x: t.giant.x, z: t.giant.z, y: 15, k: 'giant', r: 320 });
     return o;
   }
   get shake() { return this.fx.shake; }
   update(dt, player) {
-    this.t += dt; this.last = player; this.fx.update(dt); this.train.update(dt, player, this.t); this.tarta.update(dt, player, this.t); this.truck.update(dt, player, this.t); this.truck.collide(player); this.heli.update(dt, player, this.t); this.giant.update(dt, player, this.t); this.giant.collide(player);
+    this.t += dt; this.last = player; this.fx.update(dt); this.train.update(dt, player, this.t); this.tarta.update(dt, player, this.t); this.lepore.update(dt, player, this.t); this.truck.update(dt, player, this.t); this.truck.collide(player); this.heli.update(dt, player, this.t); this.giant.update(dt, player, this.t); this.giant.collide(player);
     return this.train.collide(player);
   }
 }

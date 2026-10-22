@@ -1,7 +1,7 @@
 import * as THREE from '../lib/three.module.min.js';
 
 // Indicatori dei nemici fuori vista: piccole frecce ai bordi dello schermo (con lettera e distanza), lontane da HUD e pulsanti.
-const KINDS = { train: ['#ff5a4a', 'L', 'Lucchio'], truck: ['#ffa43a', 'S', 'Simo Pakelo'], tarta: ['#c07bff', 'T', 'Tarta'], heli: ['#4aa3ff', 'M', 'Macco'], event: ['#ffd23a', '!', 'Evento'], giant: ['#e36bff', 'C', 'Cos'] };
+const KINDS = { train: ['#ff5a4a', 'L', 'Lucchio'], truck: ['#ffa43a', 'S', 'Simo Pakelo'], tarta: ['#c07bff', 'T', 'Tarta'], heli: ['#4aa3ff', 'M', 'Macco'], event: ['#ffd23a', '!', 'Evento'], lepore: ['#4ad1ff', 'P', 'Lepore'], giant: ['#e36bff', 'C', 'Cos'] };
 
 export class FoeIndicators {
   constructor(root) { this.root = root; this.els = []; this.v = new THREE.Vector3(); }
