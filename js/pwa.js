@@ -5,13 +5,27 @@ const CHECK_EVERY = 30 * 60 * 1000;
 
 export function initPWA() {
   const ver = document.getElementById('version'); if (ver) ver.textContent = `v${VERSION}`;
-  // guida all'installazione quando il browser non offre il pulsante (iPhone, o Chrome che non l'ha ancora proposto)
-  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone, ua = navigator.userAgent, ios = /iphone|ipad|ipod/i.test(ua);
+  // guida all'installazione: passi diversi per iPhone/Safari, iPhone con altri browser, Android (Chrome, Samsung, Firefox)
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone, ua = navigator.userAgent, ios = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const iosSafari = ios && /safari/i.test(ua) && !/crios|fxios|edgios|opios|gsa\//i.test(ua), android = /android/i.test(ua);
+  const inApp = /FBAN|FBAV|FB_IAB|Instagram|Line\/|MicroMessenger|Snapchat|TikTok|BytedanceWebview|Twitter|LinkedInApp|Pinterest|; wv\)|\bwv\b/i.test(ua) || (ios && !/safari/i.test(ua) && !standalone);
+  const link = location.origin + location.pathname;
+  const copy = async (btn) => { try { await navigator.clipboard.writeText(link); btn.textContent = 'Link copiato ✓'; } catch (e) { prompt('Copia il link:', link); } };
+  const banner0 = document.getElementById('inapp');
+  if (banner0 && inApp && !standalone) {
+    banner0.hidden = false; const o = document.getElementById('inapp-open'), c = document.getElementById('inapp-copy');
+    if (android) { o.href = `intent://${location.host}${location.pathname}#Intent;scheme=https;package=com.android.chrome;end`; o.hidden = false; }
+    c.addEventListener('click', () => copy(c));
+  }
   const how = document.getElementById('howto'), txt = document.getElementById('howto-txt');
   if (how && !standalone) {
     how.hidden = false;
-    txt.textContent = ios ? 'Safari: tocca il tasto Condividi, poi «Aggiungi alla schermata Home».' : 'Chrome: apri il menu ⋮ in alto a destra e scegli «Installa app» (o «Aggiungi a schermata Home»).';
-    how.addEventListener('click', () => { txt.hidden = !txt.hidden; });
+    const steps = iosSafari ? '<ol><li>Tocca <b>Condividi</b> (il quadrato con la freccia in su) in basso.</li><li>Scorri e scegli <b>«Aggiungi alla schermata Home»</b>.</li><li>Tocca <b>Aggiungi</b>: trovi l\'icona nella Home.</li></ol>'
+      : ios ? '<ol><li>Su iPhone si installa <b>solo da Safari</b>.</li><li>Copia il link qui sotto, aprilo in Safari e scegli Condividi → «Aggiungi alla schermata Home».</li></ol>'
+      : android ? '<ol><li>Apri il menu <b>⋮</b> del browser (in alto a destra).</li><li>Scegli <b>«Installa app»</b> oppure «Aggiungi a schermata Home».</li><li>Se non c\'è, apri il link in <b>Chrome</b>.</li></ol>'
+      : '<ol><li>Chrome/Edge: icona <b>Installa</b> nella barra degli indirizzi.</li><li>Oppure menu ⋮ → «Installa Taxi Bologna».</li></ol>';
+    txt.innerHTML = steps + '<p>Si gioca bene anche senza installare.</p><button class="ghost" id="howto-copy" type="button">Copia link del gioco</button>';
+    how.addEventListener('click', () => { txt.hidden = !txt.hidden; const c = document.getElementById('howto-copy'); if (c && !c.onclick) c.onclick = () => copy(c); });
   }
   const local = ['localhost', '127.0.0.1'].includes(location.hostname) && !location.search.includes('sw');
   if (!('serviceWorker' in navigator) || local) return;

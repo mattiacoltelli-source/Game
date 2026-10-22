@@ -22,6 +22,7 @@ import { Street } from './street.js';
 import { Ramps } from './ramps.js';
 import { GadgetPickups, GADGETS, buildShield } from './gadgets.js';
 import { Traffic, Pedestrians } from './traffic.js';
+import { VERSION } from './version.js';
 
 const $ = (id) => document.getElementById(id);
 const FXFORCE = new URLSearchParams(location.search).has('fxforce');
@@ -29,8 +30,26 @@ const DEBUG = new URLSearchParams(location.search).has('debug'), NOTRAFFIC = new
 THREE.ColorManagement.enabled = false; // colori "as-is", niente conversione sRGB: più semplice e leggero
 const SKY = new THREE.Color(0xcfe0ea);
 
-const renderer = new THREE.WebGLRenderer({ canvas: $('c'), antialias: false, powerPreference: 'high-performance' });
-let pixelRatio = Math.min(devicePixelRatio || 1, 1.5);
+// ---- diagnostica ed errori visibili (per capire i problemi di chi non riesce a scaricare/avviare il gioco)
+const lowEnd = !!((navigator.deviceMemory && navigator.deviceMemory <= 3) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4));
+let renderer = null;
+function diag(extra = '') {
+  let gpu = 'n/d'; try { const gl = renderer && renderer.getContext(), e = gl && gl.getExtension('WEBGL_debug_renderer_info'); if (e) gpu = gl.getParameter(e.UNMASKED_RENDERER_WEBGL); } catch (e) { /* ignora */ }
+  return [`Taxi Bologna v${VERSION}`, navigator.userAgent, `GPU: ${gpu}`, `RAM: ${navigator.deviceMemory || '?'} GB, CPU: ${navigator.hardwareConcurrency || '?'}, schermo ${innerWidth}x${innerHeight} @${devicePixelRatio}`, extra].filter(Boolean).join('\n');
+}
+let lastErr = '';
+function showFatal(msg, err) {
+  lastErr = (err && (err.stack || err.message)) || String(err || msg); $('screen-load').hidden = false; $('screen-start').hidden = true; $('hud').hidden = true; $('controls').hidden = true;
+  $('load-msg').textContent = msg; $('load-bar').style.width = '0'; $('retry').hidden = false; const dc = $('diag-copy'); dc.hidden = false;
+  dc.onclick = async () => { const t = diag(lastErr); try { await navigator.clipboard.writeText(t); dc.textContent = 'Copiato ✓ — mandalo a chi ti ha dato il gioco'; } catch (e) { prompt('Copia questi dettagli:', t); } };
+}
+let errCount = 0;
+addEventListener('error', (e) => { if (++errCount >= 3) showFatal('Il gioco ha avuto un problema. Ricarica la pagina.', e.error || e.message); });
+addEventListener('unhandledrejection', (e) => { if (++errCount >= 3) showFatal('Il gioco ha avuto un problema. Ricarica la pagina.', e.reason); });
+try { renderer = new THREE.WebGLRenderer({ canvas: $('c'), antialias: false, powerPreference: 'high-performance' }); }
+catch (e) { showFatal('Questo browser non riesce ad avviare la grafica 3D (WebGL). Prova con Chrome o Safari aggiornati.', e); throw e; }
+$('c').addEventListener('webglcontextlost', (e) => { e.preventDefault(); showFatal('La grafica si è interrotta (poca memoria?). Ricarica la pagina.', 'webglcontextlost'); });
+let pixelRatio = Math.min(devicePixelRatio || 1, lowEnd ? 1.25 : 1.5);
 renderer.setPixelRatio(pixelRatio);
 renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
 const scene = new THREE.Scene();
@@ -40,7 +59,7 @@ const hemi = new THREE.HemisphereLight(0xffffff, 0x8e8c86, 2.5); scene.add(hemi)
 const sun = new THREE.DirectionalLight(0xfff0d8, 1.5); sun.position.set(-0.5, 1, 0.35); scene.add(sun);
 
 const post = new Post(renderer);
-let fxQ = true; try { fxQ = localStorage.getItem('taxi-bologna:fx') !== '0'; } catch (e) { /* storage non disponibile */ }
+let fxQ = !lowEnd; try { const sv = localStorage.getItem('taxi-bologna:fx'); if (sv !== null) fxQ = sv !== '0'; } catch (e) { /* storage non disponibile */ } // telefoni deboli: effetti luce spenti di default
 post.on = fxQ && !new URLSearchParams(location.search).has('nofx');
 function resize() {
   const w = innerWidth, h = innerHeight;
@@ -312,7 +331,7 @@ async function boot() {
       if (car.slow > 0) { sSlow.querySelector('u').style.transform = `scaleX(${car.slow / 10})`; sSlow.querySelector('span').textContent = car.slow.toFixed(1); }
       $('speedfx').classList.toggle('on', car.boost > 0);
     }
-    post.render(scene, camera);
+    try { post.render(scene, camera); } catch (e) { console.warn('Effetti luce disattivati', e); post.on = false; fxQ = false; try { renderer.setRenderTarget(null); } catch (e2) { /* ignora */ } const fc = $('fxq'); if (fc) fc.checked = false; }
 
     // pixel ratio adattivo
     frames++; fpsT += dt;
@@ -329,5 +348,6 @@ async function boot() {
 }
 
 initPWA();
-boot().catch((e) => { console.error(e); $('load-msg').textContent = e.message || 'Errore di caricamento'; $('load-bar').style.width = '0'; $('retry').hidden = false; });
+setTimeout(() => { const h = $('load-hint'); if (h && !$('screen-load').hidden) h.hidden = false; }, 3500); // download lento: spiego perché
+boot().catch((e) => { console.error(e); showFatal(e.message || 'Errore di caricamento', e); });
 $('retry').addEventListener('click', () => location.reload());

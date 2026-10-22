@@ -11,6 +11,40 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="css/style.css">
+<link rel="modulepreload" href="js/main.js">
+<link rel="modulepreload" href="js/config.js">
+<link rel="modulepreload" href="js/world.js">
+<link rel="modulepreload" href="js/collider.js">
+<link rel="modulepreload" href="js/car.js">
+<link rel="modulepreload" href="js/input.js">
+<link rel="modulepreload" href="js/carmodel.js">
+<link rel="modulepreload" href="js/fx.js">
+<link rel="modulepreload" href="js/particles.js">
+<link rel="modulepreload" href="js/post.js">
+<link rel="modulepreload" href="js/street.js">
+<link rel="modulepreload" href="js/ramps.js">
+<link rel="modulepreload" href="js/train.js">
+<link rel="modulepreload" href="js/tarta.js">
+<link rel="modulepreload" href="js/gadgets.js">
+<link rel="modulepreload" href="js/minimap.js">
+<link rel="modulepreload" href="js/marker.js">
+<link rel="modulepreload" href="js/labels.js">
+<link rel="modulepreload" href="js/pwa.js">
+<link rel="modulepreload" href="js/version.js">
+<link rel="modulepreload" href="js/geom.js">
+<link rel="modulepreload" href="js/nos.js">
+<link rel="modulepreload" href="js/enemies.js">
+<link rel="modulepreload" href="js/sfx.js">
+<link rel="modulepreload" href="js/atmosphere.js">
+<link rel="modulepreload" href="js/traffic.js">
+<link rel="modulepreload" href="js/props.js">
+<link rel="modulepreload" href="lib/three.module.min.js">
+<link rel="preload" as="fetch" crossorigin="anonymous" href="data/buildings.json">
+<link rel="preload" as="fetch" crossorigin="anonymous" href="data/roads.json">
+<link rel="preload" as="fetch" crossorigin="anonymous" href="data/areas.json">
+<link rel="preload" as="fetch" crossorigin="anonymous" href="data/labels.json">
+<link rel="preload" as="fetch" crossorigin="anonymous" href="data/extras.json">
+<link rel="preload" as="fetch" crossorigin="anonymous" href="data/details.json">
 </head>
 <body>
 <canvas id="c"></canvas>
@@ -48,6 +82,7 @@
 
 <div id="screen-start" class="screen" hidden>
   <div class="card">
+    <div id="inapp" class="warn" hidden><b>Sei in un browser interno</b><span>Aprilo in Chrome o Safari per installarlo.</span><div class="wr"><a id="inapp-open" class="ghost" href="#" hidden>Apri in Chrome</a><button id="inapp-copy" class="ghost">Copia link</button></div></div>
     <h1>Taxi Bologna</h1>
     <p class="job">Corsa disponibile</p>
     <p class="route" id="route"></p>
@@ -60,7 +95,7 @@
       <button id="install" class="ghost" hidden>Installa app</button>
       <button id="howto" class="ghost" hidden>Come installare</button>
     </div>
-    <p class="note" id="howto-txt" hidden></p>
+    <div class="note" id="howto-txt" hidden></div>
   </div>
 </div>
 
@@ -74,7 +109,7 @@
 </div>
 
 <div id="screen-load" class="screen">
-  <div class="card"><h1>Taxi Bologna</h1><p id="load-msg">Carico la mappa…</p><div class="bar"><i id="load-bar"></i></div><button id="retry" class="ghost" hidden>Riprova</button></div>
+  <div class="card"><h1>Taxi Bologna</h1><p id="load-msg">Carico la mappa…</p><div class="bar"><i id="load-bar"></i></div><p class="note" id="load-hint" hidden>Il primo avvio scarica circa 1,5 MB: con il Wi-Fi è più veloce. Le volte dopo parte subito, anche senza rete.</p><button id="retry" class="ghost" hidden>Riprova</button><button id="diag-copy" class="ghost" hidden>Copia dettagli errore</button></div>
 </div>
 
 <div id="screen-rotate" class="screen">

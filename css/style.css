@@ -113,6 +113,8 @@ h1 { margin: 0 0 10px; font-size: 34px; letter-spacing: -.01em; }
 .chip.gad { border: 1.5px solid var(--gc, #4aa3ff); color: #fff; } .chip.gad b { color: var(--gc, #4aa3ff); } .chip.gad u { background: linear-gradient(90deg, var(--gc, #4aa3ff), #ffffff); }
 .pad-r { gap: 14px; }
 
+.warn { display: grid; gap: 4px; margin: 0 0 10px; padding: 8px 10px; border-radius: 12px; background: #3a2a0a; border: 1.5px solid #ffb000; color: #ffe6a8; font-size: 12px; line-height: 1.3; text-align: left; max-width: 320px; } .warn b { color: #ffb000; font-size: 13px; } .warn .wr { display: flex; gap: 8px; margin-top: 4px; } .warn a.ghost { display: inline-grid; place-items: center; text-decoration: none; }
+.note ol { margin: 4px 0 0; padding-left: 18px; text-align: left; } .note li { margin: 2px 0; } .note b { color: #fff; }
 .note { margin: 6px 0 0; max-width: 300px; color: var(--muted); font-size: 12px; line-height: 1.35; }
 
 /* Schermata iniziale compatta (telefono in orizzontale) */

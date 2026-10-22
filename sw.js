@@ -12,13 +12,15 @@ const APP_FILES = ['./', 'index.html', 'manifest.webmanifest', 'css/style.css', 
 const DATA_FILES = ['data/roads.json', 'data/buildings.json', 'data/areas.json', 'data/labels.json', 'data/extras.json', 'data/details.json'];
 
 const fresh = (u) => new Request(u, { cache: 'reload' }); // salta la cache HTTP: niente file misti tra versioni
+// scarica con 3 tentativi: su una rete mobile instabile un singolo errore non deve far fallire l'installazione
+const grab = async (u) => { let err; for (let i = 0; i < 3; i++) { try { const r = await fetch(fresh(u)); if (!r.ok) throw new Error(`${u}: ${r.status}`); return r; } catch (e) { err = e; await new Promise((res) => setTimeout(res, 700 * (i + 1))); } } throw err; };
 
 self.addEventListener('install', (e) => {
   e.waitUntil((async () => {
     const app = await caches.open(APP_CACHE);
-    await Promise.all(APP_FILES.map(async (u) => { const r = await fetch(fresh(u)); if (!r.ok) throw new Error(`${u}: ${r.status}`); await app.put(u, r); }));
+    await Promise.all(APP_FILES.map(async (u) => { await app.put(u, await grab(u)); }));
     const data = await caches.open(DATA_CACHE); // i dati sono facoltativi: se la rete fallisce si scaricano al primo uso
-    await Promise.allSettled(DATA_FILES.map(async (u) => { if (await data.match(u)) return; const r = await fetch(fresh(u)); if (r.ok) await data.put(u, r); }));
+    await Promise.allSettled(DATA_FILES.map(async (u) => { if (await data.match(u)) return; await data.put(u, await grab(u)); }));
   })());
 });
 
