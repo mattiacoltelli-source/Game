@@ -13,6 +13,7 @@ import { Labels } from './labels.js';
 import { initPWA } from './pwa.js';
 import { NosPickups, buildFlames, NOS_COLORS } from './nos.js';
 import { Enemies } from './enemies.js';
+import { leporeSpots } from './lepore.js';
 import { sfx } from './sfx.js';
 import { Atmosphere, PRESET_NAMES } from './atmosphere.js';
 import { Props } from './props.js';
@@ -150,7 +151,7 @@ async function boot() {
   const groundCar = (x, z, y) => Math.max(groundBase(x, z), col.roofAt(x, z, y)); // l'auto può stare sui tetti
   let wasRoof = false, roofToastT = 0;
   const enemies = new Enemies(scene, world, roads, {
-    car, peds, traffic, props, toast, smoke: (x, z, n, kind) => parts.steam(x, z, n, kind), sparks: (x, y, z, n, dx, dz) => parts.sparks(x, y, z, n, dx, dz),
+    car, peds, traffic, props, toast, leporeSpots: leporeSpots(world, roads, col, stops), smoke: (x, z, n, kind) => parts.steam(x, z, n, kind), sparks: (x, y, z, n, dx, dz) => parts.sparks(x, y, z, n, dx, dz),
     onHit: (k) => { if (k > 0.25) toast('BOOM!'); },
     onKicked: (k) => toast(k === 'palla' ? 'Palla in faccia!' : 'Cos ti ha calciato!'),
     onBossHit: (hp, max, dmg) => { toast(dmg > 1 ? `COLPITO ×${dmg}!` : 'Colpito!'); $('boss').querySelector('u').style.transform = `scaleX(${hp / max})`; $('boss').querySelector('span').textContent = hp; },
