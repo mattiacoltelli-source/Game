@@ -13,7 +13,7 @@ export class FoeIndicators {
   }
 
   update(camera, pts, car) {
-    const W = innerWidth, H = innerHeight; let n = 0;
+    const W = this.root.clientWidth || innerWidth, H = this.root.clientHeight || innerHeight; let n = 0;
     for (const p of pts) {
       const dist = Math.hypot(p.x - car.x, p.z - car.z); if (dist > p.r) continue;
       this.v.set(p.x, p.y || 2, p.z).project(camera); let sx = this.v.x, sy = this.v.y; const behind = this.v.z > 1;

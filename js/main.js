@@ -64,8 +64,23 @@ const sun = new THREE.DirectionalLight(0xfff0d8, 1.5); sun.position.set(-0.5, 1,
 const post = new Post(renderer);
 let fxQ = !lowEnd; try { const sv = localStorage.getItem('taxi-bologna:fx'); if (sv !== null) fxQ = sv !== '0'; } catch (e) { /* storage non disponibile */ } // telefoni deboli: effetti luce spenti di default
 post.on = fxQ && !new URLSearchParams(location.search).has('nofx');
+// Segue il viewport visibile (iPhone/Chrome iOS: il layout può essere più largo dell'area visibile) e blocca zoom/scorrimento accidentali.
+// iPhone con Chrome/altri browser: l'area visibile può essere più stretta del layout (tacca): i pulsanti a destra restano tagliati. exR = margine destro extra dell'interfaccia.
+const IOS = /iphone|ipad|ipod/i.test(navigator.userAgent), IOS_NOT_SAFARI = IOS && /crios|fxios|edgios|opios|gsa\//i.test(navigator.userAgent);
+let exR = IOS_NOT_SAFARI ? 59 : 0; try { const sv = localStorage.getItem('taxi-bologna:exr'); if (sv !== null) exR = +sv || 0; } catch (e) { /* storage non disponibile */ }
+function fitViewport() {
+  const v = window.visualViewport, st = document.documentElement.style;
+  if (v && v.scale <= 1.01) { st.setProperty('--vx', v.offsetLeft + 'px'); st.setProperty('--vy', v.offsetTop + 'px'); st.setProperty('--vw', v.width + 'px'); st.setProperty('--vh', v.height + 'px'); st.setProperty('--hw', (v.width - exR) + 'px'); }
+  else st.setProperty('--hw', (innerWidth - exR) + 'px');
+}
+for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, (e) => e.preventDefault());
+document.addEventListener('touchmove', (e) => { if (e.touches.length > 1 || !e.target.closest('[data-btn]')) e.preventDefault(); }, { passive: false });
+document.addEventListener('dblclick', (e) => e.preventDefault());
+addEventListener('scroll', () => { if (scrollX || scrollY) scrollTo(0, 0); });
+if (window.visualViewport) { visualViewport.addEventListener('resize', () => { fitViewport(); resize(); }); visualViewport.addEventListener('scroll', fitViewport); }
+function viewSize() { const v = window.visualViewport; return v && v.scale <= 1.01 ? [v.width, v.height] : [innerWidth, innerHeight]; }
 function resize() {
-  const w = innerWidth, h = innerHeight;
+  fitViewport(); const [w, h] = viewSize();
   renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); post.setSize();
 }
 addEventListener('resize', resize); resize();
@@ -178,6 +193,7 @@ async function boot() {
 
   const input = new Input();
   { const fc = $('fxq'); fc.checked = post.on; fc.addEventListener('change', () => { post.on = fc.checked; try { localStorage.setItem('taxi-bologna:fx', post.on ? '1' : '0'); } catch (e) { /* ignora */ } }); }
+  { const ib = $('inset'); if (IOS) { ib.hidden = false; const lab = () => { ib.textContent = `Schermo tagliato a destra? Margine: ${exR}`; }; lab(); ib.addEventListener('click', () => { exR = exR >= 60 ? 0 : exR + 30; try { localStorage.setItem('taxi-bologna:exr', String(exR)); } catch (e) { /* ignora */ } lab(); fitViewport(); }); } }
   $('auto').addEventListener('change', (e) => { input.auto = e.target.checked; });
 
   // precarico le celle attorno alla partenza
@@ -281,7 +297,7 @@ async function boot() {
   function frame(now) {
     requestAnimationFrame(frame);
     let dt = Math.min(0.05, (now - last) / 1000); last = now;
-    const portrait = innerHeight > innerWidth;
+    const portrait = viewSize()[1] > viewSize()[0];
     if (playing && !portrait && dt > 0) {
       const inp = input.value, n = Math.ceil(dt / (1 / 90)), h = dt / n;
       car.grass = !car.air && car.onRoof !== true && world.isGrass(car.x, car.z); // prato: -10% di velocità massima

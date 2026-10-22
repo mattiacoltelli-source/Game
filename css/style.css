@@ -3,13 +3,14 @@
   --pad: 14px; --btn: 84px;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink);
+html, body { margin: 0; position: fixed; inset: 0; width: 100%; height: 100%; overflow: hidden; -webkit-text-size-adjust: 100%; background: var(--bg); color: var(--ink);
   font: 500 16px/1.3 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overscroll-behavior: none; touch-action: none; user-select: none; -webkit-user-select: none; }
-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+/* i livelli a schermo intero seguono il viewport VISIBILE (--vx/--vy/--vw/--vh impostati da main.js): su iPhone/Chrome iOS il layout può essere più largo dell'area visibile e tagliare i pulsanti a destra */
+canvas { position: fixed; inset: auto; left: var(--vx, 0px); top: var(--vy, 0px); width: var(--vw, 100%); height: var(--vh, 100%); display: block; }
 [hidden] { display: none !important; }
 
 /* HUD */
-#hud { position: fixed; inset: 0; pointer-events: none; }
+#hud { position: fixed; inset: auto; left: var(--vx, 0px); top: var(--vy, 0px); width: var(--hw, var(--vw, 100%)); height: var(--vh, 100%); pointer-events: none; }
 #foes { position: absolute; inset: 0; overflow: hidden; }
 .foe { position: absolute; left: 0; top: 0; width: 34px; height: 34px; margin: -17px 0 0 -17px; display: grid; place-items: center; opacity: .8; will-change: transform; }
 .foe i { position: absolute; inset: 0; } .foe i::before { content: ''; position: absolute; left: 50%; top: -2px; margin-left: -7px; border: 7px solid transparent; border-bottom: 11px solid var(--fc); border-top: 0; }
@@ -23,7 +24,7 @@ canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 #toast.show { opacity: 1; }
 
 /* Controlli touch */
-#controls { position: fixed; inset: 0; pointer-events: none; }
+#controls { position: fixed; inset: auto; left: var(--vx, 0px); top: var(--vy, 0px); width: var(--hw, var(--vw, 100%)); height: var(--vh, 100%); pointer-events: none; }
 .pad { position: absolute; bottom: max(var(--pad), env(safe-area-inset-bottom)); display: flex; gap: 18px; pointer-events: none; }
 .pad-l { left: max(var(--pad), env(safe-area-inset-left)); }
 .pad-r { right: max(var(--pad), env(safe-area-inset-right)); align-items: flex-end; }
@@ -38,7 +39,7 @@ canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 .brake.on { background: #7a2630ee; }
 
 /* Schermate */
-.screen { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(120% 120% at 50% 0%, #1f2730 0%, var(--bg) 70%); z-index: 5; padding: 12px; }
+.screen { position: fixed; inset: auto; left: var(--vx, 0px); top: var(--vy, 0px); width: var(--hw, var(--vw, 100%)); height: var(--vh, 100%); display: grid; place-items: center; background: radial-gradient(120% 120% at 50% 0%, #1f2730 0%, var(--bg) 70%); z-index: 5; padding: 12px; }
 #screen-start { place-items: center start; padding-left: max(28px, env(safe-area-inset-left)); background: linear-gradient(90deg, #14181df0 0%, #14181dd0 34%, #14181d00 62%); }
 #screen-start .card { width: 300px; text-align: left; }
 #screen-start .route { flex-direction: column; align-items: flex-start; gap: 4px; counter-reset: st; font-size: 15px; }
