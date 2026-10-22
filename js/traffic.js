@@ -100,6 +100,7 @@ export class Traffic {
     const cars = this.cars;
     for (let k = cars.length - 1; k >= 0; k--) {
       const c = cars[k], dp = Math.hypot(c.x - player.x, c.z - player.z);
+      if (c.fixed) { c.ttl -= dt; c.cool = Math.max(0, (c.cool || 0) - dt); c.offx += (c.sx || 0) * dt; c.offz += (c.sz || 0) * dt; const dk = Math.exp(-2.2 * dt); c.sx = (c.sx || 0) * dk; c.sz = (c.sz || 0) * dk; c.spd = 0; if (c.ttl <= 0 || dp > 380) cars.splice(k, 1); continue; } // veicolo fermo di un evento
       if (dp > 380 || (c.still > 6 && dp > 30)) { cars.splice(k, 1); continue; }
       let sg = this.g.seg(c.ri, c.a, c.b), lim = c.cruise;
       const hx = Math.cos(c.h), hz = Math.sin(c.h);
@@ -162,7 +163,7 @@ export class Pedestrians {
   constructor(scene, world, roadIndex, max = 34) {
     this.ri = roadIndex; this.max = max; this.peds = []; this.t = 0; this.world = world;
     this.g = new Graph(world.roads, (r) => WALK.has(r.c) && !r.n.includes('Matteotti'));
-    this.mesh = new THREE.InstancedMesh(pedGeometry(), new THREE.MeshLambertMaterial({ vertexColors: true }), 48);
+    this.mesh = new THREE.InstancedMesh(pedGeometry(), new THREE.MeshLambertMaterial({ vertexColors: true }), 80);
     this.mesh.frustumCulled = false; this.mesh.count = 0; scene.add(this.mesh); this.time = 0; this.hit = 0;
   }
 
@@ -184,6 +185,16 @@ export class Pedestrians {
     if (r.c === 'pedestrian' || r.c === 'living_street') ped.lat = rnd(-2, 2);
     else if (KERB.has(r.c) && Math.random() < 0.4) { ped.mode = 'wait'; ped.wait = rnd(0, 3); ped.spd = 1.5; }
     ped.q = this.offset(ped, r); this.place(ped, sg); this.peds.push(ped);
+  }
+
+  // Corteo: n pedestri che camminano insieme sulla carreggiata (solo metà strada) lungo il segmento (r, i).
+  crowd(r, i, n, fromS) {
+    const sg = this.g.seg(r._i, i, i + 1), side = Math.random() < 0.5 ? 1 : -1, list = [];
+    for (let k = 0; k < n && this.peds.length < 78; k++) {
+      const ped = { ri: r._i, a: i, b: i + 1, s: Math.min(sg.L - 1, fromS + (k % 8) * 1.3 + rnd(-0.4, 0.4)), spd: rnd(1.0, 1.25), side, mode: 'walk', parade: true, lat: side * rnd(0.6, Math.max(1, r.w / 2 - 0.9)), x: 0, z: 0, y: 0, h: 0, col: new THREE.Color(PED_COLORS[Math.floor(Math.random() * PED_COLORS.length)]), ph: Math.random() * 6 };
+      ped.q = ped.lat; this.place(ped, sg); this.peds.push(ped); list.push(ped);
+    }
+    return list;
   }
 
   place(p, sg) {

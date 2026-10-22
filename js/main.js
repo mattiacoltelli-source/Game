@@ -20,6 +20,8 @@ import { Particles } from './particles.js';
 import { Post } from './post.js';
 import { Street } from './street.js';
 import { Ramps } from './ramps.js';
+import { FoeIndicators } from './foeind.js';
+import { RandomEvents } from './events.js';
 import { GadgetPickups, GADGETS, buildShield, GadgetFx } from './gadgets.js';
 import { Traffic, Pedestrians } from './traffic.js';
 import { VERSION } from './version.js';
@@ -148,7 +150,7 @@ async function boot() {
   const groundCar = (x, z, y) => Math.max(groundBase(x, z), col.roofAt(x, z, y)); // l'auto può stare sui tetti
   let wasRoof = false, roofToastT = 0;
   const enemies = new Enemies(scene, world, roads, {
-    car, peds, traffic, props, toast, smoke: (x, z, n) => parts.steam(x, z, n), sparks: (x, y, z, n, dx, dz) => parts.sparks(x, y, z, n, dx, dz),
+    car, peds, traffic, props, toast, smoke: (x, z, n, kind) => parts.steam(x, z, n, kind), sparks: (x, y, z, n, dx, dz) => parts.sparks(x, y, z, n, dx, dz),
     onHit: (k) => { if (k > 0.25) toast('BOOM!'); },
     onKicked: (k) => toast(k === 'palla' ? 'Palla in faccia!' : 'Cos ti ha calciato!'),
     onBossHit: (hp, max, dmg) => { toast(dmg > 1 ? `COLPITO ×${dmg}!` : 'Colpito!'); $('boss').querySelector('u').style.transform = `scaleX(${hp / max})`; $('boss').querySelector('span').textContent = hp; },
@@ -157,6 +159,7 @@ async function boot() {
   });
   const muteBtn = $('mute'); muteBtn.classList.toggle('off', sfx.muted);
   muteBtn.addEventListener('click', () => { sfx.setMuted(!sfx.muted); muteBtn.classList.toggle('off', sfx.muted); });
+  const foeInd = new FoeIndicators($('foes')), events = new RandomEvents(scene, world, roads, traffic, peds, { toast, smoke: (x, z, n, kind) => parts.steam(x, z, n, kind) });
   const mini = new Minimap($('mini'), roads);
   const labels = new Labels(scene, camera, data.labels);
   const run = { state: 'menu', t: 0, warned: false, stop: 0, boss: false, bossWon: false }; // menu | running | done
@@ -246,7 +249,7 @@ async function boot() {
     car.place(sx, sz, startH, groundY(sx, sz)); camH = startH; camD = 8; input.override = null; input.keys.clear();
     run.state = 'running'; run.t = 0; run.boss = false; run.bossWon = false; $('boss').hidden = true; setStop(0); playing = true;
     car.gadget = null; car.shield = car.antiOil = car.magnet = car.jam = car.foamT = 0; gfx.reset(); wasRoof = false; gadgets.reset();
-    traffic.reset(); peds.reset(); props.reset(); nos.reset(); enemies.reset(); sfx.init(); if (!NOTRAFFIC) { traffic.fill(car); peds.fill(car); }
+    traffic.reset(); peds.reset(); props.reset(); nos.reset(); enemies.reset(); events.reset(); sfx.init(); if (!NOTRAFFIC) { traffic.fill(car); peds.fill(car); }
     $('screen-start').hidden = true; $('screen-end').hidden = true; $('hud').hidden = false; $('controls').hidden = false;
   }
   // Alla Fiera: consegnato il cliente, arriva il boss finale. La corsa finisce quando Cos cade.
@@ -285,7 +288,7 @@ async function boot() {
       for (let i = 0; i < n; i++) car.step(h, inp, col, world.meta.bounds, groundCar, groundY);
       if (car.needsRescue()) rescue();
       if (!NOTRAFFIC) {
-        traffic.update(dt, car); peds.update(dt, car); props.update(dt, car);
+        traffic.update(dt, car); peds.update(dt, car); props.update(dt, car); events.update(dt, car, run.t);
         const bump = traffic.collide(car); if (bump > 5) toast('Botta!');
         if (peds.collide(car)) { car.hitSlow(); toast('Pedone! Rallentato per 10 s'); }
       }
@@ -308,7 +311,7 @@ async function boot() {
       } else run.warned = false;
     }
     lastT = now;
-    world.update(car.x, car.z, 1);
+    world.update(car.x, car.z, 1); street.update(dt);
     flames(car.boost > 0 ? car.level : 0, now / 1000); shieldFx(car.shield, now / 1000); gfx.update(dt, car); if (car.foamT > 0) enemies.tarta.extinguish(car.x, car.z, 12);
     poseCar(dt); if (!window.__freeCam) updateCamera(dt); fx.update(dt, car, camera); parts.update(dt, car, camera, scene.fog.color); labels.update(dt, car, camH); atmo.update(dt, car);
     if (run.state === 'running') {
@@ -317,7 +320,7 @@ async function boot() {
       const dx = target.x - car.x, dz = target.z - car.z;
       $('dist').textContent = `${Math.round(Math.hypot(dx, dz))} m`;
       $('arrow').style.transform = `rotate(${Math.atan2(dz, dx) - camH}rad)`;
-      mini.update(dt, car, target, nos.active(), enemies.points());
+      const pts = enemies.points(); mini.update(dt, car, target, nos.active(), pts); foeInd.update(camera, [...pts, ...events.points()], car);
       const sNos = $('st-nos'), sSlow = $('st-slow'); sNos.hidden = !(car.boost > 0); sSlow.hidden = !(car.slow > 0);
       const nc = '#' + NOS_COLORS[Math.max(0, car.boost > 0 ? car.level - 1 : Math.max(0, car.charges - 1))].toString(16).padStart(6, '0');
       if (car.boost > 0) { sNos.style.setProperty('--nc', nc); $('speedfx').style.setProperty('--nc', nc); sNos.querySelector('b').textContent = `NOS ×${car.level}`; sNos.querySelector('u').style.transform = `scaleX(${car.boost / 10})`; sNos.querySelector('span').textContent = car.boost.toFixed(1); }
@@ -344,7 +347,7 @@ async function boot() {
   }
   requestAnimationFrame(frame);
 
-  window.__taxi = { ramps, gadgets, street, post, parts, enemies, nos, props, traffic, peds, taxi, get target() { return target; }, stops, setStop, run, startPos: [sx, sz, startH], car, world, col, roads, input, camera, scene, renderer, get fps() { return fps; }, start() { $('go').click(); }, rescue, free };
+  window.__taxi = { events, ramps, gadgets, street, post, parts, enemies, nos, props, traffic, peds, taxi, get target() { return target; }, stops, setStop, run, startPos: [sx, sz, startH], car, world, col, roads, input, camera, scene, renderer, get fps() { return fps; }, start() { $('go').click(); }, rescue, free };
   if (DEBUG) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;left:8px;top:8px;font:12px monospace;color:#fff;text-shadow:0 1px 2px #000;z-index:9;pointer-events:none'; document.body.append(d); setInterval(() => { d.textContent = `fps ${fps.toFixed(0)} pr ${pixelRatio.toFixed(2)} cells ${world.cells.size} calls ${renderer.info.render.calls} tris ${renderer.info.render.triangles}`; }, 500); }
 }
 

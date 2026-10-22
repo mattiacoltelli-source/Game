@@ -36,7 +36,7 @@ export class Particles {
     const t = disc(); this.soft = new Pool(scene, N_SOFT, false, t, 0.5); this.add = new Pool(scene, N_ADD, true, t, 1); this.scene = scene; this.was = false; this.tN = 0; this.tS = 0;
   }
   burst(x, z, n, power, col = [0.78, 0.7, 0.55]) { for (let i = 0; i < n; i++) { const a = Math.random() * 6.28, s = rnd(0.5, 1) * power; this.soft.emit(x, 0.4, z, Math.cos(a) * s, rnd(0.4, 2.2), Math.sin(a) * s, rnd(0.6, 1.1), rnd(0.8, 1.5), rnd(1.5, 3), 0, col[0], col[1], col[2]); } }
-  steam(x, z, n = 3) { for (let i = 0; i < n; i++) this.soft.emit(x + rnd(-1, 1), 0.6, z + rnd(-1, 1), rnd(-1, 1), rnd(1.2, 2.8), rnd(-1, 1), rnd(0.7, 1.2), rnd(0.8, 1.3), 2.2, 0, 0.95, 0.97, 1); }
+  steam(x, z, n = 3, kind = 'white') { const c = kind === 'dark' ? [0.22, 0.22, 0.24] : [0.95, 0.97, 1]; for (let i = 0; i < n; i++) this.soft.emit(x + rnd(-1, 1), kind === 'dark' ? 1.2 : 0.6, z + rnd(-1, 1), rnd(-0.6, 0.6), rnd(1.6, 3.4), rnd(-0.6, 0.6), rnd(1.0, 1.7), rnd(0.9, 1.4), 2.6, 0, c[0], c[1], c[2]); }
   sparks(x, y, z, n, dx = 0, dz = 0) { for (let i = 0; i < n; i++) this.add.emit(x, y, z, dx + rnd(-4, 4), rnd(1, 5), dz + rnd(-4, 4), rnd(0.25, 0.5), rnd(0.18, 0.3), 0, 14, 1, rnd(0.6, 0.9), 0.25); }
   update(dt, car, camera, fogColor) {
     const fx = Math.cos(car.h), fz = Math.sin(car.h), sp = Math.hypot(car.vx, car.vz);

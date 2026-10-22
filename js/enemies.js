@@ -403,7 +403,15 @@ export class Enemies {
   startBoss(player) { this.reset(); this.last = player; this.t = 1e5; this.train.hold = true; this.tarta.hold = true; this.truck.cool = 1e9; this.heli.cool = 1e9; this.giant.startBoss(player); }
   get boss() { return this.giant.boss; }
   // Posizioni dei nemici attivi (per la minimappa).
-  points() { const o = []; if (this.train.near && this.train.state !== 'dead') o.push({ x: this.train.x, z: this.train.z }); if (this.truck.state === 'on') o.push({ x: this.truck.x, z: this.truck.z }); if (this.tarta.state !== 'off') o.push({ x: this.tarta.x, z: this.tarta.z }); if (this.heli.state === 'on') o.push({ x: this.heli.x, z: this.heli.z }); if (this.giant.state !== 'off') o.push({ x: this.giant.x, z: this.giant.z }); return o; }
+  points() {
+    const o = [], t = this; // k = tipo (per indicatori ai bordi dello schermo), y = quota, r = distanza massima di segnalazione
+    if (t.train.near && t.train.state !== 'dead') o.push({ x: t.train.x, z: t.train.z, y: 3, k: 'train', r: 240 });
+    if (t.truck.state === 'on') o.push({ x: t.truck.x, z: t.truck.z, y: 3, k: 'truck', r: 220 });
+    if (t.tarta.state !== 'off') o.push({ x: t.tarta.x, z: t.tarta.z, y: (t.tarta.ry || 12) + 3, k: 'tarta', r: 220 });
+    if (t.heli.state === 'on') o.push({ x: t.heli.x, z: t.heli.z, y: t.heli.y, k: 'heli', r: 300 });
+    if (t.giant.state !== 'off') o.push({ x: t.giant.x, z: t.giant.z, y: 15, k: 'giant', r: 320 });
+    return o;
+  }
   get shake() { return this.fx.shake; }
   update(dt, player) {
     this.t += dt; this.last = player; this.fx.update(dt); this.train.update(dt, player, this.t); this.tarta.update(dt, player, this.t); this.truck.update(dt, player, this.t); this.truck.collide(player); this.heli.update(dt, player, this.t); this.giant.update(dt, player, this.t); this.giant.collide(player);
