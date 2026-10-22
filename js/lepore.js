@@ -37,9 +37,9 @@ export class Lepore {
   constructor(scene, world, roadIndex, fx, ctx, nameTag) {
     this.world = world; this.ri = roadIndex; this.fx = fx; this.ctx = ctx;
     this.group = new THREE.Group(); this.body = new THREE.Mesh(figure(), new THREE.MeshLambertMaterial({ vertexColors: true })); this.paddle = paddle(); this.paddle.position.set(0.05, 1.45, 0.42); this.arm = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.7, 0.14), new THREE.MeshLambertMaterial({ color: 0x1a1b22 })); this.arm.position.set(0.05, 1.7, 0.4);
-    this.group.add(this.body, this.paddle, this.arm); this.group.scale.setScalar(1.35); this.group.visible = false; scene.add(this.group);
+    this.group.add(this.body, this.paddle, this.arm); this.group.scale.setScalar(2.4); this.group.visible = false; scene.add(this.group); // alto circa 5 m
     this.zone = zone(); this.zone.visible = false; scene.add(this.zone);
-    this.tag = nameTag('LEPORE', '#1e88e5'); this.tag.scale.set(8, 2, 1); this.tag.visible = false; scene.add(this.tag);
+    this.tag = nameTag('LEPORE', '#1e88e5'); this.tag.scale.set(10, 2.5, 1); this.tag.visible = false; scene.add(this.tag);
     this.reset();
   }
 
@@ -54,7 +54,7 @@ export class Lepore {
       if (d < 70 || d > 125 || (dx * hx + dz * hz) / d < 0.7 || this.world.groundY(mx, mz) > 0.2) return; if (++n * Math.random() < 1) pick = [mx, mz];
     });
     if (!pick) return false;
-    this.px = pick[0]; this.pz = pick[1]; this.group.position.set(this.px, 0.17, this.pz); this.zone.position.set(this.px, 0.19, this.pz); this.tag.position.set(this.px, 5.2, this.pz);
+    this.px = pick[0]; this.pz = pick[1]; this.group.position.set(this.px, 0.17, this.pz); this.zone.position.set(this.px, 0.19, this.pz); this.tag.position.set(this.px, 7.6, this.pz);
     this.group.visible = this.zone.visible = this.tag.visible = true; this.state = 'on'; this.t = 0; this.inside = false; this.n++; this.whistleT = 0.4; this.group.rotation.set(0, 0, 0); this.group.position.y = 0.17;
     this.ctx.toast('Lepore ti ferma con la paletta: zona 30!'); return true;
   }
@@ -65,7 +65,7 @@ export class Lepore {
     if (this.state === 'off') { if (this.n < 2 && runT > this.next && !this.hold) this.spawn(player); return; }
     this.t += dt; const dx = player.x - this.px, dz = player.z - this.pz, d = Math.hypot(dx, dz);
     if (this.state === 'fly') { // sperone: vola via
-      const f = this.fly; f.t += dt; f.vy -= 16 * dt; this.px += f.vx * dt; this.pz += f.vz * dt; f.y = Math.max(0, f.y + f.vy * dt); this.group.position.set(this.px, 0.17 + f.y, this.pz); this.group.rotation.z += dt * 9; this.tag.position.set(this.px, 5.2 + f.y, this.pz);
+      const f = this.fly; f.t += dt; f.vy -= 16 * dt; this.px += f.vx * dt; this.pz += f.vz * dt; f.y = Math.max(0, f.y + f.vy * dt); this.group.position.set(this.px, 0.17 + f.y, this.pz); this.group.rotation.z += dt * 9; this.tag.position.set(this.px, 7.6 + f.y, this.pz);
       if (f.t > 1.6) this.end(runT); return;
     }
     if (d > 280 || this.t > 36) { this.end(runT); return; }
@@ -80,6 +80,6 @@ export class Lepore {
       if (sp > this.cap) { const k = this.cap / sp; player.vx *= k; player.vz *= k; }
     } else this.inside = false;
     // sperone forte: Lepore vola via
-    if (d < 1.6 && !player.air && Math.hypot(player.vx, player.vz) > 16) { this.state = 'fly'; this.fly = { t: 0, vx: player.vx * 0.6 + rnd(-2, 2), vz: player.vz * 0.6 + rnd(-2, 2), vy: 9, y: 0 }; this.zone.visible = false; this.inside = false; this.ctx.toast('Lepore è volato via!'); sfx.thud && sfx.thud(0.5); }
+    if (d < 2.6 && !player.air && Math.hypot(player.vx, player.vz) > 16) { this.state = 'fly'; this.fly = { t: 0, vx: player.vx * 0.6 + rnd(-2, 2), vz: player.vz * 0.6 + rnd(-2, 2), vy: 9, y: 0 }; this.zone.visible = false; this.inside = false; this.ctx.toast('Lepore è volato via!'); sfx.thud && sfx.thud(0.5); }
   }
 }
