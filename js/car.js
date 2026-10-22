@@ -2,7 +2,7 @@
 const VMAX = 45, VREV = 8, ACC = 24, BRAKE = 22, REV_ACC = 10, COAST = 3, WHEELBASE = 2.7;
 const GRIP = 9, GRIP_DRIFT = 1.7, MAX_SLIP = 0.5;
 const CIRCLES = [-1.4, 0, 1.4], RADIUS = 0.92, G = 14; // G: gravità arcade (m/s²), bassa: i salti "galleggiano"
-const BOOST_TIME = 10, SLOW_TIME = 10;
+const BOOST_TIME = 10, SLOW_TIME = 10, NOS_PEAK = 0.82; // il picco di velocità col NOS è -18% rispetto a prima
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -20,7 +20,7 @@ export class Car {
     // NOS a livelli (1-3 cariche accumulate): la spinta in più è x1, x2, x3 (+40% velocità massima e +90% accelerazione per livello).
     // Rallentamento (dopo aver investito un pedone): velocità massima -30%.
     const lv = this.boost > 0 ? this.level : 0;
-    const vmax = VMAX * (1 + 0.4 * lv) * (this.slow > 0 ? 0.7 : 1) * (this.grass ? 0.9 : 1), acc = ACC * (1 + 0.9 * lv) * (this.slow > 0 ? 0.75 : 1);
+    const vmax = VMAX * (lv ? NOS_PEAK * (1 + 0.4 * lv) : 1) * (this.slow > 0 ? 0.7 : 1) * (this.grass ? 0.9 : 1), acc = ACC * (1 + 0.9 * lv) * (this.slow > 0 ? 0.75 : 1);
     this.boost = Math.max(0, this.boost - dt); this.slow = Math.max(0, this.slow - dt);
     this.shield = Math.max(0, this.shield - dt); this.antiOil = Math.max(0, this.antiOil - dt); this.magnet = Math.max(0, this.magnet - dt); this.jam = Math.max(0, this.jam - dt); this.foamT = Math.max(0, this.foamT - dt);
     if (this.antiOil > 0) this.oil = 0;
