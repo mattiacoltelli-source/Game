@@ -88,16 +88,16 @@ export class Tarta {
   }
 
   // Estintore: spegne le fiamme entro il raggio R. Ritorna quante.
-  extinguish(x, z, R) { const n = this.fires.length; this.fires = this.fires.filter((p) => Math.hypot(p.x - x, p.z - z) > R); return n - this.fires.length; }
+  extinguish(x, z, R) { let n = 0; for (const p of this.fires) if (p.out === undefined && Math.hypot(p.x - x, p.z - z) <= R) { p.out = 0.6; n++; } return n; }
 
   updateFire(dt, player) {
     let inside = false; const f = this.fires;
-    for (let i = f.length - 1; i >= 0; i--) { const p = f[i]; p.t += dt; if (p.t >= p.life) { f.splice(i, 1); continue; } if (!player.air && player.y < 1.2 && Math.hypot(player.x - p.x, player.z - p.z) < p.r + 0.7) inside = true; }
+    for (let i = f.length - 1; i >= 0; i--) { const p = f[i]; p.t += dt; if (p.out !== undefined) { p.out -= dt; if ((p.st = (p.st || 0) - dt) <= 0) { p.st = 0.12; this.ctx.smoke && this.ctx.smoke(p.x, p.z, 2); } if (p.out <= 0) { f.splice(i, 1); continue; } } if (p.t >= p.life) { f.splice(i, 1); continue; } if (p.out === undefined && !player.air && player.y < 1.2 && Math.hypot(player.x - p.x, player.z - p.z) < p.r + 0.7) inside = true; }
     if (player.shield > 0) inside = false; // lo scudo ripara dal fuoco
     if (inside) { const k = Math.exp(-0.35 * dt); player.vx *= k; player.vz *= k; this.fx.shake = Math.max(this.fx.shake, 0.18); if (!this.hot) { this.hot = true; this.ctx.toast('Fuoco! Rallenta un po\''); } } else this.hot = false;
     const m = this.m, q = this.q, tm = performance.now() / 1000; let n = 0;
     for (const p of f) {
-      const g = Math.min(1, p.t * 2.5) * Math.min(1, (p.life - p.t) * 1.5), fl = 0.85 + 0.25 * Math.sin(tm * 14 + p.ph) + 0.1 * Math.sin(tm * 23 + p.ph * 2);
+      const g = Math.min(1, p.t * 2.5) * Math.min(1, (p.life - p.t) * 1.5) * (p.out === undefined ? 1 : Math.max(0, p.out / 0.6)), fl = 0.85 + 0.25 * Math.sin(tm * 14 + p.ph) + 0.1 * Math.sin(tm * 23 + p.ph * 2);
       for (let k = 0; k < 3; k++) { const a = p.ph + k * 2.1, ox = Math.cos(a) * p.r * 0.45 * (k ? 1 : 0), oz = Math.sin(a) * p.r * 0.45 * (k ? 1 : 0), s = p.r * (k ? 0.28 : 0.42) * g, h = p.r * (k ? 0.75 : 1.05) * g * fl;
         this.pos.set(p.x + ox, 0.2, p.z + oz); this.sc.set(s, Math.max(0.01, h), s); m.compose(this.pos, q, this.sc); this.fireA.setMatrixAt(n, m); this.sc.set(s * 0.6, Math.max(0.01, h * 0.62), s * 0.6); m.compose(this.pos, q, this.sc); this.fireB.setMatrixAt(n, m); n++; }
     }

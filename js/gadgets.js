@@ -23,7 +23,7 @@ export class GadgetPickups {
     const add = (x, z) => { const q = roads.nearest(x, z, free); if (q && !this.items.some((o) => Math.hypot(o.x - q.x, o.z - q.z) < 50) && !avoid.some((a) => Math.hypot(a.x - q.x, a.z - q.z) < a.r)) this.items.push({ x: q.x, z: q.z, on: true, t: 0, type: pick() }); };
     for (let d = 200; d < total - 150; d += 260) { const p = at(d); if (p) add(p[0], p[1]); }
     const n = this.items.length + 8, mats = (op) => new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-    this.beam = new THREE.InstancedMesh(new THREE.CylinderGeometry(1.2, 1.8, 20, 10, 1, true).translate(0, 10, 0), mats(0.45), n);
+    this.beam = new THREE.InstancedMesh(new THREE.CylinderGeometry(1.3, 2.0, 30, 10, 1, true).translate(0, 15, 0), mats(0.55), n);
     this.ring = new THREE.InstancedMesh(new THREE.TorusGeometry(2.3, 0.28, 8, 24), mats(1), n);
     this.orb = new THREE.InstancedMesh(new THREE.OctahedronGeometry(1.1, 0), mats(1), n);
     this.glow = new THREE.InstancedMesh(new THREE.CircleGeometry(5, 20).rotateX(-Math.PI / 2), mats(0.4), n);
@@ -62,7 +62,32 @@ export class GadgetPickups {
 
 // Bolla dello scudo attorno al taxi (ellissoide additivo che pulsa e lampeggia a fine durata).
 export function buildShield(taxi) {
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: 0x4aa3ff, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: 0x4aa3ff, transparent: true, opacity: 0.34, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
   mesh.scale.set(3.6, 2.3, 2.5); mesh.position.set(0, 1.0, 0); mesh.visible = false; taxi.inner.add(mesh);
   return (left, t) => { mesh.visible = left > 0 && (left > 2 || Math.sin(t * 24) > 0); if (mesh.visible) { const p = 1 + 0.04 * Math.sin(t * 9); mesh.scale.set(3.6 * p, 2.3 * p, 2.5 * p); } };
+}
+
+// Onde a terra per gli effetti dei gadget: anelli additivi che si espandono (o si stringono) e sfumano. Una InstancedMesh.
+export class GadgetFx {
+  constructor(scene) {
+    this.n = 12; this.rings = []; this.m = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.pos = new THREE.Vector3(); this.sc = new THREE.Vector3(); this.col = new THREE.Color(); this.pulse = 0;
+    this.mesh = new THREE.InstancedMesh(new THREE.RingGeometry(0.88, 1, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }), this.n);
+    this.mesh.frustumCulled = false; this.mesh.count = 0; this.mesh.renderOrder = 7; scene.add(this.mesh);
+  }
+  // r0 -> r1 in `life` secondi (r1 < r0 = onda che si stringe verso l'auto)
+  ring(x, z, hex, r0, r1, life = 0.7, y = 0.3) { if (this.rings.length >= this.n) this.rings.shift(); this.rings.push({ x, z, y, hex, r0, r1, life, t: 0 }); }
+  reset() { this.rings.length = 0; this.mesh.count = 0; this.pulse = 0; }
+  update(dt, car) {
+    // effetti continui: magnete (onda che attira), disturbatore (onda che si espande), anti-olio (anello sotto l'auto)
+    this.pulse -= dt;
+    if (this.pulse <= 0 && !car.air) {
+      if (car.magnet > 0) { this.ring(car.x, car.z, GADGETS.magnete.color, 16, 2, 0.8); this.pulse = 0.9; }
+      else if (car.jam > 0) { this.ring(car.x, car.z, GADGETS.disturbatore.color, 3, 20, 0.9); this.pulse = 1.0; }
+      else if (car.antiOil > 0) { this.ring(car.x, car.z, GADGETS.antiolio.color, 2.2, 3.4, 0.7); this.pulse = 0.7; }
+    }
+    const m = this.m, f = this.rings;
+    for (let i = f.length - 1; i >= 0; i--) { f[i].t += dt; if (f[i].t >= f[i].life) f.splice(i, 1); }
+    f.forEach((r, i) => { const k = r.t / r.life, rad = r.r0 + (r.r1 - r.r0) * k, a = (1 - k) * (1 - k) * 0.9; this.pos.set(r.x, r.y, r.z); this.sc.set(rad, 1, rad); m.compose(this.pos, this.q, this.sc); this.mesh.setMatrixAt(i, m); this.col.setHex(r.hex).multiplyScalar(a); this.mesh.setColorAt(i, this.col); });
+    this.mesh.count = f.length; this.mesh.instanceMatrix.needsUpdate = true; if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+  }
 }

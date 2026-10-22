@@ -36,6 +36,7 @@ export class Particles {
     const t = disc(); this.soft = new Pool(scene, N_SOFT, false, t, 0.5); this.add = new Pool(scene, N_ADD, true, t, 1); this.scene = scene; this.was = false; this.tN = 0; this.tS = 0;
   }
   burst(x, z, n, power, col = [0.78, 0.7, 0.55]) { for (let i = 0; i < n; i++) { const a = Math.random() * 6.28, s = rnd(0.5, 1) * power; this.soft.emit(x, 0.4, z, Math.cos(a) * s, rnd(0.4, 2.2), Math.sin(a) * s, rnd(0.6, 1.1), rnd(0.8, 1.5), rnd(1.5, 3), 0, col[0], col[1], col[2]); } }
+  steam(x, z, n = 3) { for (let i = 0; i < n; i++) this.soft.emit(x + rnd(-1, 1), 0.6, z + rnd(-1, 1), rnd(-1, 1), rnd(1.2, 2.8), rnd(-1, 1), rnd(0.7, 1.2), rnd(0.8, 1.3), 2.2, 0, 0.95, 0.97, 1); }
   sparks(x, y, z, n, dx = 0, dz = 0) { for (let i = 0; i < n; i++) this.add.emit(x, y, z, dx + rnd(-4, 4), rnd(1, 5), dz + rnd(-4, 4), rnd(0.25, 0.5), rnd(0.18, 0.3), 0, 14, 1, rnd(0.6, 0.9), 0.25); }
   update(dt, car, camera, fogColor) {
     const fx = Math.cos(car.h), fz = Math.sin(car.h), sp = Math.hypot(car.vx, car.vz);
@@ -46,6 +47,9 @@ export class Particles {
     this.tS -= dt; if (car.contact > 0.3 && sp > 6 && !car.air && this.tS <= 0) { this.tS = 0.04; const side = Math.random() < 0.5 ? 1 : -1; this.sparks(car.x + fx * rnd(-1.5, 1.5) - fz * side * 0.9, 0.5, car.z + fz * rnd(-1.5, 1.5) + fx * side * 0.9, 3, car.vx * 0.2, car.vz * 0.2); }
     // scia del NOS: particelle del colore del livello
     if (car.boost > 0) { this.tN -= dt; if (this.tN <= 0) { this.tN = 0.025; const c = new THREE.Color(NOS_COLORS[Math.max(0, car.level - 1)]); for (const z of [-0.55, 0.55]) this.add.emit(car.x - fx * 2.4 - fz * z, 0.6 + car.y, car.z - fz * 2.4 + fx * z, -fx * 5 + rnd(-1, 1) + car.vx * 0.6, rnd(-0.2, 1), -fz * 5 + rnd(-1, 1) + car.vz * 0.6, rnd(0.35, 0.6), 0.5 + 0.12 * car.level, 0.3, 0, c.r, c.g, c.b); } }
+    // estintore: schiuma/fumo bianco dalle due fiancate e dal retro per ~1,4 s
+    if (car.foamT > 0) for (let k = 0; k < 3; k++) { const side = k % 2 ? 1 : -1, a = rnd(0.5, 1.1);
+      this.soft.emit(car.x - fz * side * 1.0 + fx * rnd(-1.2, 1.2), 0.7 + car.y, car.z + fx * side * 1.0 + fz * rnd(-1.2, 1.2), -fz * side * rnd(3, 7) + car.vx * 0.4, rnd(0.8, 2.2), fx * side * rnd(3, 7) + car.vz * 0.4, rnd(0.8, 1.3), rnd(0.7, 1.1), a * 1.4, 0, 0.97, 0.98, 1); }
     // olio: gocce scure vicino alle ruote quando si sbanda
     if (car.oil > 0 && !car.air && Math.random() < 0.3) this.add.emit(car.x - fx * 1.2 + rnd(-1, 1), 0.3, car.z - fz * 1.2 + rnd(-1, 1), rnd(-2, 2), rnd(1, 3), rnd(-2, 2), 0.45, 0.22, 0, 12, 0.35, 0.2, 0.5);
     this.soft.update(dt, camera, fogColor); this.add.update(dt, camera, fogColor);
