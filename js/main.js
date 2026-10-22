@@ -141,8 +141,8 @@ async function boot() {
   const nos = new NosPickups(scene, world, roads, free, [{ x: sx, z: sz, r: 60 }, ...stops.map((st) => ({ x: st.x, z: st.z, r: 45 }))]);
   const flames = buildFlames(taxi), shieldFx = buildShield(taxi), gfx = new GadgetFx(scene);
   const gadgets = new GadgetPickups(scene, world, roads, free, [{ x: sx, z: sz, r: 60 }, ...stops.map((st) => ({ x: st.x, z: st.z, r: 45 })), ...nos.items.map((i) => ({ x: i.x, z: i.z, r: 45 }))]);
-  const ramps = new Ramps(scene, world, roads, col, [{ x: sx, z: sz, r: 140 }, ...stops.map((st) => ({ x: st.x, z: st.z, r: 80 }))]);
-  for (const r of ramps.list) nos.addAt(r.x - r.ux * 40, r.z - r.uz * 40); // un NOS prima di ogni rampa
+  const ramps = new Ramps(scene, world, roads, col, stops[stops.length - 1]);
+  for (const r of ramps.list) { nos.addAt(r.x - r.ux * 45, r.z - r.uz * 45); nos.addAt(r.x - r.ux * 80, r.z - r.uz * 80); } // NOS prima di ogni rampa (due: se li prendi entrambi il NOS è x2)
   props.circles.push(...ramps.circles); car.rampH = (x, z) => ramps.h(x, z); car.rampAssist = (x, z, vx, vz) => ramps.assist(x, z, vx, vz);
   groundBase = (x, z) => world.groundY(x, z) + ramps.h(x, z);
   const groundCar = (x, z, y) => Math.max(groundBase(x, z), col.roofAt(x, z, y)); // l'auto può stare sui tetti
