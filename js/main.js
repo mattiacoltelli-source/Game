@@ -183,7 +183,7 @@ async function boot() {
   const setStop = (i) => {
     run.stop = i; target = stops[i]; run.warned = false;
     if (marker) { scene.remove(marker); marker.traverse((o) => { o.geometry && o.geometry.dispose(); o.material && o.material.dispose(); }); }
-    marker = buildMarker(target.r, i === stops.length - 1 ? 0x5be37d : 0xffc928); marker.position.set(target.x, 0, target.z); scene.add(marker);
+    const last = i === stops.length - 1; marker = buildMarker(target.r, last ? 0x5be37d : 0xffc928, last ? 'meta' : 'cliente', last ? 'SCARICO' : 'CLIENTE'); marker.position.set(target.x, 0, target.z); scene.add(marker);
     $('goal-txt').textContent = target.goal;
   };
   setStop(0);

@@ -1,4 +1,5 @@
 import * as THREE from '../lib/three.module.min.js';
+import { iconSprite, iconTexture, hex } from './icons.js';
 
 // Gadget raccoglibili (uno alla volta, pulsante GADGET): scudo, molla, magnete.
 // I pickup sono colonne di luce colorate per tipo (stesso disegno dei NOS, 4 InstancedMesh).
@@ -13,7 +14,7 @@ const RESPAWN = 40, RADIUS = 4.2, MAGNET_R = 80;
 
 export class GadgetPickups {
   constructor(scene, world, roads, free, avoid = []) {
-    this.items = []; this.t = 0; this.roads = roads; this.free = free;
+    this.items = []; this.t = 0; this.roads = roads; this.free = free; this.scene = scene;
     const cor = world.corridor, seg = []; let total = 0;
     for (let i = 0; i < cor.length - 1; i++) { const L = Math.hypot(cor[i + 1][0] - cor[i][0], cor[i + 1][1] - cor[i][1]); seg.push(L); total += L; }
     const at = (d) => { for (let i = 0; i < seg.length; i++) { if (d <= seg[i]) { const f = d / seg[i]; return [cor[i][0] + (cor[i + 1][0] - cor[i][0]) * f, cor[i][1] + (cor[i + 1][1] - cor[i][1]) * f]; } d -= seg[i]; } return null; };
@@ -47,6 +48,8 @@ export class GadgetPickups {
   draw(t) {
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sc = new THREE.Vector3(), pos = new THREE.Vector3();
     this.items.forEach((it, i) => {
+      const gd = GADGETS[it.type]; if (!it.spr) { it.spr = iconSprite(it.type === 'shield' ? 'shield' : it.type, hex(gd.color), gd.name.toUpperCase(), 5.5); this.scene.add(it.spr); }
+      if (it.sprType !== it.type) { it.sprType = it.type; it.spr.material.map = iconTexture(it.type, hex(gd.color), gd.name.toUpperCase()); it.spr.material.needsUpdate = true; } it.spr.visible = it.on; it.spr.position.set(it.x, 9 + Math.sin(t * 2.5 + i) * 0.5, it.z);
       const s = it.on ? 1 + 0.1 * Math.sin(t * 6 + i) : 0; this.col.setHex(GADGETS[it.type].color);
       sc.set(s, s, s); q.identity(); pos.set(it.x, 0.1, it.z); m.compose(pos, q, sc); this.beam.setMatrixAt(i, m); this.beam.setColorAt(i, this.col);
       pos.set(it.x, 0.22, it.z); m.compose(pos, q, sc); this.glow.setMatrixAt(i, m); this.glow.setColorAt(i, this.col);

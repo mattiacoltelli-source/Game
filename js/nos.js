@@ -1,4 +1,5 @@
 import * as THREE from '../lib/three.module.min.js';
+import { iconSprite, iconTexture } from './icons.js';
 
 // Pickup di luce "NOS": colonna di luce ciano + anello rotante + sfera. Tre InstancedMesh in tutto (3 draw call).
 // Posizioni: lungo il corridoio di gioco ogni ~240 m e due proprio prima del Ponte Matteotti (rincorsa per il salto).
@@ -6,7 +7,7 @@ const COLOR = 0x4fe6ff, RESPAWN = 25, RADIUS = 4.2;
 
 export class NosPickups {
   constructor(scene, world, roads, free, avoid = []) {
-    this.items = []; this.t = 0; this.roads = roads; this.free = free;
+    this.items = []; this.t = 0; this.roads = roads; this.free = free; this.scene = scene;
     const cor = world.corridor, seg = []; let total = 0;
     for (let i = 0; i < cor.length - 1; i++) { const L = Math.hypot(cor[i + 1][0] - cor[i][0], cor[i + 1][1] - cor[i][1]); seg.push(L); total += L; }
     const at = (d) => { for (let i = 0; i < seg.length; i++) { if (d <= seg[i]) { const f = d / seg[i]; return [cor[i][0] + (cor[i + 1][0] - cor[i][0]) * f, cor[i][1] + (cor[i + 1][1] - cor[i][1]) * f, cor[i + 1][0] - cor[i][0], cor[i + 1][1] - cor[i][1]]; } d -= seg[i]; } return null; };
@@ -54,6 +55,7 @@ export class NosPickups {
   draw(t) {
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sc = new THREE.Vector3(), pos = new THREE.Vector3();
     this.items.forEach((it, i) => {
+      if (!it.spr) { it.spr = iconSprite('nos', '#4fe6ff', 'NOS', 5.5); this.scene.add(it.spr); } it.spr.visible = it.on; it.spr.position.set(it.x, 9 + Math.sin(t * 2.5 + i) * 0.5, it.z);
       const s = it.on ? 1 + 0.1 * Math.sin(t * 6 + i) : 0;
       sc.set(s, s, s); q.identity(); pos.set(it.x, 0.1, it.z); m.compose(pos, q, sc); this.beam.setMatrixAt(i, m);
       pos.set(it.x, 0.22, it.z); q.identity(); m.compose(pos, q, sc); this.glow.setMatrixAt(i, m);
