@@ -10,7 +10,7 @@ export const GADGETS = {
 };
 const KEYS = Object.keys(GADGETS), WEIGHT = { shield: 3, molla: 2, magnete: 2 };
 const pick = () => { const tot = KEYS.reduce((a, k) => a + WEIGHT[k], 0); let r = Math.random() * tot; for (const k of KEYS) { r -= WEIGHT[k]; if (r <= 0) return k; } return 'shield'; };
-const RESPAWN = 40, RADIUS = 4.2, MAGNET_R = 80;
+const RESPAWN = 70, RADIUS = 4.2, MAGNET_R = 80;
 
 export class GadgetPickups {
   constructor(scene, world, roads, free, avoid = []) {
@@ -19,7 +19,7 @@ export class GadgetPickups {
     for (let i = 0; i < cor.length - 1; i++) { const L = Math.hypot(cor[i + 1][0] - cor[i][0], cor[i + 1][1] - cor[i][1]); seg.push(L); total += L; }
     const at = (d) => { for (let i = 0; i < seg.length; i++) { if (d <= seg[i]) { const f = d / seg[i]; return [cor[i][0] + (cor[i + 1][0] - cor[i][0]) * f, cor[i][1] + (cor[i + 1][1] - cor[i][1]) * f]; } d -= seg[i]; } return null; };
     const add = (x, z) => { const q = roads.nearest(x, z, free); if (q && !this.items.some((o) => Math.hypot(o.x - q.x, o.z - q.z) < 50) && !avoid.some((a) => Math.hypot(a.x - q.x, a.z - q.z) < a.r)) this.items.push({ x: q.x, z: q.z, on: true, t: 0, type: pick() }); };
-    for (let d = 200; d < total - 150; d += 260) { const p = at(d); if (p) add(p[0], p[1]); }
+    for (let d = 200; d < total - 150; d += 440) { const p = at(d); if (p) add(p[0], p[1]); }
     const n = this.items.length + 8, mats = (op) => new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
     this.beam = new THREE.InstancedMesh(new THREE.CylinderGeometry(1.3, 2.0, 30, 10, 1, true).translate(0, 15, 0), mats(0.55), n);
     this.ring = new THREE.InstancedMesh(new THREE.TorusGeometry(2.3, 0.28, 8, 24), mats(1), n);

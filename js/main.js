@@ -21,6 +21,7 @@ import { Particles } from './particles.js';
 import { Post } from './post.js';
 import { Street } from './street.js';
 import { Ramps } from './ramps.js';
+import { Roofs } from './roofs.js';
 import { FoeIndicators } from './foeind.js';
 import { RandomEvents } from './events.js';
 import { GadgetPickups, GADGETS, buildShield, GadgetFx } from './gadgets.js';
@@ -105,7 +106,7 @@ async function boot() {
   await step('Pianto gli alberi…', 80);
   world.plantTrees(col);
   const props = new Props(scene, world, col, CANTIERI), street = new Street(scene, world, col);
-  const traffic = new Traffic(scene, world, roads, props), peds = new Pedestrians(scene, world, roads);
+  const traffic = new Traffic(scene, world, roads, props, 26), peds = new Pedestrians(scene, world, roads);
   scene.add(world.group);
 
   // terreno piatto
@@ -161,7 +162,8 @@ async function boot() {
   const flames = buildFlames(taxi), shieldFx = buildShield(taxi), gfx = new GadgetFx(scene);
   const gadgets = new GadgetPickups(scene, world, roads, free, [{ x: sx, z: sz, r: 60 }, ...stops.map((st) => ({ x: st.x, z: st.z, r: 45 })), ...nos.items.map((i) => ({ x: i.x, z: i.z, r: 45 }))]);
   const ramps = new Ramps(scene, world, roads, col, stops[stops.length - 1]);
-  for (const r of ramps.list) { nos.addAt(r.x - r.ux * 45, r.z - r.uz * 45); nos.addAt(r.x - r.ux * 80, r.z - r.uz * 80); } // NOS prima di ogni rampa (due: se li prendi entrambi il NOS è x2)
+  for (const r of ramps.list) nos.addAt(r.x - r.ux * 50, r.z - r.uz * 50); // NOS prima di ogni rampa (due: se li prendi entrambi il NOS è x2)
+  const roofs = new Roofs(scene, world, col, ramps.list.flatMap((r) => [{ x: r.tx, z: r.tz, r: 16 }, { x: r.x, z: r.z, r: 12 }])); // ostacoli sui tetti (non dove atterrano le rampe)
   props.circles.push(...ramps.circles); car.rampH = (x, z) => ramps.h(x, z); car.rampAssist = (x, z, vx, vz) => ramps.assist(x, z, vx, vz);
   groundBase = (x, z) => world.groundY(x, z) + ramps.h(x, z);
   const groundCar = (x, z, y) => Math.max(groundBase(x, z), col.roofAt(x, z, y)); // l'auto può stare sui tetti
@@ -373,7 +375,7 @@ async function boot() {
   }
   requestAnimationFrame(frame);
 
-  window.__taxi = { events, ramps, gadgets, street, post, parts, enemies, nos, props, traffic, peds, taxi, get target() { return target; }, stops, setStop, run, startPos: [sx, sz, startH], car, world, col, roads, input, camera, scene, renderer, get fps() { return fps; }, start() { $('go').click(); }, rescue, free };
+  window.__taxi = { roofs, events, ramps, gadgets, street, post, parts, enemies, nos, props, traffic, peds, taxi, get target() { return target; }, stops, setStop, run, startPos: [sx, sz, startH], car, world, col, roads, input, camera, scene, renderer, get fps() { return fps; }, start() { $('go').click(); }, rescue, free };
   if (DEBUG) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;left:8px;top:8px;font:12px monospace;color:#fff;text-shadow:0 1px 2px #000;z-index:9;pointer-events:none'; document.body.append(d); setInterval(() => { d.textContent = `fps ${fps.toFixed(0)} pr ${pixelRatio.toFixed(2)} cells ${world.cells.size} calls ${renderer.info.render.calls} tris ${renderer.info.render.triangles}`; }, 500); }
 }
 

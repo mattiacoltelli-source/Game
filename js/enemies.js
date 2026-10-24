@@ -117,13 +117,14 @@ class Truck {
   reset() { this.state = 'off'; this.cool = 22; this.group.visible = this.tag.visible = false; this.oils.length = 0; this.puddles.count = 0; this.told = false; }
 
   spawn(player) {
+    this.chase = Math.random() < 0.55; // inseguimento: parte da dietro e ti sperona
     let pick = null, n = 0; const hx = Math.cos(player.h), hz = Math.sin(player.h);
     this.ri.segmentsNear(player.x, player.z, 140, (r, i) => {
       if (!this.g.ok.has(r)) return; const p = r.p, mx = (p[i * 2] + p[i * 2 + 2]) / 2, mz = (p[i * 2 + 1] + p[i * 2 + 3]) / 2, dx = mx - player.x, dz = mz - player.z, d = Math.hypot(dx, dz);
-      if (d < 55 || d > 90 || (dx * hx + dz * hz) / d < 0.55) return; if (++n * Math.random() < 1) pick = [r, i];
+      const f = (dx * hx + dz * hz) / d; if (d < 55 || d > 95 || (this.chase ? f > -0.5 : f < 0.55)) return; if (++n * Math.random() < 1) pick = [r, i];
     });
     if (!pick) return false;
-    const [r, i] = pick, fw = (r.p[i * 2 + 2] - r.p[i * 2]) * hx + (r.p[i * 2 + 3] - r.p[i * 2 + 1]) * hz >= 0, a = fw ? i : i + 1, b = fw ? i + 1 : i, sg = this.g.seg(r._i, a, b);
+    const [r, i] = pick, fw = this.chase ? (r.p[i * 2 + 2] - r.p[i * 2]) * (player.x - r.p[i * 2]) + (r.p[i * 2 + 3] - r.p[i * 2 + 1]) * (player.z - r.p[i * 2 + 1]) >= 0 : (r.p[i * 2 + 2] - r.p[i * 2]) * hx + (r.p[i * 2 + 3] - r.p[i * 2 + 1]) * hz >= 0, a = fw ? i : i + 1, b = fw ? i + 1 : i, sg = this.g.seg(r._i, a, b);
     Object.assign(this, { cr: r._i, a, b, s: Math.random() * sg.L, x: sg.ax, z: sg.az, h: Math.atan2(sg.uz, sg.ux), spd: Math.hypot(player.vx, player.vz) + 8, state: 'on', age: 0, dropT: 0.5 });
     this.group.visible = this.tag.visible = true; return true;
   }
@@ -134,18 +135,19 @@ class Truck {
   }
 
   update(dt, player, runT) {
-    if (this.state === 'off') { this.cool -= dt; if (runT > 25 && this.cool <= 0 && this.spawn(player)) { this.ctx.toast('Simo Pakelo, il tir, ti sta davanti e perde olio!'); } }
+    if (this.state === 'off') { this.cool -= dt; if (runT > 25 && this.cool <= 0 && this.spawn(player)) { this.ctx.toast(this.chase ? 'Simo Pakelo ti insegue da dietro!' : 'Simo Pakelo, il tir, ti sta davanti e perde olio!'); } }
     else {
       this.age += dt;
       const dx = player.x - this.x, dz = player.z - this.z, d = Math.hypot(dx, dz);
-      if (d > 300 || this.age > 45) { this.group.visible = this.tag.visible = false; this.state = 'off'; this.cool = 18; }
+      if (d > 300 || this.age > (this.chase ? 55 : 45)) { this.group.visible = this.tag.visible = false; this.state = 'off'; this.cool = 18; }
       else {
         const pf = [Math.cos(player.h), Math.sin(player.h)], gap = dx * -pf[0] + dz * -pf[1]; // gap > 0: il tir sta davanti
         const psp = Math.hypot(player.vx, player.vz); let want = psp + clamp((40 - gap) * 0.35, -6, 14); if (gap < -10) want = 40; // se lo superi, accelera e scappa
+        if (this.chase) want = clamp(psp + 8 + Math.max(0, -gap) * 0.15, 22, 52); // inseguitore: sempre più veloce di te
         let sg = this.g.seg(this.cr, this.a, this.b); this.spd += clamp(clamp(want, 14, 46) - this.spd, -22 * dt, 12 * dt); this.s += this.spd * dt;
         while (this.s >= sg.L) {
           this.s -= sg.L; let best = null, bd = 1e9;
-          for (let k = 0; k < 6; k++) { const n = this.g.next(this.cr, this.a, this.b), p = this.g.roads[n[0]].p, dd = Math.hypot(p[n[2] * 2] - (player.x + pf[0] * 90), p[n[2] * 2 + 1] - (player.z + pf[1] * 90)); if (dd < bd) { bd = dd; best = n; } } // sceglie la strada che porta avanti rispetto al giocatore
+          for (let k = 0; k < (this.chase ? 12 : 6); k++) { const n = this.g.next(this.cr, this.a, this.b), p = this.g.roads[n[0]].p, dd = Math.hypot(p[n[2] * 2] - (player.x + pf[0] * (this.chase ? 0 : 90)), p[n[2] * 2 + 1] - (player.z + pf[1] * (this.chase ? 0 : 90))); if (dd < bd) { bd = dd; best = n; } } // sceglie la strada che porta avanti rispetto al giocatore
           [this.cr, this.a, this.b] = best; sg = this.g.seg(this.cr, this.a, this.b);
         }
         const tx = sg.ax + sg.ux * this.s, tz = sg.az + sg.uz * this.s; this.x += (tx - this.x) * Math.min(1, 10 * dt); this.z += (tz - this.z) * Math.min(1, 10 * dt);
@@ -153,7 +155,7 @@ class Truck {
         this.group.position.set(this.x, 0.1, this.z); this.group.rotation.y = -this.h; this.tag.position.set(this.x, 8.6, this.z);
         // olio: il tir lo scarica dalla coda della cisterna sulla strada che hai davanti
         this.dropT -= dt;
-        if (this.dropT <= 0 && d < 160) {
+        if (this.dropT <= 0 && d < 160 && !this.chase) {
           const tl = [Math.cos(this.h), Math.sin(this.h)]; this.drop(this.x - tl[0] * 13 + rnd(-1, 1), this.z - tl[1] * 13 + rnd(-1, 1), rnd(4.2, 5.6)); this.dropT = rnd(0.7, 1.1); sfx.thud && sfx.thud(0.25);
         }
       }
@@ -172,12 +174,15 @@ class Truck {
 
   // Urto con il tir: è pesante, rimbalzi via.
   collide(player) {
+    this.hitCd = Math.max(0, (this.hitCd || 0) - 0.016);
     if (this.state !== 'on' || player.clear > 2.2) return false;
     const pf = [Math.cos(player.h), Math.sin(player.h)], tf = [Math.cos(this.h), Math.sin(this.h)];
     for (const to of [-7.5, -3.5, 0.5, 4.5, 8.5]) for (const po of [-1.4, 0, 1.4]) {
       let dx = player.x + pf[0] * po - (this.x + tf[0] * to), dz = player.z + pf[1] * po - (this.z + tf[1] * to); const d = Math.hypot(dx, dz), pen = 2.1 + 0.92 - d; if (pen <= 0) continue;
       if (d > 1e-3) { dx /= d; dz /= d; } else { dx = 0; dz = 1; }
-      player.x += dx * pen; player.z += dz * pen; const vn = player.vx * dx + player.vz * dz; if (vn < 0) { player.vx -= vn * dx * 1.5; player.vz -= vn * dz * 1.5; } player.oil = Math.max(player.oil, 1.5); return 'bump';
+      player.x += dx * pen; player.z += dz * pen; const vn = player.vx * dx + player.vz * dz; if (vn < 0) { player.vx -= vn * dx * 1.5; player.vz -= vn * dz * 1.5; } player.oil = Math.max(player.oil, 1.5);
+      if (this.chase && !(this.hitCd > 0)) { this.hitCd = 1.5; const sp = Math.hypot(player.vx, player.vz) || 1; player.vx += tf[0] * 10; player.vz += tf[1] * 10; player.hitSlow(); this.ctx.toast('Simo Pakelo ti ha speronato!'); this.fx.shake = Math.max(this.fx.shake, 1.0); sfx.boom(0.6); } // lo speronamento ti spinge avanti e ti rallenta (10 s)
+      return 'bump';
     }
     return false;
   }
@@ -207,12 +212,12 @@ class Heli {
   forceSpawn(player) { const a = Math.random() * 6.28; Object.assign(this, { state: 'on', t: 0, x: player.x + Math.cos(a) * 150, z: player.z + Math.sin(a) * 150, y: 40, fireT: 2.5, burst: 0, ang: a, stay: true }); this.group.visible = this.tag.visible = true; }
 
   update(dt, player, runT) {
-    if (this.state === 'off') { this.cool -= dt; if (runT > 18 && this.cool <= 0) { // arriva da lontano
+    if (this.state === 'off') { this.cool -= dt; if ((runT > 18 && this.cool <= 0) || (player.y > 14 && this.cool <= 12 && runT > 8)) { // arriva da lontano (o subito se voli alto)
         const a = Math.random() * 6.28; Object.assign(this, { state: 'on', t: 0, x: player.x + Math.cos(a) * 230, z: player.z + Math.sin(a) * 230, y: 40, fireT: 6, burst: 0, ang: a });
         this.group.visible = this.tag.visible = true; this.ctx.toast('Macco, l\'elicottero, è in arrivo!'); }
       return; }
     this.t += dt; this.rotor.rotation.y += dt * 26;
-    this.ang += dt * 0.4; const leaving = this.t > 34 && !this.stay;
+    this.ang += dt * 0.4; const leaving = this.t > (player.y > 10 ? 60 : 34) && !this.stay;
     const tx = player.x + player.vx * 0.9 + Math.cos(this.ang) * 36, tz = player.z + player.vz * 0.9 + Math.sin(this.ang) * 36, ty = leaving ? 120 : 22 + Math.sin(this.t * 1.7) * 2;
     const k = Math.min(1, 1.5 * dt), ox = this.x, oz = this.z;
     this.x += clamp((tx - this.x) * k, -70 * dt, 70 * dt); this.z += clamp((tz - this.z) * k, -70 * dt, 70 * dt); this.y += (ty - this.y) * Math.min(1, 1.2 * dt);
@@ -224,9 +229,10 @@ class Heli {
     this.fireT -= dt;
     if (!leaving && this.fireT <= 0 && this.t > 3) {
       this.fireT = 0.32; this.burst++;
-      const d = Math.hypot(player.x - this.x, player.z - this.z), T = 1.15 + d / 120, ax = player.x + player.vx * T * 0.8 + rnd(-9, 9), az = player.z + player.vz * T * 0.8 + rnd(-9, 9);
+      const d = Math.hypot(player.x - this.x, player.z - this.z), T = 1.15 + d / 120, sc = player.y > 10 ? 4 : 9, ax = player.x + player.vx * T * 0.8 + rnd(-sc, sc), az = player.z + player.vz * T * 0.8 + rnd(-sc, sc);
       this.fx.fire([this.x + Math.cos(yaw) * 2, this.y - 0.6, this.z + Math.sin(yaw) * 2], ax, az, T);
-      if (this.burst >= 2) { this.burst = 0; this.fireT = rnd(8, 10); }
+      const high = player.y > 10; // in quota Macco spara più spesso, raffiche da 3 e mira meglio
+      if (this.burst >= (high ? 3 : 2)) { this.burst = 0; this.fireT = high ? rnd(3.2, 4.4) : rnd(8, 10); }
     }
   }
 }

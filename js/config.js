@@ -28,9 +28,11 @@ export const STOP_SPEED = 4;
 
 // Cantieri stradali: ogni `every` metri (minimo tra due cantieri) lungo la strada, al massimo `max`; bloccano metà carreggiata.
 export const CANTIERI = [
-  { street: "Via dell'Indipendenza", every: 190, max: 6 },
-  { street: 'Via Giacomo Matteotti', every: 300, max: 2 },
-  { street: 'Via Stalingrado', every: 330, max: 4 },
+  { street: "Via dell'Indipendenza", every: 120, max: 10 },
+  { street: 'Via Ugo Bassi', every: 150, max: 3 },
+  { street: 'Via Donato Creti', every: 220, max: 3 },
+  { street: 'Via Giacomo Matteotti', every: 200, max: 3 },
+  { street: 'Via Stalingrado', every: 210, max: 7 },
   { street: 'Viale Aldo Moro', every: 400, max: 2 },
   { street: 'Via Guglielmo Marconi', every: 300, max: 2 },
 ];

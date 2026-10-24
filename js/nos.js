@@ -3,7 +3,7 @@ import { iconSprite, iconTexture } from './icons.js';
 
 // Pickup di luce "NOS": colonna di luce ciano + anello rotante + sfera. Tre InstancedMesh in tutto (3 draw call).
 // Posizioni: lungo il corridoio di gioco ogni ~240 m e due proprio prima del Ponte Matteotti (rincorsa per il salto).
-const COLOR = 0x4fe6ff, RESPAWN = 25, RADIUS = 4.2;
+const COLOR = 0x4fe6ff, RESPAWN = 45, RADIUS = 4.2;
 
 export class NosPickups {
   constructor(scene, world, roads, free, avoid = []) {
@@ -22,9 +22,9 @@ export class NosPickups {
       if (best > 90) continue; // quella carreggiata non è sul percorso
       const dx = cor[bi + 1][0] - cor[bi][0], dz = cor[bi + 1][1] - cor[bi][1], dir = dx * h.ux + dz * h.uz >= 0 ? 1 : -1;
       const ex = dir > 0 ? h.ax : h.ax + h.ux * h.L, ez = dir > 0 ? h.az : h.az + h.uz * h.L;
-      for (const back of [45, 100, 155]) add(ex - h.ux * dir * back, ez - h.uz * dir * back);
+      for (const back of [60, 140]) add(ex - h.ux * dir * back, ez - h.uz * dir * back);
     }
-    for (let d = 110; d < total - 120; d += 240) { const p = at(d); if (p) add(p[0], p[1]); }
+    for (let d = 110; d < total - 120; d += 380) { const p = at(d); if (p) add(p[0], p[1]); }
     const n = Math.max(1, this.items.length) + 20, mats = (op) => new THREE.MeshBasicMaterial({ color: COLOR, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
     this.beam = new THREE.InstancedMesh(new THREE.CylinderGeometry(1.5, 2.1, 26, 12, 1, true).translate(0, 13, 0), mats(0.5), n);
     this.ring = new THREE.InstancedMesh(new THREE.TorusGeometry(2.7, 0.3, 8, 28), mats(1), n);

@@ -70,7 +70,8 @@ export class Car {
     if (fly) { // propulsori: tenendo premuto sale (carburante 6 s, si ricarica a terra); rilasciando scende lentamente
       if (this.fuel <= 0.02) this.dry = true; else if (this.fuel >= FUEL_MAX - 0.02) this.dry = false; // a secco: serve la ricarica completa (20 s) prima di ripartire
       const want = !!input.thrust && this.fuel > 0.02 && !this.dry; this.thrusting = want;
-      if (want) { this.fuel = Math.max(0, this.fuel - dt); if (!this.air) { this.vy = Math.max(this.vy, 3); this.y += 0.08; } this.vy = Math.min(this.vy + THRUST * dt, VUP); if (this.y > MAXALT) this.vy = Math.min(this.vy, 0); }
+      if (want) { this.fuel = Math.max(0, this.fuel - dt * (1 + clamp((this.y - 12) / 28, 0, 1))); // più sali, più consumi (fino al doppio a 40 m)
+         if (!this.air) { this.vy = Math.max(this.vy, 3); this.y += 0.08; } this.vy = Math.min(this.vy + THRUST * dt, VUP); if (this.y > MAXALT) this.vy = Math.min(this.vy, 0); }
       else this.fuel = Math.min(FUEL_MAX, this.fuel + (FUEL_MAX / 30) * dt);
     } else this.thrusting = false;
     this.vertical(dt, ground, base);
