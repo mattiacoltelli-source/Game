@@ -71,7 +71,7 @@ export class Car {
       if (this.fuel <= 0.02) this.dry = true; else if (this.fuel >= FUEL_MAX - 0.02) this.dry = false; // a secco: serve la ricarica completa (20 s) prima di ripartire
       const want = !!input.thrust && this.fuel > 0.02 && !this.dry; this.thrusting = want;
       if (want) { this.fuel = Math.max(0, this.fuel - dt); if (!this.air) { this.vy = Math.max(this.vy, 3); this.y += 0.08; } this.vy = Math.min(this.vy + THRUST * dt, VUP); if (this.y > MAXALT) this.vy = Math.min(this.vy, 0); }
-      else this.fuel = Math.min(FUEL_MAX, this.fuel + 0.5 * dt);
+      else this.fuel = Math.min(FUEL_MAX, this.fuel + (FUEL_MAX / 30) * dt);
     } else this.thrusting = false;
     this.vertical(dt, ground, base);
     this.collide(dt, col, bounds, input);
