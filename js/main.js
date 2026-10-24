@@ -279,7 +279,25 @@ async function boot() {
   // schermata iniziale
   $('screen-load').hidden = true;
   $('screen-start').hidden = false;
-  let playing = false;
+  let playing = false, paused = false;
+  // Pausa e menu: pulsante piccolo in basso al centro (lontano dai pollici), Esc/P da tastiera; ricominciare o tornare al menu chiede sempre conferma.
+  function setPaused(v) {
+    if (v && run.state !== 'running') return; paused = v; $('screen-pause').hidden = !v; $('pause-main').hidden = false; $('pause-confirm').hidden = true; if (v) { input.keys.clear(); input.override = null; for (const k of Object.keys(input.btn)) input.btn[k] = false; }
+  }
+  let askKind = null;
+  const ask = (kind) => { askKind = kind; $('pause-main').hidden = true; $('pause-confirm').hidden = false; $('pc-title').textContent = kind === 'menu' ? 'Tornare al menu?' : 'Ricominciare?'; $('pc-text').textContent = kind === 'menu' ? 'La corsa in corso va persa e torni alla schermata iniziale.' : 'Perdi la corsa in corso e riparti dall\'inizio.'; };
+  function toMenu() {
+    run.state = 'menu'; playing = false; input.override = null; input.keys.clear(); car.place(sx, sz, startH, groundY(sx, sz)); camH = startH;
+    traffic.reset(); peds.reset(); props.reset(); nos.reset(); enemies.reset(); events.reset(); gadgets.reset(); gfx.reset(); $('boss').hidden = true; setStop(0); if (marker) marker.visible = true;
+    $('hud').hidden = true; $('controls').hidden = true; $('screen-end').hidden = true; $('screen-start').hidden = false; showBest();
+  }
+  $('pause').addEventListener('click', () => setPaused(true));
+  $('p-resume').addEventListener('click', () => setPaused(false));
+  $('p-restart').addEventListener('click', () => ask('restart')); $('p-menu').addEventListener('click', () => ask('menu'));
+  $('pc-no').addEventListener('click', () => { askKind = null; $('pause-main').hidden = false; $('pause-confirm').hidden = true; });
+  $('pc-yes').addEventListener('click', () => { const k = askKind; askKind = null; setPaused(false); if (k === 'menu') toMenu(); else beginRun(); });
+  addEventListener('keydown', (e) => { if ((e.code === 'Escape' || e.code === 'KeyP') && !e.repeat) setPaused(!paused && run.state === 'running'); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') setPaused(true); }); // in background il gioco si ferma
   function beginRun() {
     car.place(sx, sz, startH, groundY(sx, sz)); camH = startH; camD = 8; input.override = null; input.keys.clear();
     run.state = 'running'; run.t = 0; run.boss = false; run.bossWon = false; $('boss').hidden = true; setStop(0); playing = true;
@@ -296,7 +314,7 @@ async function boot() {
     for (let k = 0; k < 4; k++) nos.addAt(car.x + Math.cos(k * 1.57 + 0.7) * 65, car.z + Math.sin(k * 1.57 + 0.7) * 65); // NOS per speronare più forte
   }
   function finishRun() {
-    run.state = 'done'; playing = false; input.override = null; enemies.reset(); $('boss').hidden = true;
+    run.state = 'done'; playing = false; paused = false; $('screen-pause').hidden = true; input.override = null; enemies.reset(); $('boss').hidden = true;
     const prev = loadBest(bid()), isNew = !prev || run.t < prev;
     if (isNew) saveBest(bid(), run.t);
     $('end-time').textContent = fmt(run.t);
@@ -317,7 +335,7 @@ async function boot() {
     requestAnimationFrame(frame);
     let dt = Math.min(0.05, (now - last) / 1000); last = now;
     const portrait = viewSize()[1] > viewSize()[0];
-    if (playing && !portrait && dt > 0) {
+    if (playing && !paused && !portrait && dt > 0) {
       const inp = input.value, n = Math.ceil(dt / (1 / 90)), h = dt / n;
       car.grass = !car.air && car.onRoof !== true && world.isGrass(car.x, car.z); // prato: -10% di velocità massima
       for (let i = 0; i < n; i++) car.step(h, inp, col, world.meta.bounds, groundCar, groundY);
