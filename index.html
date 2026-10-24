@@ -67,6 +67,7 @@
   <div id="status">
     <div class="chip nos" id="st-nos" hidden><b>NOS</b><i><u></u></i><span></span></div>
     <div class="chip gad" id="st-gad" hidden><b></b><i><u></u></i><span></span></div>
+    <div class="chip fuel" id="st-fuel" hidden><b>PROPULSORI</b><i><u></u></i><span></span></div>
     <div class="chip slow" id="st-slow" hidden><b>LENTO</b><i><u></u></i><span></span></div>
   </div>
   <div id="toast" aria-live="polite"></div>
@@ -77,6 +78,7 @@
     <button class="btn steer" data-btn="left" aria-label="Sterza a sinistra"><svg viewBox="0 0 24 24"><path d="M15 4 7 12l8 8"/></svg></button>
     <button class="btn steer" data-btn="right" aria-label="Sterza a destra"><svg viewBox="0 0 24 24"><path d="m9 4 8 8-8 8"/></svg></button>
   </div>
+  <button class="btn flybtn" id="fly-btn" data-btn="fly" aria-label="Propulsori: tieni premuto per salire" hidden><span class="fi">▲</span><span class="fl">VOLA</span></button>
   <button class="btn gadbtn" id="gad-btn" data-btn="gad" aria-label="Usa il gadget"><span class="gi">·</span><span class="gl">GADGET</span></button>
   <div class="pad pad-r">
     <button class="btn nosbtn c0" id="nos-btn" data-btn="nos" aria-label="Attiva il NOS"><span class="nl">NOS</span><span class="pips"><i></i><i></i><i></i></span></button>
@@ -97,6 +99,7 @@
     <div class="row2">
       <label class="opt"><input type="checkbox" id="auto"> Acceleratore automatico</label>
       <label class="opt"><input type="checkbox" id="fxq" checked> Effetti luce</label>
+      <label class="opt"><input type="checkbox" id="flyq"> Taxi volante</label>
       <button id="install" class="ghost" hidden>Installa app</button>
       <button id="howto" class="ghost" hidden>Come installare</button>
       <button id="inset" class="ghost" hidden></button>

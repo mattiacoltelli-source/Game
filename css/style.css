@@ -114,6 +114,9 @@ h1 { margin: 0 0 10px; font-size: 34px; letter-spacing: -.01em; }
 .nosbtn.c1 .pips i:nth-child(-n+1), .nosbtn.c2 .pips i:nth-child(-n+2), .nosbtn.c3 .pips i:nth-child(-n+3) { background: var(--nc); box-shadow: 0 0 8px var(--nc); }
 .nosbtn.c1 .nl, .nosbtn.c2 .nl, .nosbtn.c3 .nl { color: var(--nc); }
 .nosbtn.on { transform: scale(.94); }
+.flybtn { position: absolute; left: calc(max(var(--pad), env(safe-area-inset-left)) + 12px); bottom: calc(max(var(--pad), env(safe-area-inset-bottom)) + var(--btn) + 12px); width: 84px; height: 62px; border-radius: 18px; display: grid; place-items: center; align-content: center; gap: 0; border-color: #7fd8ff; color: #bfeaff; background: #0e1a24ee; box-shadow: 0 0 16px #4fb8ff88; font-size: 11px; }
+.flybtn .fi { font-size: 20px; line-height: 1; } .flybtn.on { background: #1b3a52ee; box-shadow: 0 0 24px #7fd8ff; }
+.chip.fuel { border: 1.5px solid #7fd8ff; color: #fff; } .chip.fuel b { color: #7fd8ff; } .chip.fuel u { background: linear-gradient(90deg, #4fb8ff, #fff); }
 .gadbtn { --gc: #ffffff; position: absolute; right: calc(max(var(--pad), env(safe-area-inset-right)) + var(--btn) * 2 + 28px); bottom: calc(max(var(--pad), env(safe-area-inset-bottom)) + var(--btn) + 12px); width: 72px; height: 62px; border-radius: 18px; display: grid; place-items: center; align-content: center; gap: 1px; color: #ffffff66; border-color: #ffffff2e; font-size: 10px; letter-spacing: .04em; }
 .gadbtn .gi { font-size: 24px; line-height: 1; filter: grayscale(1); opacity: .45; } .gadbtn .gl { font-weight: 800; }
 .gadbtn.has { color: #fff; border-color: var(--gc); background: #10151aee; box-shadow: 0 0 16px var(--gc), inset 0 0 12px #ffffff18; } .gadbtn.has .gi { filter: none; opacity: 1; } .gadbtn.has { animation: gpulse 1.3s ease-in-out infinite; } @keyframes gpulse { 50% { box-shadow: 0 0 26px var(--gc), inset 0 0 14px #ffffff30; } } .gadbtn.has .gl { color: var(--gc); }

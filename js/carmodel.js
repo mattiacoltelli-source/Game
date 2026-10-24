@@ -59,5 +59,12 @@ export function buildTaxi() {
   blob.position.y = -0.16; blob.renderOrder = 2; outer.add(blob);
   // sterzo delle ruote anteriori, fanali posteriori accesi in frenata
   const update = (steer, braking, air) => { wl.rotation.y = wr.rotation.y = -steer * 0.45; tailMat.color.setRGB(braking ? 1.6 : 0.55, braking ? 0.16 : 0.05, braking ? 0.12 : 0.04); blob.visible = !air; };
-  return { outer, inner, update, blob };
+  // propulsori (modalità taxi volante): 4 ugelli sotto le ruote e fiamme blu-bianche rivolte verso il basso
+  const thr = new THREE.Group(), noz = mergeBoxes([[1.4, 0.96], [1.4, -0.96], [-1.4, 0.96], [-1.4, -0.96]].map(([x, z]) => ({ x, y: 0.12, z, sx: 0.5, sy: 0.22, sz: 0.4, c: [0.2, 0.22, 0.28] }))), flames = [];
+  thr.add(new THREE.Mesh(noz, new THREE.MeshLambertMaterial({ vertexColors: true })));
+  const fg = new THREE.ConeGeometry(0.34, 2.4, 8).rotateX(Math.PI).translate(0, -1.2, 0), fo = new THREE.MeshBasicMaterial({ color: 0x66c8ff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }), fi = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+  for (const [x, z] of [[1.4, 0.96], [1.4, -0.96], [-1.4, 0.96], [-1.4, -0.96]]) for (const [m, s] of [[fo, 1], [fi, 0.5]]) { const f = new THREE.Mesh(fg, m); f.position.set(x, 0.05, z); f.scale.set(s, s, s); f.visible = false; thr.add(f); flames.push([f, s]); }
+  thr.visible = false; inner.add(thr);
+  const setThrust = (enabled, on, t) => { thr.visible = enabled; for (const [f, s] of flames) { f.visible = enabled && on; if (on) { const k = 0.85 + 0.3 * Math.sin(t * 45 + f.position.x * 7 + f.position.z * 5); f.scale.set(s, s * (1 + k * 0.5), s); } } };
+  return { outer, inner, update, blob, setThrust };
 }

@@ -2,13 +2,14 @@
 const VMAX = 45, VREV = 8, ACC = 24, BRAKE = 22, REV_ACC = 10, COAST = 3, WHEELBASE = 2.7;
 const GRIP = 9, GRIP_DRIFT = 1.7, MAX_SLIP = 0.5;
 const CIRCLES = [-1.4, 0, 1.4], RADIUS = 0.92, G = 14; // G: gravità arcade (m/s²), bassa: i salti "galleggiano"
+const THRUST = 26, VUP = 13, MAXALT = 48, FUEL_MAX = 10; // propulsori (modalità taxi volante)
 const BOOST_TIME = 10, SLOW_TIME = 10, NOS_PEAK = 0.72; // picco col NOS: -28% rispetto all'originale (NOS x1 almeno +12% sulla velocità normale)
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 
 export class Car {
-  constructor() { this.grass = false; this.rampH = () => 0; this.rampAssist = () => null; this.superJump = false; this.onRamp = false; this.gadget = null; this.shield = 0; this.magnet = 0; this.onRoof = false; this.place(0, 0, 0); }
+  constructor() { this.canFly = false; this.fuel = FUEL_MAX; this.fuelMax = FUEL_MAX; this.thrusting = false; this.grass = false; this.rampH = () => 0; this.rampAssist = () => null; this.superJump = false; this.onRamp = false; this.gadget = null; this.shield = 0; this.magnet = 0; this.onRoof = false; this.place(0, 0, 0); }
 
   place(x, z, h, y = 0) {
     this.x = x; this.z = z; this.h = h; this.vx = 0; this.vz = 0; this.y = y; this.vy = 0; this.boost = 0; this.level = 0; this.charges = 0; this.slow = 0; this.oil = 0; this.oilPh = 0; this.air = false; this.airT = 0; this.jump = 0; this.landed = 0; this.clear = 0;
@@ -16,7 +17,7 @@ export class Car {
   }
 
   step(dt, input, col, bounds, ground = () => 0, base = ground) {
-    const air = this.air, thr = air ? 0 : input.throttle, brk = air ? 0 : input.brake;
+    const air = this.air, fly = this.canFly, thr = (air && !fly) ? 0 : input.throttle * (air ? 0.8 : 1), brk = (air && !fly) ? 0 : input.brake * (air ? 0.6 : 1);
     // NOS a livelli (1-3 cariche accumulate): la spinta in più è x1, x2, x3 (+40% velocità massima e +90% accelerazione per livello).
     // Rallentamento (dopo aver investito un pedone): velocità massima -30%.
     const lv = this.boost > 0 ? this.level : 0;
@@ -47,7 +48,7 @@ export class Car {
 
     // imbardata: curvatura limitata dalla velocità, poi smorzata verso il target
     const dMax = lerp(0.62, 0.13, clamp(sp / 40, 0, 1));
-    let wT = vf * Math.tan(this.steer * dMax) / WHEELBASE * (1 + 0.25 * this.drift) * (air ? 0.25 : 1);
+    let wT = vf * Math.tan(this.steer * dMax) / WHEELBASE * (1 + 0.25 * this.drift) * (air ? (fly ? 0.9 : 0.25) : 1);
     // auto-allineamento: senza sterzo l'auto riprende da sola la direzione di marcia
     const vl0 = this.vx * rx + this.vz * rz;
     if (vf > 0.5 && !air && !oily) wT += 3 * (vl0 / (vf + 3)) * (1 - sAbs);
@@ -61,21 +62,28 @@ export class Car {
     vf = this.vx * fx + this.vz * fz;
     let vl = this.vx * rx + this.vz * rz;
     if (!air) { vl *= Math.exp(-(oily ? 0.5 : lerp(GRIP, GRIP_DRIFT, this.drift)) * dt); const ms = (oily ? 1.5 : MAX_SLIP) * (Math.abs(vf) + 2); vl = clamp(vl, -ms, ms); }
+    else if (fly) vl *= Math.exp(-2.2 * dt); // in volo i propulsori laterali fanno seguire la direzione del muso
     this.vx = fx * vf + rx * vl; this.vz = fz * vf + rz * vl;
     this.speed = vf; this.lat = vl;
 
     this.x += this.vx * dt; this.z += this.vz * dt;
+    if (fly) { // propulsori: tenendo premuto sale (carburante 6 s, si ricarica a terra); rilasciando scende lentamente
+      const want = !!input.thrust && this.fuel > 0.02; this.thrusting = want;
+      if (want) { this.fuel = Math.max(0, this.fuel - dt); if (!this.air) { this.vy = Math.max(this.vy, 3); this.y += 0.08; } this.vy = Math.min(this.vy + THRUST * dt, VUP); if (this.y > MAXALT) this.vy = Math.min(this.vy, 0); }
+      else this.fuel = Math.min(FUEL_MAX, this.fuel + (this.air ? 0.4 : 2.5) * dt);
+    } else this.thrusting = false;
     this.vertical(dt, ground, base);
     this.collide(dt, col, bounds, input);
   }
 
   // Quota: segue il terreno; se il terreno scende più in fretta della caduta libera, l'auto vola.
   vertical(dt, ground, base) {
-    const g = ground(this.x, this.z, this.y), yb = this.y + this.vy * dt - 0.5 * G * dt * dt;
+    const Ge = this.canFly && this.air && !this.thrusting ? G * 0.45 : G; // in volo senza spinta: discesa morbida
+    const g = ground(this.x, this.z, this.y), yb = this.y + this.vy * dt - 0.5 * Ge * dt * dt;
     if (yb > g + 0.02) { // in volo
       if (!this.air) { this.air = true; this.airT = 0; this.x0 = this.x; this.z0 = this.z; if (this.onRamp && this.boost > 0) { const a = this.rampAssist(this.x, this.z, this.vx, this.vz); if (a) { this.vx = a.vx; this.vz = a.vz; this.vy = a.vy; this.superJump = true; } else { this.vy += 4 + 3 * this.level; this.vx += Math.cos(this.h) * 5 * this.level; this.vz += Math.sin(this.h) * 5 * this.level; } } // dalla rampa col NOS: super salto (verso un tetto) o spinta in più
       if (this.onRoof && this.boost > 0) { this.vy = Math.max(this.vy, 5 + 2 * this.level); this.vx += Math.cos(this.h) * 9 * this.level; this.vz += Math.sin(this.h) * 9 * this.level; } } // dal tetto col NOS: la propulsione spinge in alto e in avanti
-      this.airT += dt; this.y = yb; this.vy -= G * dt;
+      this.airT += dt; this.y = yb; this.vy -= Ge * dt; if (this.canFly && this.vy < -12) this.vy = -12;
     } else {
       const vyg = Math.max(-25, Math.min(25, (g - this.y) / dt));
       if (this.air) { // atterraggio

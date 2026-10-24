@@ -47,6 +47,9 @@ export class Particles {
     this.tS -= dt; if (car.contact > 0.3 && sp > 6 && !car.air && this.tS <= 0) { this.tS = 0.04; const side = Math.random() < 0.5 ? 1 : -1; this.sparks(car.x + fx * rnd(-1.5, 1.5) - fz * side * 0.9, 0.5, car.z + fz * rnd(-1.5, 1.5) + fx * side * 0.9, 3, car.vx * 0.2, car.vz * 0.2); }
     // scia del NOS: particelle del colore del livello
     if (car.boost > 0) { this.tN -= dt; if (this.tN <= 0) { this.tN = 0.025; const c = new THREE.Color(NOS_COLORS[Math.max(0, car.level - 1)]); for (const z of [-0.55, 0.55]) this.add.emit(car.x - fx * 2.4 - fz * z, 0.6 + car.y, car.z - fz * 2.4 + fx * z, -fx * 5 + rnd(-1, 1) + car.vx * 0.6, rnd(-0.2, 1), -fz * 5 + rnd(-1, 1) + car.vz * 0.6, rnd(0.35, 0.6), 0.5 + 0.12 * car.level, 0.3, 0, c.r, c.g, c.b); } }
+    // propulsori: getti blu-bianchi verso il basso dai 4 ugelli, polvere se si è vicini al suolo
+    if (car.thrusting) for (const [ox, oz] of [[1.4, 0.96], [1.4, -0.96], [-1.4, 0.96], [-1.4, -0.96]]) { if (Math.random() < 0.6) this.add.emit(car.x + fx * ox - fz * oz, car.y + 0.2, car.z + fz * ox + fx * oz, rnd(-0.6, 0.6), rnd(-9, -6), rnd(-0.6, 0.6), rnd(0.25, 0.4), 0.55, 0.3, 0, 0.55, 0.8, 1); }
+    if (car.thrusting && car.clear < 6 && Math.random() < 0.5) this.soft.emit(car.x + rnd(-2, 2), 0.3, car.z + rnd(-2, 2), rnd(-4, 4), rnd(0.5, 1.5), rnd(-4, 4), rnd(0.6, 1.0), rnd(1.2, 1.8), 2.4, 0, 0.78, 0.7, 0.55);
     // prato: ciuffi d'erba e terra dalle ruote
     if (car.grass && sp > 6 && Math.random() < 0.5) this.soft.emit(car.x - fx * 1.2 + rnd(-0.9, 0.9), 0.3 + car.y, car.z - fz * 1.2 + rnd(-0.9, 0.9), rnd(-1.5, 1.5), rnd(1, 2.5), rnd(-1.5, 1.5), rnd(0.4, 0.7), rnd(0.35, 0.6), 0.6, 0, 0.42, 0.55, 0.25);
     // olio: gocce scure vicino alle ruote quando si sbanda

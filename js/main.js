@@ -188,10 +188,16 @@ async function boot() {
   };
   setStop(0);
   $('route').innerHTML = [START.nome, ...stops.map((s2) => s2.nome)].map((n) => `<span>${n}</span>`).join('<i></i>');
-  const showBest = () => { const b = loadBest(ride.id); $('best-start').textContent = b ? `Record: ${fmt(b)}` : 'Nessun record ancora'; };
+  const bid = () => ride.id + (car.canFly ? '-fly' : '');
+  const showBest = () => { const b = loadBest(bid()); $('best-start').textContent = b ? `Record: ${fmt(b)}` : 'Nessun record ancora'; };
   showBest();
 
   const input = new Input();
+  { // taxi volante (propulsori): opzione salvata, record separato
+    const fq = $('flyq'); let fl = false; try { fl = localStorage.getItem('taxi-bologna:fly') === '1'; } catch (e) { /* ignora */ }
+    const apply = (v) => { car.canFly = v; fq.checked = v; $('fly-btn').hidden = !v; showBest(); }; apply(fl);
+    fq.addEventListener('change', () => { apply(fq.checked); try { localStorage.setItem('taxi-bologna:fly', fq.checked ? '1' : '0'); } catch (e) { /* ignora */ } });
+  }
   { const fc = $('fxq'); fc.checked = post.on; fc.addEventListener('change', () => { post.on = fc.checked; try { localStorage.setItem('taxi-bologna:fx', post.on ? '1' : '0'); } catch (e) { /* ignora */ } }); }
   { const ib = $('inset'); if (IOS) { ib.hidden = false; const lab = () => { ib.textContent = `Schermo tagliato a destra? Margine: ${exR}`; }; lab(); ib.addEventListener('click', () => { exR = exR >= 60 ? 0 : exR + 30; try { localStorage.setItem('taxi-bologna:exr', String(exR)); } catch (e) { /* ignora */ } lab(); fitViewport(); }); } }
   $('auto').addEventListener('change', (e) => { input.auto = e.target.checked; });
@@ -231,18 +237,18 @@ async function boot() {
     const speed = Math.hypot(car.vx, car.vz);
     const want = 8.2 + Math.min(speed, 64) * 0.06;
     const bx = -Math.cos(camH), bz = -Math.sin(camH);
-    let limit = col.ray(car.x, car.z, bx, bz, want + 1.5);
+    let limit = col.ray(car.x, car.z, bx, bz, want + 1.5, Math.max(4, car.y + 3)); // in alto gli edifici bassi non limitano la camera
     let target = Math.max(2.6, Math.min(want, limit - 1.2));
-    if (target <= 2.6 && col.inside(car.x + bx * 2.6, car.z + bz * 2.6, 4)) target = 1.4;
+    if (target <= 2.6 && col.inside(car.x + bx * 2.6, car.z + bz * 2.6, Math.max(4, car.y + 3))) target = 1.4;
     camD = target < camD ? target : camD + (target - camD) * Math.min(1, 2.2 * dt);
     const t = (camD - 1.4) / 7;
     const height = 2.4 + Math.min(1, Math.max(0, t)) * 1.7 + speed * 0.012;
     const px = car.x + bx * camD, pz = car.z + bz * camD;
-    camY += (car.y - camY) * Math.min(1, 6 * dt); // la camera segue la quota più lentamente: i salti si vedono
+    camY += (car.y - camY) * Math.min(1, (car.canFly ? 12 : 6) * dt); // la camera segue la quota più lentamente: i salti si vedono
     camPos.set(px, height + camY, pz);
     camera.position.copy(camPos);
     const sh = enemies.shake; if (sh > 0.02) camera.position.add(new THREE.Vector3((Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh));
-    camera.lookAt(car.x + Math.cos(camH) * 7, 0.9 + car.y * 0.8 + (car.y - camY) * 0.4, car.z + Math.sin(camH) * 7);
+    camera.lookAt(car.x + Math.cos(camH) * 7, car.canFly ? 0.9 + car.y * 0.92 : 0.9 + car.y * 0.8 + (car.y - camY) * 0.4, car.z + Math.sin(camH) * 7);
     const fov = 62 + Math.min(1, speed / 50) * 9 + (car.boost > 0 ? 4 + 3 * car.level : 0);
     if (Math.abs(camera.fov - fov) > 0.2) { camera.fov += (fov - camera.fov) * Math.min(1, 5 * dt); camera.updateProjectionMatrix(); }
   }
@@ -264,7 +270,7 @@ async function boot() {
   function beginRun() {
     car.place(sx, sz, startH, groundY(sx, sz)); camH = startH; camD = 8; input.override = null; input.keys.clear();
     run.state = 'running'; run.t = 0; run.boss = false; run.bossWon = false; $('boss').hidden = true; setStop(0); playing = true;
-    car.gadget = null; car.shield = car.magnet = 0; gfx.reset(); wasRoof = false; gadgets.reset();
+    car.gadget = null; car.fuel = car.fuelMax; car.shield = car.magnet = 0; gfx.reset(); wasRoof = false; gadgets.reset();
     traffic.reset(); peds.reset(); props.reset(); nos.reset(); enemies.reset(); events.reset(); sfx.init(); if (!NOTRAFFIC) { traffic.fill(car); peds.fill(car); }
     $('screen-start').hidden = true; $('screen-end').hidden = true; $('hud').hidden = false; $('controls').hidden = false;
   }
@@ -278,8 +284,8 @@ async function boot() {
   }
   function finishRun() {
     run.state = 'done'; playing = false; input.override = null; enemies.reset(); $('boss').hidden = true;
-    const prev = loadBest(ride.id), isNew = !prev || run.t < prev;
-    if (isNew) saveBest(ride.id, run.t);
+    const prev = loadBest(bid()), isNew = !prev || run.t < prev;
+    if (isNew) saveBest(bid(), run.t);
     $('end-time').textContent = fmt(run.t);
     const el = $('end-best'); el.classList.toggle('new', isNew);
     $('end-title').textContent = run.bossWon ? 'Cos sconfitto!' : `Arrivati: ${stops[stops.length - 1].nome}`;
@@ -316,6 +322,7 @@ async function boot() {
       if (nos.update(dt, car) && car.giveCharge()) { sfx.pickup(); toast(car.charges >= 3 ? 'NOS ×3 pronto!' : `NOS: ${car.charges}/3 cariche`); }
       if (input.takeNos()) { const lv = car.activate(); if (lv) { sfx.nos(lv); toast(`NOS ×${lv}! 10 secondi`); } }
       if (car.superJump) { car.superJump = false; toast('Super salto verso il tetto!'); }
+      if (car.canFly) car.jump = 0; // in volo i salti non fanno notizia
       if (car.jump > 0) { if (car.jump >= 12) toast(`Salto di ${Math.round(car.jump)} m!`); car.jump = 0; }
       run.t += Math.min(0.25, (now - lastT) / 1000);
       const d = Math.hypot(target.x - car.x, target.z - car.z);
@@ -328,7 +335,7 @@ async function boot() {
     }
     lastT = now;
     world.update(car.x, car.z, 1); street.update(dt);
-    flames(car.boost > 0 ? car.level : 0, now / 1000); shieldFx(car.shield, now / 1000); gfx.update(dt, car);
+    flames(car.boost > 0 ? car.level : 0, now / 1000); taxi.setThrust(car.canFly, car.thrusting, now / 1000); shieldFx(car.shield, now / 1000); gfx.update(dt, car);
     poseCar(dt); if (!window.__freeCam) updateCamera(dt); fx.update(dt, car, camera); parts.update(dt, car, camera, scene.fog.color); labels.update(dt, car, camH); atmo.update(dt, car);
     if (run.state === 'running') {
       $('kmh').textContent = Math.round(Math.abs(car.speed) * 3.6);
@@ -347,6 +354,7 @@ async function boot() {
         const act = [['shield', car.shield], ['magnete', car.magnet]].sort((a, b) => b[1] - a[1])[0], sg = $('st-gad');
         sg.hidden = !(act[1] > 0); if (act[1] > 0) { const g2 = GADGETS[act[0]]; sg.style.setProperty('--gc', '#' + g2.color.toString(16).padStart(6, '0')); sg.querySelector('b').textContent = g2.name.toUpperCase(); sg.querySelector('u').style.transform = `scaleX(${Math.min(1, act[1] / g2.time)})`; sg.querySelector('span').textContent = act[1].toFixed(1); }
       }
+      { const sf = $('st-fuel'); sf.hidden = !car.canFly; if (car.canFly) { sf.querySelector('u').style.transform = `scaleX(${Math.max(0, Math.min(1, car.fuel / car.fuelMax))})`; sf.querySelector('span').textContent = car.fuel.toFixed(1); } }
       const nb = $('nos-btn'); nb.className = `btn nosbtn c${car.charges}` + (input.btn.nos ? ' on' : '');
       if (car.slow > 0) { sSlow.querySelector('u').style.transform = `scaleX(${car.slow / 10})`; sSlow.querySelector('span').textContent = car.slow.toFixed(1); }
       $('speedfx').classList.toggle('on', car.boost > 0);

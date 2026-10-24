@@ -1,7 +1,7 @@
 // Input: pulsanti touch (pointer events, multi-touch) + tastiera per i test su desktop.
 export class Input {
   constructor() {
-    this.btn = { left: false, right: false, gas: false, brake: false };
+    this.btn = { left: false, right: false, gas: false, brake: false, fly: false };
     this.keys = new Set();
     this.auto = false; // acceleratore automatico
     for (const el of document.querySelectorAll('[data-btn]')) {
@@ -28,6 +28,6 @@ export class Input {
     const left = b.left || k.has('ArrowLeft') || k.has('KeyA'), right = b.right || k.has('ArrowRight') || k.has('KeyD');
     const brake = b.brake || k.has('ArrowDown') || k.has('KeyS');
     const gas = b.gas || k.has('ArrowUp') || k.has('KeyW') || (this.auto && !brake);
-    return { steer: (right ? 1 : 0) - (left ? 1 : 0), throttle: gas ? 1 : 0, brake: brake ? 1 : 0 };
+    return { steer: (right ? 1 : 0) - (left ? 1 : 0), throttle: gas ? 1 : 0, brake: brake ? 1 : 0, thrust: b.fly || k.has('KeyF') };
   }
 }
