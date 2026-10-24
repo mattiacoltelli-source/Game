@@ -66,15 +66,15 @@ export class Tarta {
     if (d > 260 || this.life > 38) { this.group.visible = this.tag.visible = this.beam.visible = false; this.state = 'off'; this.cool = 22; return; }
     if (this.state !== 'idle' || this.t > 0.3) this.group.rotation.y = -face; // il cannone guarda verso di te
     if (this.state === 'idle') { if (this.t >= this.wait && d < 150) { // punta il laser davanti all'auto
-        const T = 1.7, sp = Math.hypot(player.vx, player.vz), tx = player.x + player.vx * T * 0.9, tz = player.z + player.vz * T * 0.9; const sn = this.ri.nearest(tx, tz); this.tx = sn ? sn.x : tx; this.tz = sn ? sn.z : tz; this.dirx = sp > 4 ? player.vx / sp : Math.cos(player.h); this.dirz = sp > 4 ? player.vz / sp : Math.sin(player.h);
+        const T = 1.7, sp = Math.hypot(player.vx, player.vz), tx = player.x + player.vx * T * 0.9, tz = player.z + player.vz * T * 0.9; this.ty = player.y > 3 ? Math.max(1.5, player.y + 1 + player.vy * T * 0.5) : 0; const sn = this.ty > 0 ? null : this.ri.nearest(tx, tz); this.tx = sn ? sn.x : tx; this.tz = sn ? sn.z : tz; this.dirx = sp > 4 ? player.vx / sp : Math.cos(player.h); this.dirz = sp > 4 ? player.vz / sp : Math.sin(player.h);
         this.state = 'aim'; this.t = 0; this.mark = this.fx.mark(this.tx, this.tz, 1.2, 0.5); this.ctx.toast('Laser in carica! Attento al fuoco'); } }
     else if (this.state === 'aim') { this.setBeam(0.12 + 0.1 * Math.sin(this.t * 30), 0.12); if (this.t >= 1.2) { this.state = 'fire'; this.t = 0; sfx.shot(); } }
-    else if (this.state === 'fire') { this.setBeam(0.9, 0.5 * (1 - this.t / 0.5) + 0.12); if (this.t < 0.06) this.ignite(); if (this.t >= 0.5) { this.beam.visible = false; this.state = 'rest'; this.t = 0; } }
+    else if (this.state === 'fire') { this.setBeam(0.9, 0.5 * (1 - this.t / 0.5) + 0.12); if (this.t < 0.06) { if (this.ty > 0) { if (!this.burn) { this.burn = true; this.fx.explode(this.tx, this.tz, this.ty, 0.7); setTimeout(() => { this.burn = false; }, 0); } } else this.ignite(); } if (this.t >= 0.5) { this.beam.visible = false; this.state = 'rest'; this.t = 0; } }
     else if (this.state === 'rest') { if (this.t >= 1.2) { if (!this.appear(player)) { this.state = 'idle'; this.t = 0; this.wait = 2; } } }
   }
 
   setBeam(op, w) {
-    const ox = this.rx + Math.cos(-this.group.rotation.y) * 11.5, oz = this.rz + Math.sin(-this.group.rotation.y) * 11.5, oy = this.ry + 2.6, ex = this.tx, ez = this.tz, ey = 0.3, dx = ex - ox, dy = ey - oy, dz = ez - oz, L = Math.hypot(dx, dy, dz);
+    const ox = this.rx + Math.cos(-this.group.rotation.y) * 11.5, oz = this.rz + Math.sin(-this.group.rotation.y) * 11.5, oy = this.ry + 2.6, ex = this.tx, ez = this.tz, ey = this.ty > 0 ? this.ty : 0.3, dx = ex - ox, dy = ey - oy, dz = ez - oz, L = Math.hypot(dx, dy, dz);
     this.beam.position.set((ox + ex) / 2, (oy + ey) / 2, (oz + ez) / 2); this.beam.scale.set(L, w, w); this.beam.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(dx / L, dy / L, dz / L)); this.beam.material.opacity = op; this.beam.visible = true;
   }
 

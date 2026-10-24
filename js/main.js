@@ -88,7 +88,7 @@ function resize() {
 addEventListener('resize', resize); resize();
 
 const fmt = (t) => { const m = Math.floor(t / 60), sec = t - m * 60; return `${m}:${sec < 10 ? '0' : ''}${sec.toFixed(2)}`; };
-const bestKey = (id) => `taxi-bologna:best:${id}`;
+const bestKey = (id) => `taxi-bologna:best2:${id}`; // v2: i record della versione vecchia (tratta diversa) non contano più
 const loadBest = (id) => { try { const v = parseFloat(localStorage.getItem(bestKey(id))); return v > 0 ? v : null; } catch (e) { return null; } };
 const saveBest = (id, t) => { try { localStorage.setItem(bestKey(id), String(t)); } catch (e) { /* storage non disponibile */ } };
 

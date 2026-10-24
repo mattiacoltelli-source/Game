@@ -47,12 +47,12 @@ class Fx {
   }
 
   // Lancia un colpo da `from` che atterrerà in (tx,tz) dopo T secondi.
-  fire(from, tx, tz, T) { this.shells.push({ x0: from[0], y0: from[1], z0: from[2], tx, tz, T, t: 0 }); sfx.shot(); }
+  fire(from, tx, tz, T, ty = 0) { this.shells.push({ x0: from[0], y0: from[1], z0: from[2], tx, tz, ty, T, t: 0 }); sfx.shot(); }
 
   explode(x, z, y = 0, power = 1) {
     const { car, peds, traffic, props } = this.ctx;
     this.ex.push({ x, y, z, t: 0 });
-    const k = car.blast(x, z, R_BLAST, power); if (k > 0) { this.shake = Math.max(this.shake, 0.4 + k); this.ctx.onHit && this.ctx.onHit(k); }
+    const k = car.blast(x, z, R_BLAST, power, y); if (k > 0) { this.shake = Math.max(this.shake, 0.4 + k); this.ctx.onHit && this.ctx.onHit(k); }
     for (const p of peds.peds) { const d = Math.hypot(p.x - x, p.z - z); if (!p.fly && d < R_BLAST) p.fly = { t: 0, vx: (p.x - x) / (d || 1) * 9, vz: (p.z - z) / (d || 1) * 9, vy: 9 + Math.random() * 4 }; }
     for (const c of traffic.cars) { const d = Math.hypot(c.x - x, c.z - z); if (d < R_BLAST) { c.sx = (c.x - x) / (d || 1) * 20; c.sz = (c.z - z) / (d || 1) * 20; c.spd = 0; c.cool = 0.5; } }
     for (const c of props.c) { const d = Math.hypot(c.x - x, c.z - z); if (c.st === 0 && d < R_BLAST) { c.st = 1; c.vx = (c.x - x) / (d || 1) * 14; c.vz = (c.z - z) / (d || 1) * 14; c.vy = 9 + Math.random() * 5; c.rz = (Math.random() - 0.5) * 8; c.rx = (Math.random() - 0.5) * 8; props.dirty = true; } }
@@ -60,7 +60,7 @@ class Fx {
   }
 
   update(dt) {
-    for (let i = this.shells.length - 1; i >= 0; i--) { const s = this.shells[i]; s.t += dt; if (s.t >= s.T) { this.explode(s.tx, s.tz); this.shells.splice(i, 1); } }
+    for (let i = this.shells.length - 1; i >= 0; i--) { const s = this.shells[i]; s.t += dt; if (s.t >= s.T) { this.explode(s.tx, s.tz, s.ty || 0); this.shells.splice(i, 1); } }
     for (let i = this.ex.length - 1; i >= 0; i--) { this.ex[i].t += dt; if (this.ex[i].t > 0.7) this.ex.splice(i, 1); }
     for (let i = this.marks.length - 1; i >= 0; i--) { this.marks[i].t += dt; if (this.marks[i].t >= this.marks[i].T + 0.1) this.marks.splice(i, 1); }
     this.shake *= Math.exp(-5 * dt); this.draw();
@@ -70,8 +70,8 @@ class Fx {
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pos = new THREE.Vector3();
     this.shells.forEach((s, i) => {
       const f = s.t / s.T, arc = 4 * f * (1 - f) * (6 + Math.hypot(s.tx - s.x0, s.tz - s.z0) * 0.12);
-      pos.set(s.x0 + (s.tx - s.x0) * f, s.y0 * (1 - f) + arc, s.z0 + (s.tz - s.z0) * f); sc.setScalar(1); m.compose(pos, q, sc); this.shellM.setMatrixAt(i, m);
-      pos.set(s.tx, 0.25, s.tz); const pulse = 0.94 + 0.06 * Math.sin(s.t * 18); sc.set(pulse, 1, pulse); m.compose(pos, q, sc); this.ringM.setMatrixAt(i, m);
+      pos.set(s.x0 + (s.tx - s.x0) * f, s.y0 * (1 - f) + (s.ty || 0) * f + arc, s.z0 + (s.tz - s.z0) * f); sc.setScalar(1); m.compose(pos, q, sc); this.shellM.setMatrixAt(i, m);
+      pos.set(s.tx, 0.25 + (s.ty || 0), s.tz); const pulse = 0.94 + 0.06 * Math.sin(s.t * 18); sc.set(pulse, 1, pulse); m.compose(pos, q, sc); this.ringM.setMatrixAt(i, m);
       sc.set(f, 1, f); m.compose(pos, q, sc); this.discM.setMatrixAt(i, m); // il disco si riempie man mano che il colpo si avvicina
     });
     this.marks.forEach((k, j) => { const i = this.shells.length + j, f = Math.min(1, k.t / k.T);
@@ -230,7 +230,8 @@ class Heli {
     if (!leaving && this.fireT <= 0 && this.t > 3) {
       this.fireT = 0.32; this.burst++;
       const d = Math.hypot(player.x - this.x, player.z - this.z), T = 1.15 + d / 120, sc = player.y > 10 ? 4 : 9, ax = player.x + player.vx * T * 0.8 + rnd(-sc, sc), az = player.z + player.vz * T * 0.8 + rnd(-sc, sc);
-      this.fx.fire([this.x + Math.cos(yaw) * 2, this.y - 0.6, this.z + Math.sin(yaw) * 2], ax, az, T);
+      const ty = player.y > 3 ? Math.max(0, player.y + 1 + player.vy * T * 0.6) : 0; // se voli, i missili mirano alla tua quota
+      this.fx.fire([this.x + Math.cos(yaw) * 2, this.y - 0.6, this.z + Math.sin(yaw) * 2], ax, az, T, ty);
       const high = player.y > 10; // in quota Macco spara più spesso, raffiche da 3 e mira meglio
       if (this.burst >= (high ? 3 : 2)) { this.burst = 0; this.fireT = high ? rnd(3.2, 4.4) : rnd(8, 10); }
     }
