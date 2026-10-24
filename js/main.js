@@ -185,6 +185,8 @@ async function boot() {
   const muteBtn = $('mute'); muteBtn.classList.toggle('off', sfx.muted);
   muteBtn.addEventListener('click', () => { sfx.setMuted(!sfx.muted); muteBtn.classList.toggle('off', sfx.muted); });
   traffic.lights = street; // le auto del traffico rispettano i semafori
+  traffic.peds = peds; peds.traffic = traffic; peds.lights = street; // pedoni sulle strisce: le auto si fermano, i pedoni attraversano col rosso o quando è libero
+  peds.sites = [...world.details.crossings.map((c) => ({ x: c[0], z: c[1], ux: c[2], uz: c[3], w: c[4] })), ...street.sites];
   const foeInd = new FoeIndicators($('foes')), events = new RandomEvents(scene, world, roads, traffic, peds, { toast, smoke: (x, z, n, kind) => parts.steam(x, z, n, kind) });
   const mini = new Minimap($('mini'), roads);
   const labels = new Labels(scene, camera, data.labels);

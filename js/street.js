@@ -72,7 +72,7 @@ export class Street {
 
   // Incroci vicini al percorso: semafori (ciclo di colori), cartelli (stop, parcheggio, pericolo) e strisce pedonali sulle strade principali.
   junctions(scene, world, near, col) {
-    const DRV = new Set(['primary', 'secondary', 'tertiary', 'unclassified', 'residential']), nodes = new Map(), key = (x, z) => Math.round(x * 2) + ',' + Math.round(z * 2);
+    this.sites = []; const DRV = new Set(['primary', 'secondary', 'tertiary', 'unclassified', 'residential']), nodes = new Map(), key = (x, z) => Math.round(x * 2) + ',' + Math.round(z * 2);
     world.roads.forEach((r, ri) => {
       if (!DRV.has(r.c)) return; const p = r.p, n = p.length / 2;
       for (let i = 0; i < n; i++) {
@@ -90,7 +90,7 @@ export class Street {
       for (const a of arms) {
         const hw = a.w * 0.55 / 2 + 0.2, rx = a.dz, rz = -a.dx; // destra del veicolo che arriva (cioè verso il centro dell'incrocio)
         // strisce pedonali sulle strade larghe
-        if (a.w >= 7 && zebras.length < 420) { const cx = nd.x + a.dx * 8, cz = nd.z + a.dz * 8, len = Math.min(a.w * 0.85, 8); for (let k = -3; k <= 3; k++) zebras.push([cx + a.dx * k * 0.9, cz + a.dz * k * 0.9, Math.atan2(a.dz, a.dx), len]); }
+        if (a.w >= 7 && zebras.length < 420) { this.sites.push({ x: nd.x + a.dx * 8, z: nd.z + a.dz * 8, ux: a.dx, uz: a.dz, w: a.w }); const cx = nd.x + a.dx * 8, cz = nd.z + a.dz * 8, len = Math.min(a.w * 0.85, 8); for (let k = -3; k <= 3; k++) zebras.push([cx + a.dx * k * 0.9, cz + a.dz * k * 0.9, Math.atan2(a.dz, a.dx), len]); }
         // semaforo sui bracci principali (al massimo 3 per incrocio)
         if (a.w >= 8 && lights < 3 && heads.length < 90) { lights++; const px = nd.x + a.dx * 7.5 + rx * (hw + 1.0), pz = nd.z + a.dz * 7.5 + rz * (hw + 1.0); if (!col.inside(px, pz)) heads.push({ x: px, z: pz, ax: a.dx, az: a.dz, nx: nd.x, nz: nd.z, h: Math.atan2(a.dz, a.dx), g: Math.abs(a.dx * d0.dx + a.dz * d0.dz) > 0.7 ? 0 : 1 }); }
         else if (a.w < 7 && plates.length < 70 && R() < 0.6) { const px = nd.x + a.dx * 4.5 + rx * (hw + 0.8), pz = nd.z + a.dz * 4.5 + rz * (hw + 0.8); if (!col.inside(px, pz)) plates.push({ x: px, z: pz, h: Math.atan2(a.dz, a.dx), t: R() < 0.45 ? 0 : R() < 0.6 ? 1 : 2 }); }

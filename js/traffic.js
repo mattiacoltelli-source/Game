@@ -107,6 +107,7 @@ export class Traffic {
       const lead = (x, z, v) => { const dx = x - c.x, dz = z - c.z, f = dx * hx + dz * hz, l = Math.abs(-dx * hz + dz * hx); if (f > 0 && f < 22 && l < 2.2) { const gap = f - (TYPES[c.type].len / 2 + 2.1); lim = Math.min(lim, gap < 1.5 ? 0 : Math.max(0, v * 0.9 + (gap - 2) * 0.8)); } };
       for (const o of cars) if (o !== c) lead(o.x, o.z, o.spd);
       lead(player.x, player.z, Math.max(0, player.vx * hx + player.vz * hz));
+      if (this.peds) for (const q of this.peds.peds) if (q.zb && q.mode === 'zcross' && Math.abs(q.x - c.x) < 30 && Math.abs(q.z - c.z) < 30) { const dx = q.x - c.x, dz = q.z - c.z, f = dx * hx + dz * hz, l = Math.abs(-dx * hz + dz * hx); if (f > 0 && f < 24 && l < 4.2) lim = Math.min(lim, Math.max(0, f - 6) * 0.8); } // pedone sulle strisce: si ferma
       if (this.props) for (const q of this.props.circles) if (Math.abs(q.x - c.x) < 20 && Math.abs(q.z - c.z) < 20) lead(q.x, q.z, 0);
       if (this.lights && this.lights.heads) { // semafori: si ferma alla linea di stop se è rosso (o giallo e c'è spazio per frenare)
         for (const h of this.lights.heads) { if (Math.abs(h.nx - c.x) > 40 || Math.abs(h.nz - c.z) > 40) continue; const s = (c.x - h.nx) * h.ax + (c.z - h.nz) * h.az, lat = Math.abs(-(c.x - h.nx) * h.az + (c.z - h.nz) * h.ax); const toward = hx * -h.ax + hz * -h.az;
@@ -165,7 +166,7 @@ const PED_COLORS = [0xd9534f, 0x4f8fd9, 0xf0c24b, 0x5cb85c, 0xe8e8e8, 0x8e6bbf, 
 
 export class Pedestrians {
   constructor(scene, world, roadIndex, max = 34) {
-    this.ri = roadIndex; this.max = max; this.peds = []; this.t = 0; this.world = world;
+    this.ri = roadIndex; this.max = max; this.peds = []; this.t = 0; this.world = world; this.sites = []; this.traffic = null; this.lights = null; this.zt = 0; this.ZMAX = 14;
     this.g = new Graph(world.roads, (r) => WALK.has(r.c) && !r.n.includes('Matteotti'));
     this.mesh = new THREE.InstancedMesh(pedGeometry(), new THREE.MeshLambertMaterial({ vertexColors: true }), 80);
     this.mesh.frustumCulled = false; this.mesh.count = 0; scene.add(this.mesh); this.time = 0; this.hit = 0;
@@ -187,7 +188,6 @@ export class Pedestrians {
     const [r, i] = pick, d = Math.random() < 0.5 ? 1 : -1, a = d > 0 ? i : i + 1, b = d > 0 ? i + 1 : i, sg = this.g.seg(r._i, a, b);
     const ped = { ri: r._i, a, b, s: Math.random() * sg.L, spd: rnd(1.1, 1.6), side: Math.random() < 0.5 ? 1 : -1, mode: 'walk', x: 0, z: 0, y: 0, h: 0, col: new THREE.Color(PED_COLORS[Math.floor(Math.random() * PED_COLORS.length)]), ph: Math.random() * 6, q: 0, fly: null, wait: 0 };
     if (r.c === 'pedestrian' || r.c === 'living_street') ped.lat = rnd(-2, 2);
-    else if (KERB.has(r.c) && Math.random() < 0.4) { ped.mode = 'wait'; ped.wait = rnd(0, 3); ped.spd = 1.5; }
     ped.q = this.offset(ped, r); this.place(ped, sg); this.peds.push(ped);
   }
 
@@ -207,12 +207,43 @@ export class Pedestrians {
     p.h = k ? Math.atan2(sg.ux * k, -sg.uz * k) : Math.atan2(sg.uz, sg.ux);
   }
 
+  // Pedoni sulle strisce: aspettano sul marciapiede e attraversano solo quando è sicuro (semaforo rosso per le auto, oppure nessuna auto in arrivo).
+  spawnZebra(player) {
+    if (!this.sites.length) return; let n = 0;
+    for (const p of this.peds) if (p.zb) n++; if (n >= this.ZMAX) return;
+    for (let t = 0; t < 12; t++) {
+      const s = this.sites[Math.floor(Math.random() * this.sites.length)], d = Math.hypot(s.x - player.x, s.z - player.z); if (d < 35 || d > 190) continue;
+      if (this.peds.some((q) => q.zb && Math.hypot(q.site.x - s.x, q.site.z - s.z) < 3)) continue;
+      const nx = -s.uz, nz = s.ux, side = Math.random() < 0.5 ? 1 : -1, off = Math.min(s.w, 9) / 2 + 1.2;
+      const ped = { zb: true, site: s, side, off, q: -side * off, mode: 'zwait', wait: rnd(0.5, 5), spd: rnd(1.25, 1.65), x: s.x + nx * -side * off, z: s.z + nz * -side * off, y: 0, h: Math.atan2(nz * side, nx * side), col: new THREE.Color(PED_COLORS[Math.floor(Math.random() * PED_COLORS.length)]), ph: Math.random() * 6, ri: 0, a: 0, b: 1 };
+      this.peds.push(ped); return;
+    }
+  }
+
+  // Strada libera per attraversare? Con un semaforo vicino si attraversa col rosso delle auto; senza, quando nessuna auto o taxi si avvicina.
+  safe(s, player) {
+    const ls = this.lights && this.lights.heads;
+    if (ls) { let any = false, red = false; for (const h of ls) { if (Math.hypot(h.nx - s.x, h.nz - s.z) > 22 || Math.abs(h.ax * s.ux + h.az * s.uz) < 0.7) continue; any = true; if (this.lights.state(h) === 0) red = true; else return false; } if (any) return red; }
+    if (Math.hypot(player.x - s.x, player.z - s.z) < 32 && Math.hypot(player.vx, player.vz) > 3) return false;
+    if (this.traffic) for (const c of this.traffic.cars) if (!c.fixed && c.spd > 1.5 && Math.hypot(c.x - s.x, c.z - s.z) < 24) return false;
+    return true;
+  }
+
   update(dt, player) {
     this.time += dt; this.t -= dt; if (this.t <= 0 && this.peds.length < this.max) { this.spawn(player); this.t = 0.3; }
+    this.zt -= dt; if (this.zt <= 0) { this.spawnZebra(player); this.zt = 0.6; }
     for (let k = this.peds.length - 1; k >= 0; k--) {
       const p = this.peds[k], dp = Math.hypot(p.x - player.x, p.z - player.z);
       if (dp > 260 || (p.fly && p.fly.t > 1.4)) { this.peds.splice(k, 1); continue; }
       if (p.fly) { const f = p.fly; f.t += dt; f.vy -= 18 * dt; p.x += f.vx * dt; p.z += f.vz * dt; p.y = Math.max(0, p.y + f.vy * dt); if (p.y === 0) { f.vx *= 0.9; f.vz *= 0.9; f.vy = 0; } p.spin = (p.spin || 0) + dt * 9; continue; }
+      if (p.zb) { // pedone alle strisce: aspetta, attraversa solo se sicuro, poi si allontana lungo il marciapiede
+        const s = p.site, nx = -s.uz, nz = s.ux;
+        if (p.mode === 'zwait') { p.wait -= dt; if (p.wait <= 0 && this.safe(s, player)) { p.mode = 'zcross'; this.zc = (this.zc || 0) + 1; } }
+        else if (p.mode === 'zcross') { const tgt = p.side * p.off, dir = Math.sign(tgt - p.q); p.q += dir * Math.min(p.spd, 1.7) * dt; if ((tgt - p.q) * dir <= 0) { p.q = tgt; p.mode = 'zleave'; p.leave = 0; p.ldir = Math.random() < 0.5 ? 1 : -1; } }
+        else { p.leave += dt; p.x += s.ux * p.ldir * 1.3 * dt; p.z += s.uz * p.ldir * 1.3 * dt; if (p.leave > 14) { this.peds.splice(k, 1); continue; } }
+        if (p.mode !== 'zleave') { p.x = s.x + nx * p.q; p.z = s.z + nz * p.q; const kk = p.mode === 'zcross' ? Math.sign(p.side * p.off - p.q) : 0; p.h = kk ? Math.atan2(nz * kk, nx * kk) : Math.atan2(nz * p.side, nx * p.side); } else p.h = Math.atan2(s.uz * p.ldir, s.ux * p.ldir);
+        continue;
+      }
       let sg = this.g.seg(p.ri, p.a, p.b); const r = this.g.roads[p.ri];
       // auto in arrivo: si aspetta al marciapiede
       const sp = Math.hypot(player.vx, player.vz), toP = (p.x - player.x) * player.vx + (p.z - player.z) * player.vz, danger = dp < 45 && sp > 5 && toP > 0;
