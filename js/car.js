@@ -2,7 +2,7 @@
 const VMAX = 45, VREV = 8, ACC = 24, BRAKE = 22, REV_ACC = 10, COAST = 3, WHEELBASE = 2.7;
 const GRIP = 9, GRIP_DRIFT = 1.7, MAX_SLIP = 0.5;
 const CIRCLES = [-1.4, 0, 1.4], RADIUS = 0.92, G = 14; // G: gravità arcade (m/s²), bassa: i salti "galleggiano"
-const THRUST = 26, VUP = 13, MAXALT = 48, FUEL_MAX = 10; // propulsori (modalità taxi volante)
+const THRUST = 30, VUP = 11, MAXALT = 40, FUEL_MAX = 10; // propulsori (modalità taxi volante)
 const BOOST_TIME = 10, SLOW_TIME = 10, NOS_PEAK = 0.72; // picco col NOS: -28% rispetto all'originale (NOS x1 almeno +12% sulla velocità normale)
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -70,7 +70,7 @@ export class Car {
     if (fly) { // propulsori: tenendo premuto sale (carburante 6 s, si ricarica a terra); rilasciando scende lentamente
       const want = !!input.thrust && this.fuel > 0.02; this.thrusting = want;
       if (want) { this.fuel = Math.max(0, this.fuel - dt); if (!this.air) { this.vy = Math.max(this.vy, 3); this.y += 0.08; } this.vy = Math.min(this.vy + THRUST * dt, VUP); if (this.y > MAXALT) this.vy = Math.min(this.vy, 0); }
-      else this.fuel = Math.min(FUEL_MAX, this.fuel + (this.air ? 0.4 : 2.5) * dt);
+      else this.fuel = Math.min(FUEL_MAX, this.fuel + (this.air ? 0 : 2.5) * dt);
     } else this.thrusting = false;
     this.vertical(dt, ground, base);
     this.collide(dt, col, bounds, input);
@@ -78,12 +78,12 @@ export class Car {
 
   // Quota: segue il terreno; se il terreno scende più in fretta della caduta libera, l'auto vola.
   vertical(dt, ground, base) {
-    const Ge = this.canFly && this.air && !this.thrusting ? G * 0.45 : G; // in volo senza spinta: discesa morbida
+    const Ge = G; // gravità piena anche col propulsore: se molli, cadi; bisogna dare colpetti di spinta
     const g = ground(this.x, this.z, this.y), yb = this.y + this.vy * dt - 0.5 * Ge * dt * dt;
     if (yb > g + 0.02) { // in volo
       if (!this.air) { this.air = true; this.airT = 0; this.x0 = this.x; this.z0 = this.z; if (this.onRamp && this.boost > 0) { const a = this.rampAssist(this.x, this.z, this.vx, this.vz); if (a) { this.vx = a.vx; this.vz = a.vz; this.vy = a.vy; this.superJump = true; } else { this.vy += 4 + 3 * this.level; this.vx += Math.cos(this.h) * 5 * this.level; this.vz += Math.sin(this.h) * 5 * this.level; } } // dalla rampa col NOS: super salto (verso un tetto) o spinta in più
       if (this.onRoof && this.boost > 0) { this.vy = Math.max(this.vy, 5 + 2 * this.level); this.vx += Math.cos(this.h) * 9 * this.level; this.vz += Math.sin(this.h) * 9 * this.level; } } // dal tetto col NOS: la propulsione spinge in alto e in avanti
-      this.airT += dt; this.y = yb; this.vy -= Ge * dt; if (this.canFly && this.vy < -12) this.vy = -12;
+      this.airT += dt; this.y = yb; this.vy -= Ge * dt; if (this.canFly && this.vy < -30) this.vy = -30;
     } else {
       const vyg = Math.max(-25, Math.min(25, (g - this.y) / dt));
       if (this.air) { // atterraggio
