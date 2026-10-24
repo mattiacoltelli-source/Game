@@ -74,7 +74,7 @@ function fitViewport() {
   else st.setProperty('--hw', (innerWidth - exR) + 'px');
 }
 for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, (e) => e.preventDefault());
-document.addEventListener('touchmove', (e) => { if (e.touches.length > 1 || !e.target.closest('[data-btn]')) e.preventDefault(); }, { passive: false });
+document.addEventListener('touchmove', (e) => { if (e.touches.length > 1 || !e.target.closest('[data-btn], #screen-start')) e.preventDefault(); }, { passive: false });
 document.addEventListener('dblclick', (e) => e.preventDefault());
 addEventListener('scroll', () => { if (scrollX || scrollY) scrollTo(0, 0); });
 if (window.visualViewport) { visualViewport.addEventListener('resize', () => { fitViewport(); resize(); }); visualViewport.addEventListener('scroll', fitViewport); }

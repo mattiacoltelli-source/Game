@@ -117,6 +117,7 @@ h1 { margin: 0 0 10px; font-size: 34px; letter-spacing: -.01em; }
 .nosbtn.c1 .pips i:nth-child(-n+1), .nosbtn.c2 .pips i:nth-child(-n+2), .nosbtn.c3 .pips i:nth-child(-n+3) { background: var(--nc); box-shadow: 0 0 8px var(--nc); }
 .nosbtn.c1 .nl, .nosbtn.c2 .nl, .nosbtn.c3 .nl { color: var(--nc); }
 .nosbtn.on { transform: scale(.94); }
+.flyopt { margin: 0 0 6px; min-height: 40px; color: #bfeaff; font-weight: 700; }
 .flybtn { position: absolute; left: calc(max(var(--pad), env(safe-area-inset-left)) + 12px); bottom: calc(max(var(--pad), env(safe-area-inset-bottom)) + var(--btn) + 12px); width: 84px; height: 62px; border-radius: 18px; display: grid; place-items: center; align-content: center; gap: 0; border-color: #7fd8ff; color: #bfeaff; background: #0e1a24ee; box-shadow: 0 0 16px #4fb8ff88; font-size: 11px; }
 .flybtn .fi { font-size: 20px; line-height: 1; } .flybtn.on { background: #1b3a52ee; box-shadow: 0 0 24px #7fd8ff; }
 .chip.fuel { border: 1.5px solid #7fd8ff; color: #fff; } .chip.fuel b { color: #7fd8ff; } .chip.fuel u { background: linear-gradient(90deg, #4fb8ff, #fff); }
