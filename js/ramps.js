@@ -26,6 +26,8 @@ export class Ramps {
       }
       return best;
     };
+    // rampa e rincorsa (26 m prima, 10 dopo) libere da solidi (transenne, arredi): altrimenti si sbatte di lato
+    const clearRamp = (x, z, ux, uz, w) => { for (let u = -26; u <= 10; u += 2) for (let v = -w / 2 - 1.5; v <= w / 2 + 1.5; v += 1.5) if (col.push(x + ux * u - uz * v, z + uz * u + ux * v, 1.2, 0.3)) return false; return true; };
     // punto sulla strada con nome (regex) più vicino a (nx,nz); direzione scelta secondo l'indizio (hx,hz)
     const onRoad = (re, nx, nz, hx, hz) => {
       let best = null;
@@ -34,11 +36,11 @@ export class Ramps {
       const t = Math.max(0, Math.min(best.len, (nx - best.ax) * (best.bx - best.ax) / best.len + (nz - best.az) * (best.bz - best.az) / best.len)); return { x: best.ax + (best.bx - best.ax) * t / best.len, z: best.az + (best.bz - best.az) * t / best.len, ux, uz };
     };
     const add = (q, w, off) => { // sposta lateralmente (verso destra della marcia) di `off` m
-      if (!q) return; const nx = -q.uz, nz = q.ux, x = q.x + nx * off, z = q.z + nz * off, roof = findRoof(x, z, q.ux, q.uz); if (!roof) return;
-      this.list.push({ x, z, ux: q.ux, uz: q.uz, w: Math.max(w, 5.6), tx: roof.tx, tz: roof.tz, th: roof.th });
+      if (!q) return; const nx = -q.uz, nz = q.ux, x = q.x + nx * off, z = q.z + nz * off, roof = findRoof(x, z, q.ux, q.uz); if (!roof || !clearRamp(x, z, q.ux, q.uz, Math.max(w, 8.4))) return;
+      this.list.push({ x, z, ux: q.ux, uz: q.uz, w: Math.max(w, 8.4), tx: roof.tx, tz: roof.tz, th: roof.th });
     };
     // 1) Indipendenza: sul percorso, tratto lungo e dritto verso nord (il percorso va da (-467,6) a (-444,-110))
-    let q1 = null; for (const [px, pz] of [[-455, -45], [-480, 60], [-515, 215], [-440, -150], [-410, -260]]) { q1 = onRoad(/Indipendenza/, px, pz, 0.19, -0.98); if (q1 && findRoof(q1.x, q1.z, q1.uz * 0 + q1.ux, q1.uz)) break; }
+    let q1 = null; for (const [px, pz] of [[-455, -45], ...[-30, -60, -15, -75, 0, -90, 15, -105, 30, -120, 45, 60, -135, -150, 90, 120, 215, -200, -260].map((z) => [-455 + (z + 45) * -0.19, z])]) { q1 = onRoad(/Indipendenza/, px, pz, 0.19, -0.98); if (q1 && findRoof(q1.x, q1.z, q1.uz * 0 + q1.ux, q1.uz) && clearRamp(q1.x, q1.z, q1.ux, q1.uz, 8.4)) break; }
     add(q1, 4.2, 0);
     // 2) Donato Creti: verso est, corsia laterale (in mezzo corrono i binari)
     for (const px of [330, 280, 380, 230, 420]) { const q = onRoad(/Donato Creti/, px, -1118, 1, 0.1); if (!q) continue; const n0 = this.list.length; add(q, 3.4, 3.0); if (this.list.length > n0) break; }
@@ -51,10 +53,10 @@ export class Ramps {
         const mx = (ax + bx) / 2, mz = (az + bz) / 2; if (mx < -300 || world.groundY(mx, mz) > 0.2) continue; const cd = corrDist(mx, mz); if (cd < 45 || cd > 120) continue;
         let ux = (bx - ax) / len, uz = (bz - az) / len; const tg = Math.hypot(gx - mx, gz - mz); if (ux * (gx - mx) / tg + uz * (gz - mz) / tg < 0) { ux = -ux; uz = -uz; } if (ux * (gx - mx) / tg + uz * (gz - mz) / tg < 0.6) continue;
         if (this.list.some((r2) => Math.hypot(r2.x - mx, r2.z - mz) < 200)) continue;
-        const roof = findRoof(mx, mz, ux, uz); if (!roof) continue; const score = Math.abs(cd - 80) + roof.score; if (!hid || score < hid.score) hid = { score, x: mx, z: mz, ux, uz, roof };
+        const roof = findRoof(mx, mz, ux, uz); if (!roof || !clearRamp(mx, mz, ux, uz, 8.4)) continue; const score = Math.abs(cd - 80) + roof.score; if (!hid || score < hid.score) hid = { score, x: mx, z: mz, ux, uz, roof };
       }
     }
-    if (hid) this.list.push({ x: hid.x, z: hid.z, ux: hid.ux, uz: hid.uz, w: 4.2, tx: hid.roof.tx, tz: hid.roof.tz, th: hid.roof.th });
+    if (hid) this.list.push({ x: hid.x, z: hid.z, ux: hid.ux, uz: hid.uz, w: 8.4, tx: hid.roof.tx, tz: hid.roof.tz, th: hid.roof.th });
     for (const r of this.list) this.circles.push({ x: r.x, z: r.z, r: 7 });
     // geometria unita: pendio a strisce, fianchi e retro
     const P = [], C = [], N = [];
