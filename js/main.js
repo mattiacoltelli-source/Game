@@ -143,6 +143,12 @@ async function boot() {
     atmo.set(b.dataset.tod); markTod(); try { localStorage.setItem('taxi-bologna:tod', atmo.name); } catch (e) { /* ignora */ }
     world.update(car.x, car.z, 99); // ricostruisce subito le celle con le nuove ombre
   }));
+  { // meteo: sereno / pioggia / nebbia, salvato; la pioggia riduce aderenza e frenata
+    let wx = 'sereno'; try { wx = localStorage.getItem('taxi-bologna:wx') || 'sereno'; } catch (e) { /* ignora */ }
+    const markWx = () => document.querySelectorAll('#wx button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.wx === atmo.weather)));
+    atmo.setWeather(wx); car.wet = atmo.weather === 'pioggia'; markWx();
+    document.querySelectorAll('#wx button').forEach((b) => b.addEventListener('click', () => { atmo.setWeather(b.dataset.wx); car.wet = atmo.weather === 'pioggia'; markWx(); try { localStorage.setItem('taxi-bologna:wx', atmo.weather); } catch (e) { /* ignora */ } world.update(car.x, car.z, 99); }));
+  }
   const free = (x, z) => !col.push(x, z, 1.6); // spazio libero per l'auto
   const ride = RIDES[0], START = ride.start;
   const sp = world.project(START.lat, START.lon), fp = world.project(START.facing.lat, START.facing.lon);
@@ -178,6 +184,7 @@ async function boot() {
   });
   const muteBtn = $('mute'); muteBtn.classList.toggle('off', sfx.muted);
   muteBtn.addEventListener('click', () => { sfx.setMuted(!sfx.muted); muteBtn.classList.toggle('off', sfx.muted); });
+  traffic.lights = street; // le auto del traffico rispettano i semafori
   const foeInd = new FoeIndicators($('foes')), events = new RandomEvents(scene, world, roads, traffic, peds, { toast, smoke: (x, z, n, kind) => parts.steam(x, z, n, kind) });
   const mini = new Minimap($('mini'), roads);
   const labels = new Labels(scene, camera, data.labels);
@@ -274,7 +281,7 @@ async function boot() {
   function beginRun() {
     car.place(sx, sz, startH, groundY(sx, sz)); camH = startH; camD = 8; input.override = null; input.keys.clear();
     run.state = 'running'; run.t = 0; run.boss = false; run.bossWon = false; $('boss').hidden = true; setStop(0); playing = true;
-    car.gadget = null; car.fuel = car.fuelMax; car.dry = false; car.shield = car.magnet = 0; gfx.reset(); wasRoof = false; gadgets.reset();
+    car.gadget = null; car.damage = 0; car.dmgHit = 0; car.fuel = car.fuelMax; car.dry = false; car.shield = car.magnet = 0; gfx.reset(); wasRoof = false; gadgets.reset();
     traffic.reset(); peds.reset(); props.reset(); nos.reset(); enemies.reset(); events.reset(); sfx.init(); if (!NOTRAFFIC) { traffic.fill(car); peds.fill(car); }
     $('screen-start').hidden = true; $('screen-end').hidden = true; $('hud').hidden = false; $('controls').hidden = false;
   }
@@ -315,7 +322,7 @@ async function boot() {
       if (car.needsRescue()) rescue();
       if (!NOTRAFFIC) {
         traffic.update(dt, car); peds.update(dt, car); props.update(dt, car); events.update(dt, car, run.t);
-        const bump = traffic.collide(car); if (bump > 5) toast('Botta!');
+        const bump = traffic.collide(car); if (bump > 5) { toast('Botta!'); car.hurt(bump); }
         if (peds.collide(car)) { car.hitSlow(); toast('Pedone! Rallentato per 10 s'); }
       }
       if (!NOENEMIES) enemies.update(dt, car);
@@ -339,7 +346,7 @@ async function boot() {
     }
     lastT = now;
     world.update(car.x, car.z, 1); street.update(dt);
-    flames(car.boost > 0 ? car.level : 0, now / 1000); taxi.setThrust(car.canFly, car.thrusting, now / 1000); { const iv = input.value; taxi.setJets(car.canFly && car.air, iv.throttle, iv.brake, iv.steer, now / 1000); } shieldFx(car.shield, now / 1000); gfx.update(dt, car);
+    flames(car.boost > 0 ? car.level : 0, now / 1000); taxi.setThrust(car.canFly, car.thrusting, now / 1000); taxi.setDamage(car.damage, car.dmgHit, now / 1000); { const iv = input.value; taxi.setJets(car.canFly && car.air, iv.throttle, iv.brake, iv.steer, now / 1000); } shieldFx(car.shield, now / 1000); gfx.update(dt, car);
     poseCar(dt); if (!window.__freeCam) updateCamera(dt); fx.update(dt, car, camera); parts.update(dt, car, camera, scene.fog.color); labels.update(dt, car, camH); atmo.update(dt, car);
     if (run.state === 'running') {
       $('kmh').textContent = Math.round(Math.abs(car.speed) * 3.6);
@@ -358,6 +365,7 @@ async function boot() {
         const act = [['shield', car.shield], ['magnete', car.magnet]].sort((a, b) => b[1] - a[1])[0], sg = $('st-gad');
         sg.hidden = !(act[1] > 0); if (act[1] > 0) { const g2 = GADGETS[act[0]]; sg.style.setProperty('--gc', '#' + g2.color.toString(16).padStart(6, '0')); sg.querySelector('b').textContent = g2.name.toUpperCase(); sg.querySelector('u').style.transform = `scaleX(${Math.min(1, act[1] / g2.time)})`; sg.querySelector('span').textContent = act[1].toFixed(1); }
       }
+      { const sd = $('st-dmg'); sd.hidden = !(car.damage > 0.04); if (car.damage > 0.04) { sd.querySelector('u').style.transform = `scaleX(${car.damage})`; sd.querySelector('span').textContent = Math.round(car.damage * 100) + '%'; } }
       { const sf = $('st-fuel'); sf.hidden = !car.canFly; if (car.canFly) { sf.querySelector('u').style.transform = `scaleX(${Math.max(0, Math.min(1, car.fuel / car.fuelMax))})`; sf.querySelector('span').textContent = car.dry ? `ricarica ${Math.ceil((car.fuelMax - car.fuel) / (car.fuelMax / 30))}s` : car.fuel.toFixed(1); sf.querySelector('b').textContent = car.dry ? 'RICARICA' : 'PROPULSORI'; } }
       const nb = $('nos-btn'); nb.className = `btn nosbtn c${car.charges}` + (input.btn.nos ? ' on' : '');
       if (car.slow > 0) { sSlow.querySelector('u').style.transform = `scaleX(${car.slow / 10})`; sSlow.querySelector('span').textContent = car.slow.toFixed(1); }

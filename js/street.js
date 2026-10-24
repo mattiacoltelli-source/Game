@@ -43,9 +43,31 @@ export class Street {
       im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; im.frustumCulled = false; scene.add(im); this.meshes.push(im); this.count += items.length;
     }
     this.junctions(scene, world, near, col);
+    this.cafes(scene, world, near, col, R);
     // tombini
     const hg = new THREE.CircleGeometry(0.5, 10).rotateX(-Math.PI / 2), hm = new THREE.MeshBasicMaterial({ color: 0x3b3b40, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }), hi = new THREE.InstancedMesh(hg, hm, list.hole.length || 1);
     list.hole.forEach((it, i) => { m.compose(new THREE.Vector3(it[0], 0.19, it[1]), q.identity(), sc); hi.setMatrixAt(i, m); }); hi.count = list.hole.length; hi.instanceMatrix.needsUpdate = true; hi.frustumCulled = false; scene.add(hi); this.meshes.push(hi); this.count += list.hole.length;
+  }
+
+  // Dehors dei bar: tavolini con ombrelloni colorati e sedie sul bordo delle strade pedonali e delle piazze vicine al percorso.
+  cafes(scene, world, near, col, R) {
+    const spots = [], up = new THREE.Vector3(0, 1, 0), q = new THREE.Quaternion(), m = new THREE.Matrix4(), one = new THREE.Vector3(1, 1, 1);
+    for (const r of world.roads) {
+      if (r.c !== 'pedestrian' && r.c !== 'living_street') continue; const p = r.p;
+      for (let i = 0; i + 3 < p.length; i += 2) {
+        const ax = p[i], az = p[i + 1], bx = p[i + 2], bz = p[i + 3], L = Math.hypot(bx - ax, bz - az); if (L < 10 || !near((ax + bx) / 2, (az + bz) / 2)) continue;
+        const ux = (bx - ax) / L, uz = (bz - az) / L, nx = -uz, nz = ux;
+        for (let t = 6 + R() * 8; t < L - 4 && spots.length < 70; t += 18 + R() * 14) { const side = R() < 0.5 ? 1 : -1, off = r.w / 2 - 0.2, x = ax + ux * t + nx * side * off, z = az + uz * t + nz * side * off; if (!col.inside(x, z)) spots.push([x, z, Math.atan2(uz, ux), Math.floor(R() * 3)]); }
+      }
+    }
+    if (!spots.length) return;
+    const UMB = [[0.8, 0.15, 0.14], [0.15, 0.45, 0.22], [0.92, 0.88, 0.76]], TAB = [0.25, 0.25, 0.28], CH = [0.3, 0.2, 0.14];
+    for (let v = 0; v < 3; v++) {
+      const list = spots.filter((s) => s[3] === v); if (!list.length) continue;
+      const parts = []; for (const dz of [-2.2, 2.2]) { parts.push({ x: 0, y: 0.75, z: dz, sx: 0.08, sy: 1.5, sz: 0.08, c: TAB }, { x: 0, y: 1.6, z: dz, sx: 2.6, sy: 0.12, sz: 2.6, c: UMB[v] }, { x: 0, y: 1.72, z: dz, sx: 1.3, sy: 0.14, sz: 1.3, c: UMB[v] }, { x: 0, y: 0.72, z: dz, sx: 0.9, sy: 0.06, sz: 0.9, c: TAB }, { x: 0.8, y: 0.45, z: dz, sx: 0.45, sy: 0.9, sz: 0.45, c: CH }, { x: -0.8, y: 0.45, z: dz, sx: 0.45, sy: 0.9, sz: 0.45, c: CH }); }
+      const im = new THREE.InstancedMesh(mergeBoxes(parts), new THREE.MeshLambertMaterial({ vertexColors: true }), list.length);
+      list.forEach((s, i) => { q.setFromAxisAngle(up, -s[2]); m.compose(new THREE.Vector3(s[0], 0.17, s[1]), q, one); im.setMatrixAt(i, m); }); im.instanceMatrix.needsUpdate = true; im.frustumCulled = false; scene.add(im); this.meshes.push(im); this.count += list.length;
+    }
   }
 
   // Incroci vicini al percorso: semafori (ciclo di colori), cartelli (stop, parcheggio, pericolo) e strisce pedonali sulle strade principali.
@@ -70,7 +92,7 @@ export class Street {
         // strisce pedonali sulle strade larghe
         if (a.w >= 7 && zebras.length < 420) { const cx = nd.x + a.dx * 8, cz = nd.z + a.dz * 8, len = Math.min(a.w * 0.85, 8); for (let k = -3; k <= 3; k++) zebras.push([cx + a.dx * k * 0.9, cz + a.dz * k * 0.9, Math.atan2(a.dz, a.dx), len]); }
         // semaforo sui bracci principali (al massimo 3 per incrocio)
-        if (a.w >= 8 && lights < 3 && heads.length < 90) { lights++; const px = nd.x + a.dx * 7.5 + rx * (hw + 1.0), pz = nd.z + a.dz * 7.5 + rz * (hw + 1.0); if (!col.inside(px, pz)) heads.push({ x: px, z: pz, h: Math.atan2(a.dz, a.dx), g: Math.abs(a.dx * d0.dx + a.dz * d0.dz) > 0.7 ? 0 : 1 }); }
+        if (a.w >= 8 && lights < 3 && heads.length < 90) { lights++; const px = nd.x + a.dx * 7.5 + rx * (hw + 1.0), pz = nd.z + a.dz * 7.5 + rz * (hw + 1.0); if (!col.inside(px, pz)) heads.push({ x: px, z: pz, ax: a.dx, az: a.dz, nx: nd.x, nz: nd.z, h: Math.atan2(a.dz, a.dx), g: Math.abs(a.dx * d0.dx + a.dz * d0.dz) > 0.7 ? 0 : 1 }); }
         else if (a.w < 7 && plates.length < 70 && R() < 0.6) { const px = nd.x + a.dx * 4.5 + rx * (hw + 0.8), pz = nd.z + a.dz * 4.5 + rz * (hw + 0.8); if (!col.inside(px, pz)) plates.push({ x: px, z: pz, h: Math.atan2(a.dz, a.dx), t: R() < 0.45 ? 0 : R() < 0.6 ? 1 : 2 }); }
       }
     }
@@ -98,6 +120,9 @@ export class Street {
       zm.instanceMatrix.needsUpdate = true; zm.frustumCulled = false; scene.add(zm); this.meshes.push(zm); this.count += zebras.length;
     }
   }
+
+  // Stato (0 rosso, 1 giallo, 2 verde) del semaforo `h`: stesso ciclo dei colori disegnati.
+  state(h) { const ph = ((this.tlT || 0) + h.g * 8) % 16; return ph < 7 ? 2 : ph < 8.5 ? 1 : 0; }
 
   // Colori dei semafori: ciclo di 16 s, i due gruppi di bracci sono sfasati di 8 s (verde 7 s, giallo 1,5 s, rosso il resto).
   lightsUpdate(dt) {

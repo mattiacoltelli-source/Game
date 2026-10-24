@@ -209,7 +209,7 @@ export class World {
     // dettagli del corridoio di gioco (insegne, strisce pedonali, fermate, dissuasori, alberi, frecce dei sensi unici)
     const dt = data.details; this.cSign = mk(); this.cDet = mk(); this.signs = dt.signs;
     this.corridor = dt.corridor;
-    const nearCorr = (x, z, r) => { const c = this.corridor; for (let i = 0; i < c.length - 1; i++) { const dx = c[i + 1][0] - c[i][0], dz = c[i + 1][1] - c[i][1], L2 = dx * dx + dz * dz || 1, t = Math.max(0, Math.min(1, ((x - c[i][0]) * dx + (z - c[i][1]) * dz) / L2)); if (Math.hypot(x - c[i][0] - dx * t, z - c[i][1] - dz * t) < r) return true; } return false; };
+    const nearCorr = this.nearCorr = (x, z, r) => { const c = this.corridor; for (let i = 0; i < c.length - 1; i++) { const dx = c[i + 1][0] - c[i][0], dz = c[i + 1][1] - c[i][1], L2 = dx * dx + dz * dz || 1, t = Math.max(0, Math.min(1, ((x - c[i][0]) * dx + (z - c[i][1]) * dz) / L2)); if (Math.hypot(x - c[i][0] - dx * t, z - c[i][1] - dz * t) < r) return true; } return false; };
     this.signs.forEach((sg, i) => add(this.cSign, this.cellOf(sg.x, sg.z), i));
     dt.crossings.forEach((c, i) => add(this.cDet, this.cellOf(c[0], c[1]), 0, i));
     dt.bus.forEach((c, i) => add(this.cDet, this.cellOf(c[0], c[1]), 1, i));
@@ -614,6 +614,19 @@ export class World {
         this.wallSeg(W, ax, az, bx, bz, s, 4.6, h, low, top, 13.6, 12.4);
       } else if (flat) this.wallSeg(Pl, ax, az, bx, bz, s, 0, h, low, top, 13.6, 12.4);
       else this.wallSeg(W, ax, az, bx, bz, s, 0, h, low, top, 13.6, 12.4);
+    }
+    if (h >= 7 && this.nearCorr && this.nearCorr(pts[0][0], pts[0][1], 80)) { // dettagli vicino al percorso: zoccolo scuro alla base e gronda sporgente in alto
+      const plinth = [0.34, 0.31, 0.29], cor = [Math.min(1, base[0] * 1.08), Math.min(1, base[1] * 1.06), Math.min(1, base[2] * 1.02)];
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n, ax = pts[i][0], az = pts[i][1], bx = pts[j][0], bz = pts[j][1], dx = bx - ax, dz = bz - az, L = Math.hypot(dx, dz); if (L < 6 || (b.a && b.a.has(i))) continue;
+        const nx = s * dz / L, nz = -s * dx / L, o1 = 0.07, o2 = 0.55;
+        // zoccolo (0..0.9 m)
+        this.tri3(Pl, [ax + nx * o1, 0, az + nz * o1], [bx + nx * o1, 0, bz + nz * o1], [bx + nx * o1, 0.9, bz + nz * o1], [nx, 0, nz], plinth, plinth, plinth); this.tri3(Pl, [ax + nx * o1, 0, az + nz * o1], [bx + nx * o1, 0.9, bz + nz * o1], [ax + nx * o1, 0.9, az + nz * o1], [nx, 0, nz], plinth, plinth, plinth);
+        // gronda: fascia sporgente (faccia e dessotto) sotto il tetto
+        const y0 = h - 0.9, y1 = h;
+        this.tri3(Pl, [ax + nx * o2, y0, az + nz * o2], [bx + nx * o2, y0, bz + nz * o2], [bx + nx * o2, y1, bz + nz * o2], [nx, 0, nz], cor, cor, cor); this.tri3(Pl, [ax + nx * o2, y0, az + nz * o2], [bx + nx * o2, y1, bz + nz * o2], [ax + nx * o2, y1, az + nz * o2], [nx, 0, nz], cor, cor, cor);
+        this.tri3(Pl, [ax + nx * o2, y1, az + nz * o2], [bx + nx * o2, y1, bz + nz * o2], [bx, y1, bz], [0, 1, 0], cor, cor, cor); this.tri3(Pl, [ax + nx * o2, y1, az + nz * o2], [bx, y1, bz], [ax, y1, az], [0, 1, 0], cor, cor, cor);
+      }
     }
     const rf = ty ? ty.roof.map((v) => v * tone) : [0.44 * tone, 0.30 * tone, 0.27 * tone];
     if (b.rs && n <= 12) { // tetto a padiglione/piramide (dove OSM lo indica)

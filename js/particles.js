@@ -50,6 +50,9 @@ export class Particles {
     // propulsori: getti blu-bianchi verso il basso dai 4 ugelli, polvere se si è vicini al suolo
     if (car.thrusting) for (const [ox, oz] of [[1.4, 0.96], [1.4, -0.96], [-1.4, 0.96], [-1.4, -0.96]]) { if (Math.random() < 0.6) this.add.emit(car.x + fx * ox - fz * oz, car.y + 0.2, car.z + fz * ox + fx * oz, rnd(-0.6, 0.6), rnd(-9, -6), rnd(-0.6, 0.6), rnd(0.25, 0.4), 0.55, 0.3, 0, 0.55, 0.8, 1); }
     if (car.thrusting && car.clear < 6 && Math.random() < 0.5) this.soft.emit(car.x + rnd(-2, 2), 0.3, car.z + rnd(-2, 2), rnd(-4, 4), rnd(0.5, 1.5), rnd(-4, 4), rnd(0.6, 1.0), rnd(1.2, 1.8), 2.4, 0, 0.78, 0.7, 0.55);
+    // danni: fumo dal cofano (grigio, poi nero) e, quasi distrutta, qualche fiamma
+    if (car.damage > 0.3 && Math.random() < 0.25 + car.damage * 0.5) { const dk = car.damage > 0.65 ? 0.12 : 0.55; this.soft.emit(car.x + fx * 1.9 + rnd(-0.4, 0.4), 1.2 + car.y, car.z + fz * 1.9 + rnd(-0.4, 0.4), car.vx * 0.3 + rnd(-0.4, 0.4), rnd(1.2, 2.6), car.vz * 0.3 + rnd(-0.4, 0.4), rnd(0.9, 1.5), rnd(0.5, 0.9), 1.8 + car.damage, 0, dk, dk, dk + 0.02); }
+    if (car.damage > 0.85 && Math.random() < 0.3) this.add.emit(car.x + fx * 1.8 + rnd(-0.5, 0.5), 1.1 + car.y, car.z + fz * 1.8 + rnd(-0.5, 0.5), rnd(-0.5, 0.5), rnd(1.5, 3), rnd(-0.5, 0.5), rnd(0.3, 0.5), 0.5, 0.3, 0, 1, 0.5, 0.1);
     // prato: ciuffi d'erba e terra dalle ruote
     if (car.grass && sp > 6 && Math.random() < 0.5) this.soft.emit(car.x - fx * 1.2 + rnd(-0.9, 0.9), 0.3 + car.y, car.z - fz * 1.2 + rnd(-0.9, 0.9), rnd(-1.5, 1.5), rnd(1, 2.5), rnd(-1.5, 1.5), rnd(0.4, 0.7), rnd(0.35, 0.6), 0.6, 0, 0.42, 0.55, 0.25);
     // olio: gocce scure vicino alle ruote quando si sbanda

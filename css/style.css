@@ -120,6 +120,7 @@ h1 { margin: 0 0 10px; font-size: 34px; letter-spacing: -.01em; }
 .flyopt { margin: 0 0 6px; min-height: 40px; color: #bfeaff; font-weight: 700; }
 .flybtn { position: absolute; left: calc(max(var(--pad), env(safe-area-inset-left)) + 12px); bottom: calc(max(var(--pad), env(safe-area-inset-bottom)) + var(--btn) + 12px); width: 84px; height: 62px; border-radius: 18px; display: grid; place-items: center; align-content: center; gap: 0; border-color: #7fd8ff; color: #bfeaff; background: #0e1a24ee; box-shadow: 0 0 16px #4fb8ff88; font-size: 11px; }
 .flybtn .fi { font-size: 20px; line-height: 1; } .flybtn.on { background: #1b3a52ee; box-shadow: 0 0 24px #7fd8ff; }
+.chip.dmg { border: 1.5px solid #ff7a59; color: #fff; } .chip.dmg b { color: #ff7a59; } .chip.dmg u { background: linear-gradient(90deg, #ffb347, #ff4a3a); }
 .chip.fuel { border: 1.5px solid #7fd8ff; color: #fff; } .chip.fuel b { color: #7fd8ff; } .chip.fuel u { background: linear-gradient(90deg, #4fb8ff, #fff); }
 .gadbtn { --gc: #ffffff; position: absolute; right: calc(max(var(--pad), env(safe-area-inset-right)) + var(--btn) * 2 + 28px); bottom: calc(max(var(--pad), env(safe-area-inset-bottom)) + var(--btn) + 12px); width: 72px; height: 62px; border-radius: 18px; display: grid; place-items: center; align-content: center; gap: 1px; color: #ffffff66; border-color: #ffffff2e; font-size: 10px; letter-spacing: .04em; }
 .gadbtn .gi { font-size: 24px; line-height: 1; filter: grayscale(1); opacity: .45; } .gadbtn .gl { font-weight: 800; }

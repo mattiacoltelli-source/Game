@@ -13,13 +13,14 @@ export function buildTaxi() {
   const W = [0.95, 0.94, 0.9], W2 = [0.82, 0.82, 0.8], D = [0.12, 0.17, 0.21], G = [0.3, 0.44, 0.55], B = [0.07, 0.07, 0.08], K = [0.4, 0.4, 0.42], C = [0.75, 0.76, 0.8], Y = [1.2, 0.95, 0.15];
   const body = [
     { x: 0, y: 0.62, z: 0, sx: 4.3, sy: 0.55, sz: 1.85, c: W },       // scocca
-    { x: 1.55, y: 0.95, z: 0, sx: 1.2, sy: 0.14, sz: 1.75, c: W },    // cofano
     { x: -1.75, y: 0.95, z: 0, sx: 0.8, sy: 0.14, sz: 1.75, c: W },   // baule
-    { x: -0.2, y: 1.28, z: 0, sx: 2.0, sy: 0.6, sz: 1.7, c: D },      // abitacolo scuro
     { x: -0.2, y: 1.62, z: 0, sx: 1.8, sy: 0.09, sz: 1.62, c: W },    // tetto
-    { x: 0.82, y: 1.3, z: 0, sx: 0.12, sy: 0.55, sz: 1.5, c: G },     // parabrezza
-    { x: -1.2, y: 1.3, z: 0, sx: 0.12, sy: 0.5, sz: 1.5, c: G },      // lunotto
-    { x: -0.2, y: 1.3, z: 0.86, sx: 1.9, sy: 0.5, sz: 0.04, c: G }, { x: -0.2, y: 1.3, z: -0.86, sx: 1.9, sy: 0.5, sz: 0.04, c: G }, // vetri laterali
+    // montanti A/B/C e interno (sedili, cruscotto, volante, guidatore e passeggero): visibili attraverso i vetri trasparenti
+    ...[[0.82, 0.8], [0.82, -0.8], [-1.2, 0.8], [-1.2, -0.8], [-0.2, 0.84], [-0.2, -0.84]].map(([x, z]) => ({ x, y: 1.3, z, sx: 0.1, sy: 0.6, sz: 0.1, c: W2 })),
+    { x: 0.62, y: 0.98, z: 0, sx: 0.5, sy: 0.3, sz: 1.5, c: [0.14, 0.14, 0.16] }, { x: 0.5, y: 1.18, z: 0.4, sx: 0.04, sy: 0.3, sz: 0.3, c: [0.1, 0.1, 0.12] }, // cruscotto e volante
+    { x: -0.15, y: 0.88, z: 0.4, sx: 0.5, sy: 0.12, sz: 0.5, c: [0.62, 0.55, 0.42] }, { x: -0.3, y: 1.15, z: 0.4, sx: 0.14, sy: 0.55, sz: 0.5, c: [0.62, 0.55, 0.42] }, { x: -0.15, y: 0.88, z: -0.4, sx: 0.5, sy: 0.12, sz: 0.5, c: [0.62, 0.55, 0.42] }, { x: -0.3, y: 1.15, z: -0.4, sx: 0.14, sy: 0.55, sz: 0.5, c: [0.62, 0.55, 0.42] }, // sedili anteriori
+    { x: -1.0, y: 0.88, z: 0, sx: 0.5, sy: 0.12, sz: 1.5, c: [0.62, 0.55, 0.42] }, { x: -1.12, y: 1.12, z: 0, sx: 0.14, sy: 0.55, sz: 1.5, c: [0.62, 0.55, 0.42] }, // divano posteriore
+    { x: -0.3, y: 1.52, z: 0.4, sx: 0.28, sy: 0.3, sz: 0.3, c: [0.78, 0.6, 0.48] }, { x: -0.3, y: 1.74, z: 0.4, sx: 0.32, sy: 0.14, sz: 0.34, c: [0.14, 0.12, 0.12] }, // guidatore (testa e berretto)
     { x: -0.2, y: 1.3, z: 0.88, sx: 0.07, sy: 0.55, sz: 0.04, c: W2 }, { x: -0.2, y: 1.3, z: -0.88, sx: 0.07, sy: 0.55, sz: 0.04, c: W2 }, // montante centrale
     { x: 0.35, y: 0.66, z: 0.94, sx: 0.04, sy: 0.5, sz: 0.04, c: W2 }, { x: 0.35, y: 0.66, z: -0.94, sx: 0.04, sy: 0.5, sz: 0.04, c: W2 }, // fughe porte
     { x: -0.95, y: 0.66, z: 0.94, sx: 0.04, sy: 0.5, sz: 0.04, c: W2 }, { x: -0.95, y: 0.66, z: -0.94, sx: 0.04, sy: 0.5, sz: 0.04, c: W2 },
@@ -33,7 +34,13 @@ export function buildTaxi() {
     // ruote posteriori
     ...[0.96, -0.96].flatMap((z) => [{ x: -1.4, y: 0.36, z, sx: 0.74, sy: 0.74, sz: 0.3, c: B }, { x: -1.4, y: 0.36, z: z * 1.05, sx: 0.34, sy: 0.34, sz: 0.32, c: C }]),
   ];
-  const bodyMesh = new THREE.Mesh(mergeBoxes(body), new THREE.MeshLambertMaterial({ vertexColors: true }));
+  const bodyMat = new THREE.MeshLambertMaterial({ vertexColors: true }), bodyMesh = new THREE.Mesh(mergeBoxes(body), bodyMat);
+  const glassMat = new THREE.MeshLambertMaterial({ color: 0x4a6b82, transparent: true, opacity: 0.42, depthWrite: false }), GL = [1, 1, 1];
+  const glassMesh = new THREE.Mesh(mergeBoxes([{ x: 0.82, y: 1.32, z: 0, sx: 0.1, sy: 0.56, sz: 1.5, c: GL }, { x: -1.2, y: 1.32, z: 0, sx: 0.1, sy: 0.52, sz: 1.5, c: GL }, { x: -0.2, y: 1.3, z: 0.86, sx: 1.9, sy: 0.5, sz: 0.04, c: GL }, { x: -0.2, y: 1.3, z: -0.86, sx: 1.9, sy: 0.5, sz: 0.04, c: GL }]), glassMat); glassMesh.renderOrder = 1;
+  const front = new THREE.Group(), frontMat = new THREE.MeshLambertMaterial({ vertexColors: true }); // cofano + paraurti anteriore + calandra: si deformano con i danni
+  const hood = new THREE.Mesh(mergeBoxes([{ x: 0.2, y: 0, z: 0, sx: 1.2, sy: 0.14, sz: 1.75, c: W }]), frontMat); hood.position.set(1.35, 0.95, 0);
+  const bump = new THREE.Mesh(mergeBoxes([{ x: 0, y: 0, z: 0, sx: 0.16, sy: 0.22, sz: 1.9, c: K }, { x: -0.03, y: 0.28, z: 0, sx: 0.06, sy: 0.22, sz: 0.7, c: B }]), frontMat); bump.position.set(2.2, 0.38, 0);
+  front.add(hood, bump);
   // luci (unlit)
   const HL = [1.8, 1.7, 1.3], TL = [0.9, 0.08, 0.06];
   const lights = [
@@ -52,7 +59,7 @@ export function buildTaxi() {
   sign.position.set(-0.2, 1.8, 0);
   const tex = signTexture(), face = new THREE.MeshBasicMaterial({ map: tex });
   for (const s of [1, -1]) { const f = new THREE.Mesh(new THREE.PlaneGeometry(0.88, 0.24), face); f.position.set(-0.2, 1.8, 0.47 * s); if (s < 0) f.rotation.y = Math.PI; sign.add(f); f.position.set(0, 0, 0.455 * s); }
-  const outer = new THREE.Group(), inner = new THREE.Group(); outer.add(inner); inner.add(bodyMesh, headMesh, tailMesh, wl, wr, sign);
+  const outer = new THREE.Group(), inner = new THREE.Group(); outer.add(inner); inner.add(bodyMesh, glassMesh, front, headMesh, tailMesh, wl, wr, sign);
   // ombra morbida fissa sotto l'auto
   const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 4, 32, 32, 32); gr.addColorStop(0, 'rgba(0,0,0,0.6)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
   const blob = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 3.1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
@@ -75,5 +82,14 @@ export function buildTaxi() {
     for (const k of ['back', 'front', 'left', 'right']) for (const n of [k, k + '2']) { const g = jets[n]; g.visible = !!on[k]; if (on[k]) g.scale.set(1 + 0.5 * fl, 1, 1); }
   };
   const setThrust = (enabled, on, t) => { thr.visible = enabled; for (const [f, s] of flames) { f.visible = enabled && on; if (on) { const k = 0.85 + 0.3 * Math.sin(t * 45 + f.position.x * 7 + f.position.z * 5); f.scale.set(s, s * (1 + k * 0.5), s); } } };
-  return { outer, inner, update, blob, setThrust, setJets };
+  // Danni 0..1: scocca che si sporca e si arrugginisce, cofano che si solleva, paraurti che rientra e si storce, fari che si rompono
+  const dentSeed = [Math.random() - 0.5, Math.random() - 0.5];
+  const setDamage = (d, hit, t) => {
+    const k = 1 - 0.42 * d; bodyMat.color.setRGB(k, k * 0.97, k * 0.92); frontMat.color.copy(bodyMat.color);
+    hood.rotation.z = 0.28 * d * (0.8 + 0.2 * Math.sin(t * 40) * hit) ; hood.position.y = 0.95 + 0.12 * d; hood.rotation.y = dentSeed[0] * 0.2 * d;
+    bump.position.x = 2.2 - 0.2 * d; bump.rotation.y = dentSeed[1] * 0.3 * d; bump.rotation.z = -0.18 * d; bump.position.y = 0.38 - 0.06 * d;
+    front.scale.x = 1 - 0.06 * d; bodyMesh.scale.y = 1 - 0.02 * d;
+    headMesh.visible = d < 0.35 || (d < 0.7 && Math.sin(t * 17) > -0.4);
+  };
+  return { outer, inner, update, blob, setThrust, setJets, setDamage };
 }

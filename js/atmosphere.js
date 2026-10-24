@@ -50,23 +50,36 @@ export class Atmosphere {
     if (this.P) this.set(this.name);
   }
 
+  // Meteo: sereno, pioggia (cielo grigio, nebbia media, gocce, asfalto bagnato = meno aderenza) o nebbia fitta.
+  setWeather(w) { this.weather = ['sereno', 'pioggia', 'nebbia'].includes(w) ? w : 'sereno'; if (this.P) this.set(this.name); }
+
+  initRain() {
+    const N = 1100, pos = new Float32Array(N * 6); this.rainN = N; this.rainPos = pos;
+    for (let i = 0; i < N; i++) { const x = (Math.random() - 0.5) * 70, y = Math.random() * 40, z = (Math.random() - 0.5) * 70; pos.set([x, y, z, x, y - 2.0, z], i * 6); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); this.rain = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0xd6e4f0, transparent: true, opacity: 0.7, fog: false, depthWrite: false }));
+    this.rain.frustumCulled = false; this.rain.renderOrder = 9; this.rain.visible = false; this.scene.add(this.rain);
+  }
+
   set(name) {
-    const P = PRESETS[name] || PRESETS.giorno; this.name = PRESETS[name] ? name : 'giorno'; this.P = P;
+    const P = PRESETS[name] || PRESETS.giorno; this.name = PRESETS[name] ? name : 'giorno'; this.P = P; const W = this.weather || 'sereno', wet = W === 'pioggia', fogW = W === 'nebbia';
+    if (!this.rain) this.initRain();
     const col = this.skyGeo.attributes.color, pos = this.skyGeo.attributes.position, hor = new THREE.Color(P.hor), mid = new THREE.Color(P.mid), top = new THREE.Color(P.top), c = new THREE.Color();
-    for (let i = 0; i < pos.count; i++) { const t = Math.max(0, pos.getY(i) / 320); if (t < 0.25) c.copy(hor).lerp(mid, t / 0.25); else c.copy(mid).lerp(top, Math.min(1, (t - 0.25) / 0.6)); col.setXYZ(i, c.r, c.g, c.b); }
+    const grey = new THREE.Color(0.5, 0.52, 0.56).multiplyScalar(name === 'notte' ? 0.3 : name === 'tramonto' ? 0.75 : 1), fogC = new THREE.Color(P.fog); if (wet) fogC.lerp(grey, 0.6); else if (fogW) fogC.lerp(new THREE.Color(0.78, 0.8, 0.82).multiplyScalar(name === 'notte' ? 0.28 : name === 'tramonto' ? 0.75 : 1), 0.75);
+    for (let i = 0; i < pos.count; i++) { const t = Math.max(0, pos.getY(i) / 320); if (t < 0.25) c.copy(hor).lerp(mid, t / 0.25); else c.copy(mid).lerp(top, Math.min(1, (t - 0.25) / 0.6)); if (wet) c.lerp(grey, 0.6); else if (fogW) c.lerp(fogC, 0.8); col.setXYZ(i, c.r, c.g, c.b); }
     col.needsUpdate = true;
-    this.scene.background = new THREE.Color(P.fog); this.scene.fog.color.set(P.fog);
-    this.hemi.color.set(P.hemi[0]); this.hemi.groundColor.set(P.hemi[1]); this.hemi.intensity = P.hemi[2];
-    this.sun.color.set(P.sun[0]); this.sun.intensity = P.sun[1];
+    this.scene.background = fogC.clone(); this.scene.fog.color.copy(fogC); this.scene.fog.near = fogW ? 8 : wet ? 45 : (this.fogNear || 100); this.scene.fog.far = fogW ? 115 : wet ? 210 : (this.fogFar || 290);
+    this.hemi.color.set(P.hemi[0]); this.hemi.groundColor.set(P.hemi[1]); this.hemi.intensity = P.hemi[2] * (wet ? 0.8 : fogW ? 0.9 : 1);
+    this.sun.color.set(P.sun[0]); this.sun.intensity = P.sun[1] * (wet ? 0.35 : fogW ? 0.5 : 1);
     const az = (P.az == null ? 135 : P.az) * Math.PI / 180, el = P.el * Math.PI / 180; this.sun.position.set(Math.cos(az) * Math.cos(el), Math.sin(el), Math.sin(az) * Math.cos(el));
     const tint = new THREE.Color(...P.tint);
     this.ground.material.color.copy(this.groundBase).multiply(tint); this.world.matGround.color.copy(tint); this.world.matPlaza.color.copy(tint);
     for (const d of this.decals || []) d.material.color.setRGB(tint.r, tint.g, tint.b); // decalcomanie sul terreno (es. ovale di Piazza Maggiore)
     this.world.matBuilding.emissiveIntensity = P.emissive; this.world.matArcade.emissiveIntensity = 0;
-    this.world.setSun(P.az, P.el, P.shadow);
+    this.world.setSun(P.az, P.el, P.shadow * (wet ? 0.3 : fogW ? 0.5 : 1));
     // nuvole/sole/stelle secondo il preset
     const cc = P.cloud || [1, 1, 1, 0.9], sd = this.sun.position.clone().normalize().multiplyScalar(300);
-    for (const c of this.clouds) { c.material.color.setRGB(cc[0], cc[1], cc[2]); c.material.opacity = cc[3]; }
+    for (const c of this.clouds) { c.material.color.setRGB(cc[0], cc[1], cc[2]); if (wet) c.material.color.lerp(new THREE.Color(0.45, 0.47, 0.5), 0.7); c.material.opacity = wet ? 0.95 : fogW ? 0.0 : cc[3]; }
+    this.sunSpr.visible = !wet && !fogW; this.rain.visible = wet; this.ground.material.color.multiplyScalar(wet ? 0.82 : 1); this.world.matGround.color.multiplyScalar(wet ? 0.82 : 1); this.world.matPlaza.color.multiplyScalar(wet ? 0.8 : 1);
     this.sunSpr.position.copy(sd); const ss = name === 'notte' ? 46 : name === 'tramonto' ? 150 : 110; this.sunSpr.scale.set(ss, ss, 1);
     this.sunSpr.material.color.set(name === 'notte' ? 0xbfd0ff : name === 'tramonto' ? 0xffa060 : 0xfff2c8); this.stars.visible = name === 'notte';
     if (this.far) { const k = name === 'notte' ? 0.34 : name === 'tramonto' ? 0.78 : 1, c = new THREE.Color(0x8a4a36).multiplyScalar(k).lerp(new THREE.Color(P.fog), 0.12); for (const m of this.far) m.material.color.copy(c); }
@@ -75,6 +88,7 @@ export class Atmosphere {
 
   update(dt, car) {
     this.sky.position.copy(this.camera.position); this.skyGrp.position.copy(this.camera.position);
+    if (this.rain && this.rain.visible) { const P = this.rainPos, cx = this.camera.position.x, cz = this.camera.position.z, d = 48 * dt; this.rain.position.set(cx, this.camera.position.y - 6, cz); for (let i = 0; i < this.rainN; i++) { let y = P[i * 6 + 1] - d; if (y < -6) y += 46; P[i * 6 + 1] = y; P[i * 6 + 4] = y - 2.0; } this.rain.geometry.attributes.position.needsUpdate = true; }
     for (const c of this.clouds) { const u = c.userData; u.a += dt * 0.004; c.position.set(Math.cos(u.a) * Math.cos(u.el) * 295, Math.sin(u.el) * 295, Math.sin(u.a) * Math.cos(u.el) * 295); }
     if (!this.P || this.P.lamp <= 0) return;
     this.t -= dt; if (this.t > 0) return; this.t = 0.5;

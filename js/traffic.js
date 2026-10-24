@@ -108,6 +108,10 @@ export class Traffic {
       for (const o of cars) if (o !== c) lead(o.x, o.z, o.spd);
       lead(player.x, player.z, Math.max(0, player.vx * hx + player.vz * hz));
       if (this.props) for (const q of this.props.circles) if (Math.abs(q.x - c.x) < 20 && Math.abs(q.z - c.z) < 20) lead(q.x, q.z, 0);
+      if (this.lights && this.lights.heads) { // semafori: si ferma alla linea di stop se è rosso (o giallo e c'è spazio per frenare)
+        for (const h of this.lights.heads) { if (Math.abs(h.nx - c.x) > 40 || Math.abs(h.nz - c.z) > 40) continue; const s = (c.x - h.nx) * h.ax + (c.z - h.nz) * h.az, lat = Math.abs(-(c.x - h.nx) * h.az + (c.z - h.nz) * h.ax); const toward = hx * -h.ax + hz * -h.az;
+          if (toward > 0.8 && lat < 5 && s > 8.5 && s < 30) { const st = this.lights.state(h); if (st === 0 || (st === 1 && s > 16)) { lim = Math.min(lim, Math.max(0, (s - 10.5)) * 0.9); break; } } }
+      }
       const rem = sg.L - c.s;
       if (rem < 14) { if (!c.nxt) c.nxt = this.g.next(c.ri, c.a, c.b); const s2 = this.g.seg(c.nxt[0], c.nxt[1], c.nxt[2]), turn = Math.acos(clamp(sg.ux * s2.ux + sg.uz * s2.uz, -1, 1)); lim = Math.min(lim, turn > 1.0 ? 4 : turn > 0.5 ? 6.5 : turn > 0.25 ? 9 : lim); }
       c.spd += clamp(lim - c.spd, -10 * dt, 3.5 * dt); c.s += c.spd * dt;

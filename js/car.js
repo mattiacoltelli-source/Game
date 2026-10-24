@@ -9,7 +9,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 
 export class Car {
-  constructor() { this.canFly = false; this.dry = false; this.fuel = FUEL_MAX; this.fuelMax = FUEL_MAX; this.thrusting = false; this.grass = false; this.rampH = () => 0; this.rampAssist = () => null; this.superJump = false; this.onRamp = false; this.gadget = null; this.shield = 0; this.magnet = 0; this.onRoof = false; this.place(0, 0, 0); }
+  constructor() { this.wet = false; this.damage = 0; this.dmgHit = 0; this.canFly = false; this.dry = false; this.fuel = FUEL_MAX; this.fuelMax = FUEL_MAX; this.thrusting = false; this.grass = false; this.rampH = () => 0; this.rampAssist = () => null; this.superJump = false; this.onRamp = false; this.gadget = null; this.shield = 0; this.magnet = 0; this.onRoof = false; this.place(0, 0, 0); }
 
   place(x, z, h, y = 0) {
     this.x = x; this.z = z; this.h = h; this.vx = 0; this.vz = 0; this.y = y; this.vy = 0; this.boost = 0; this.level = 0; this.charges = 0; this.slow = 0; this.oil = 0; this.oilPh = 0; this.air = false; this.airT = 0; this.jump = 0; this.landed = 0; this.clear = 0;
@@ -21,9 +21,9 @@ export class Car {
     // NOS a livelli (1-3 cariche accumulate): la spinta in più è x1, x2, x3 (+40% velocità massima e +90% accelerazione per livello).
     // Rallentamento (dopo aver investito un pedone): velocità massima -30%.
     const lv = this.boost > 0 ? this.level : 0;
-    const vmax = VMAX * (lv ? Math.max(1.12, NOS_PEAK * (1 + 0.4 * lv)) : 1) * (this.slow > 0 ? 0.7 : 1) * (this.grass ? 0.9 : 1), acc = ACC * (1 + 0.9 * lv) * (this.slow > 0 ? 0.75 : 1);
+    const vmax = VMAX * (lv ? Math.max(1.12, NOS_PEAK * (1 + 0.4 * lv)) : 1) * (this.slow > 0 ? 0.7 : 1) * (this.grass ? 0.9 : 1) * (1 - 0.18 * this.damage), acc = ACC * (1 + 0.9 * lv) * (this.slow > 0 ? 0.75 : 1);
     this.boost = Math.max(0, this.boost - dt); this.slow = Math.max(0, this.slow - dt);
-    this.shield = Math.max(0, this.shield - dt); this.magnet = Math.max(0, this.magnet - dt);
+    this.dmgCool = Math.max(0, (this.dmgCool || 0) - dt); this.dmgHit = Math.max(0, this.dmgHit - 2.5 * dt); this.shield = Math.max(0, this.shield - dt); this.magnet = Math.max(0, this.magnet - dt);
     const oily = this.oil > 0 && !air; this.oil = Math.max(0, this.oil - dt); // olio: poca aderenza, frenata debole, sbandate
     let fx = Math.cos(this.h), fz = Math.sin(this.h), rx = -fz, rz = fx;
     let vf = this.vx * fx + this.vz * fz;
@@ -35,7 +35,7 @@ export class Car {
     // acceleratore / freno / retromarcia
     let a = 0;
     if (thr > 0) a += acc * thr * (1 - Math.max(0, vf) / vmax) + (vf < 0 ? BRAKE * thr : 0);
-    if (brk > 0) a += (vf > 0.8 ? -BRAKE * brk : -REV_ACC * brk * (1 + Math.min(0, vf) / VREV)) * (oily ? 0.3 : 1);
+    if (brk > 0) a += (vf > 0.8 ? -BRAKE * (this.wet ? 0.8 : 1) * brk : -REV_ACC * brk * (1 + Math.min(0, vf) / VREV)) * (oily ? 0.3 : 1);
     if (!thr && !brk && !air) a -= Math.sign(vf) * Math.min(Math.abs(vf) / dt, COAST);
     a -= this.drift * 2.5 * Math.sign(vf);
     this.vx += fx * a * dt; this.vz += fz * a * dt;
@@ -61,7 +61,7 @@ export class Car {
     fx = Math.cos(this.h); fz = Math.sin(this.h); rx = -fz; rz = fx;
     vf = this.vx * fx + this.vz * fz;
     let vl = this.vx * rx + this.vz * rz;
-    if (!air) { vl *= Math.exp(-(oily ? 0.5 : lerp(GRIP, GRIP_DRIFT, this.drift)) * dt); const ms = (oily ? 1.5 : MAX_SLIP) * (Math.abs(vf) + 2); vl = clamp(vl, -ms, ms); }
+    if (!air) { vl *= Math.exp(-(oily ? 0.5 : lerp(GRIP, GRIP_DRIFT, this.drift) * (this.wet ? 0.7 : 1)) * dt); const ms = (oily ? 1.5 : MAX_SLIP) * (Math.abs(vf) + 2); vl = clamp(vl, -ms, ms); }
     else if (fly) vl *= Math.exp(-2.2 * dt); // in volo i propulsori laterali fanno seguire la direzione del muso
     this.vx = fx * vf + rx * vl; this.vz = fz * vf + rz * vl;
     this.speed = vf; this.lat = vl;
@@ -90,7 +90,7 @@ export class Car {
       const vyg = Math.max(-25, Math.min(25, (g - this.y) / dt));
       if (this.air) { // atterraggio
         if (g > base(this.x, this.z) + 0.5) { this.vx *= 0.45; this.vz *= 0.45; } // atterrando su un tetto si frena
-        const impact = -this.vy; this.jump = this.airT > 0.35 ? Math.hypot(this.x - this.x0, this.z - this.z0) : 0; this.landed = impact;
+        const impact = -this.vy; if (impact > 12 && !this.canFly) this.hurt(impact * 0.9); // atterraggio duro this.jump = this.airT > 0.35 ? Math.hypot(this.x - this.x0, this.z - this.z0) : 0; this.landed = impact;
         if (impact > 6) { const k = 1 - Math.min(0.18, (impact - 6) * 0.02); this.vx *= k; this.vz *= k; }
         this.air = false;
       }
@@ -110,6 +110,7 @@ export class Car {
         any = hit = true;
         this.x += p.x - (this.x + fx * off); this.z += p.z - (this.z + fz * off);
         const vn = this.vx * p.nx + this.vz * p.nz;
+        if (vn < -5 && !this.air) this.hurt(-vn); // urto contro un muro: danni in base alla velocità
         if (vn < 0) { const sp0 = Math.hypot(this.vx, this.vz); // scivola: toglie solo la componente contro il muro
           this.vx -= vn * p.nx; this.vz -= vn * p.nz;
           const k = Math.max(0, 1 - 0.04 * Math.min(1, -vn / 8));
@@ -166,6 +167,8 @@ export class Car {
     this.level = this.charges; this.charges = 0; this.boost = BOOST_TIME;
     const fx = Math.cos(this.h), fz = Math.sin(this.h); this.vx += fx * 6 * this.level; this.vz += fz * 6 * this.level; return this.level;
   }
+  // Danni: 0 (nuova) .. 1 (distrutta). Colpi sotto 5 m/s non contano. Ogni urto ha un breve tempo di recupero per non sommarsi a ogni frame.
+  hurt(v) { if (this.dmgCool > 0 || v < 5) return; this.dmgCool = 0.25; const d = Math.min(0.35, (v - 4) / 90); this.damage = Math.min(1, this.damage + d); this.dmgHit = Math.max(this.dmgHit, Math.min(1, v / 25)); }
   hitSlow() { if (this.shield > 0) return; this.slow = SLOW_TIME; }
   // Molla: salto automatico (scavalca ostacoli e treno).
   spring() { this.vy = 13; this.y += 0.3; if (!this.air) { this.air = true; this.airT = 0; this.x0 = this.x; this.z0 = this.z; } }
