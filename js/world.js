@@ -597,7 +597,7 @@ export class World {
   }
 
   addBuilding(b, bi, W, Pl, Ar) {
-    const p = b.pts, n = p.length / 2, h = b.h;
+    const p = b.pts, n = p.length / 2, h = b.h; this._rp = Pl;
     const pts = []; for (let i = 0; i < n; i++) pts.push([p[i * 2], p[i * 2 + 1]]);
     let A = 0; for (let i = 0; i < n; i++) { const j = (i + 1) % n; A += pts[i][0] * pts[j][1] - pts[j][0] * pts[i][1]; }
     const s = A > 0 ? 1 : -1;
@@ -635,9 +635,29 @@ export class World {
       for (let i = 0; i < n; i++) { const j = (i + 1) % n, a = [pts[i][0], h, pts[i][1]], c = [pts[j][0], h, pts[j][1]]; this.tri3(Pl, a, c, apex, [(a[0] + c[0]) / 2 - cx, 0.7, (a[2] + c[2]) / 2 - cz], rf, rf, rf); }
       return;
     }
+    // tetto a falde (a capanna) sugli edifici lontani dal percorso (più di 130 m): non sono pensati per atterrarci sopra
+    if (!flat && h >= 6 && n >= 4 && n <= 8 && this.nearCorr && !this.nearCorr(pts[0][0], pts[0][1], 130) && this.gable(b, pts, h, s, rf, tone)) return;
     const contour = pts.map((q) => new THREE.Vector2(q[0], q[1]));
     let idx; try { idx = THREE.ShapeUtils.triangulateShape(contour, []); } catch (e) { return; }
     for (const t of idx) this.tri3(Pl, [contour[t[0]].x, h, contour[t[0]].y], [contour[t[1]].x, h, contour[t[1]].y], [contour[t[2]].x, h, contour[t[2]].y], [0, 1, 0], rf, rf, rf);
+  }
+
+  // Tetto a capanna sul rettangolo orientato dell'edificio: colmo lungo l'asse maggiore, due falde con gronda e due timpani. Ritorna false se la pianta non è abbastanza rettangolare.
+  gable(b, pts, h, s, rf, tone) {
+    let L0 = 0, ux = 1, uz = 0; const n = pts.length;
+    for (let i = 0; i < n; i++) { const j = (i + 1) % n, dx = pts[j][0] - pts[i][0], dz = pts[j][1] - pts[i][1], L = Math.hypot(dx, dz); if (L > L0) { L0 = L; ux = dx / L; uz = dz / L; } }
+    const vx = -uz, vz = ux; let u0 = 1e9, u1 = -1e9, v0 = 1e9, v1 = -1e9, A = 0;
+    for (let i = 0; i < n; i++) { const j = (i + 1) % n, u = pts[i][0] * ux + pts[i][1] * uz, v = pts[i][0] * vx + pts[i][1] * vz; u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); A += pts[i][0] * pts[j][1] - pts[j][0] * pts[i][1]; }
+    const W = u1 - u0, D = v1 - v0; A = Math.abs(A) / 2; if (W < 6 || D < 5 || W > 45 || D > 30 || A / (W * D) < 0.84) return false;
+    const rise = Math.min(3.8, D * 0.3), ov = 0.35; b.pitch = rise;
+    const P = (u, v, y) => [u * ux + v * vx, y, u * uz + v * vz]; // da (u,v) locale a mondo (x,y,z)
+    const um = (u0 + u1) / 2, vm = (v0 + v1) / 2, cA = u0 - ov, cB = u1 + ov, e0 = v0 - ov, e1 = v1 + ov;
+    const tile = rf.map((q) => Math.min(1, q * 1.3 + 0.03)), tile2 = rf.map((q) => q * 0.78), gab = [0.78 * tone, 0.7 * tone, 0.6 * tone];
+    // ricostruisce il quad con le coordinate corrette per ogni falda
+    const quad = (v, col) => { const a = P(cA, v, h), c = P(cB, v, h), r1 = P(cB, vm, h + rise), r0 = P(cA, vm, h + rise); let nx = (c[1] - a[1]) * (r1[2] - a[2]) - (c[2] - a[2]) * (r1[1] - a[1]), ny = (c[2] - a[2]) * (r1[0] - a[0]) - (c[0] - a[0]) * (r1[2] - a[2]), nz = (c[0] - a[0]) * (r1[1] - a[1]) - (c[1] - a[1]) * (r1[0] - a[0]); if (ny < 0) { nx = -nx; ny = -ny; nz = -nz; } const L = Math.hypot(nx, ny, nz) || 1, nn = [nx / L, ny / L, nz / L]; this.tri3(this._rp, a, c, r1, nn, col, col, col); this.tri3(this._rp, a, r1, r0, nn, col, col, col); };
+    quad(e0, tile); quad(e1, tile2);
+    for (const uu of [u0, u1]) { const a = P(uu, v0, h), c = P(uu, v1, h), r = P(uu, vm, h + rise); this.tri3(this._rp, a, c, r, [uu === u0 ? -ux : ux, 0, uu === u0 ? -uz : uz], gab, gab, gab); }
+    return true;
   }
 
   // Pezzo d'impalcato: asfalto, marciapiedi, mezzeria, fascia in cemento, parapetti e lampioni, tutti alla quota della gobba.
