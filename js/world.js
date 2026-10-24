@@ -127,6 +127,18 @@ function makeFacadeTextures() {
   return { map: t, emissive: te };
 }
 
+// Grana sul terreno senza UV: la texture si campiona con la posizione nel mondo. Asfalto, marciapiedi e prati hanno così una grana fine e macchie larghe.
+let NOISE = null;
+export function groundGrain(mat, strength = 1) {
+  if (!NOISE) { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'), d = g.createImageData(128, 128); let sd = 31; const r = () => (sd = (sd * 1664525 + 1013904223) >>> 0) / 4294967296; for (let i = 0; i < 128 * 128; i++) { const v = 128 + (r() - 0.5) * 120; d.data.set([v, v, v, 255], i * 4); } g.putImageData(d, 0, 0); NOISE = new THREE.CanvasTexture(c); NOISE.wrapS = NOISE.wrapT = THREE.RepeatWrapping; NOISE.anisotropy = 2; }
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.grain = { value: NOISE }; sh.uniforms.gk = { value: strength };
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWp;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvWp = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWp; uniform sampler2D grain; uniform float gk;').replace('#include <color_fragment>', '#include <color_fragment>\n  { float fine = texture2D(grain, vWp.xz * 0.45).r, mid = texture2D(grain, vWp.xz * 0.06 + 0.37).r; float f = clamp(1.0 - length(vWp - cameraPosition) / 140.0, 0.0, 1.0); diffuseColor.rgb *= 1.0 + gk * ((fine - 0.5) * 0.16 * f + (mid - 0.5) * 0.14); }');
+  };
+  mat.needsUpdate = true;
+}
+
 export class World {
   constructor(data) {
     this.meta = data.roads.meta;
@@ -277,7 +289,7 @@ export class World {
 
     this.group = new THREE.Group();
     this.cells = new Map(); // key -> Group
-    this.matGround = new THREE.MeshBasicMaterial({ vertexColors: true });
+    this.matGround = new THREE.MeshBasicMaterial({ vertexColors: true }); groundGrain(this.matGround, 1.7);
     this.matPlain = new THREE.MeshLambertMaterial({ vertexColors: true });
     const fac = makeFacadeTextures();
     this.matBuilding = new THREE.MeshLambertMaterial({ vertexColors: true, map: fac.map, emissive: new THREE.Color(1, 0.8, 0.5), emissiveMap: fac.emissive, emissiveIntensity: 0 });

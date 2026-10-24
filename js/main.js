@@ -7,7 +7,7 @@ import { Car } from './car.js';
 import { Input } from './input.js';
 import { buildTaxi } from './carmodel.js';
 import { DriftFX } from './fx.js';
-import { GROUND_COLOR } from './world.js';
+import { GROUND_COLOR, groundGrain } from './world.js';
 import { Minimap } from './minimap.js';
 import { buildMarker } from './marker.js';
 import { Labels } from './labels.js';
@@ -51,7 +51,7 @@ function showFatal(msg, err) {
 let errCount = 0;
 addEventListener('error', (e) => { if (++errCount >= 3) showFatal('Il gioco ha avuto un problema. Ricarica la pagina.', e.error || e.message); });
 addEventListener('unhandledrejection', (e) => { if (++errCount >= 3) showFatal('Il gioco ha avuto un problema. Ricarica la pagina.', e.reason); });
-try { renderer = new THREE.WebGLRenderer({ canvas: $('c'), antialias: false, powerPreference: 'high-performance' }); }
+try { renderer = new THREE.WebGLRenderer({ canvas: $('c'), antialias: !lowEnd, powerPreference: 'high-performance' }); } // bordi lisci (MSAA) tranne sui telefoni deboli
 catch (e) { showFatal('Questo browser non riesce ad avviare la grafica 3D (WebGL). Prova con Chrome o Safari aggiornati.', e); throw e; }
 $('c').addEventListener('webglcontextlost', (e) => { e.preventDefault(); showFatal('La grafica si è interrotta (poca memoria?). Ricarica la pagina.', 'webglcontextlost'); });
 let pixelRatio = Math.min(devicePixelRatio || 1, lowEnd ? 1.25 : 1.5);
@@ -87,14 +87,19 @@ function resize() {
 }
 addEventListener('resize', resize); resize();
 
+const clampc = (v, a, b) => Math.max(a, Math.min(b, v));
 const fmt = (t) => { const m = Math.floor(t / 60), sec = t - m * 60; return `${m}:${sec < 10 ? '0' : ''}${sec.toFixed(2)}`; };
 const bestKey = (id) => `taxi-bologna:best2:${id}`; // v2: i record della versione vecchia (tratta diversa) non contano più
 const loadBest = (id) => { try { const v = parseFloat(localStorage.getItem(bestKey(id))); return v > 0 ? v : null; } catch (e) { return null; } };
 const saveBest = (id, t) => { try { localStorage.setItem(bestKey(id), String(t)); } catch (e) { /* storage non disponibile */ } };
 
-let toastT = 0;
-function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1800); }
-
+let toastT = 0, lastToast = '', lastToastAt = 0;
+// Avvisi: colore per tipo (rosso = pericolo, verde = bene, arancio = info), stesso testo non ripetuto entro 4 s, durata proporzionale alla lunghezza.
+const DANGER = /pericolo|attent|laser|colpit|mitra|olio|pestone|pallone|calciare|zona 30|fuoco|speronat|botta|boom|incidente|camion|insegue|arrivo|ti spia|spara|venendo|incontro|pedone|ostacol/i, GOOD = /nos|super salto|ripulita|distrutto|sconfitto|consegnato|a bordo|scudo|molla|magnete|completata|riposizionato|volato|salto di/i;
+function toast(msg) {
+  const now = performance.now(); if (msg === lastToast && now - lastToastAt < 4000) return; lastToast = msg; lastToastAt = now;
+  const t = $('toast'); t.textContent = msg; t.dataset.k = DANGER.test(msg) && !GOOD.test(msg) ? 'danger' : GOOD.test(msg) ? 'good' : 'info'; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), Math.min(2800, 1300 + msg.length * 45));
+}
 async function boot() {
   const step = async (msg, pct) => { $('load-msg').textContent = msg; $('load-bar').style.width = `${pct}%`; await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0))); };
   await step('Scarico la mappa…', 3);
@@ -114,6 +119,7 @@ async function boot() {
   // terreno piatto
   const gw = world.x1 - world.x0 + 400, gh = world.z1 - world.z0 + 400;
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(gw, gh).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: new THREE.Color(...GROUND_COLOR) }));
+  groundGrain(ground.material, 1.3);
   ground.position.set((world.x0 + world.x1) / 2, 0, (world.z0 + world.z1) / 2); scene.add(ground);
 
   // auto
@@ -252,13 +258,16 @@ async function boot() {
     const speed = Math.hypot(car.vx, car.vz);
     const want = 8.2 + Math.min(speed, 64) * 0.06;
     const bx = -Math.cos(camH), bz = -Math.sin(camH);
-    let limit = col.ray(car.x, car.z, bx, bz, want + 1.5, Math.max(4, car.y + 3)); // in alto gli edifici bassi non limitano la camera
+    const mh = Math.max(4, car.y + 3), ca = Math.cos(0.42), sa = Math.sin(0.42); // in alto gli edifici bassi non limitano la camera
+    // tre raggi (dietro e ±24°): la camera non finisce più dentro gli angoli dei palazzi in curva
+    let limit = Math.min(col.ray(car.x, car.z, bx, bz, want + 1.5, mh), col.ray(car.x, car.z, bx * ca - bz * sa, bx * sa + bz * ca, want + 1.5, mh) * 1.08, col.ray(car.x, car.z, bx * ca + bz * sa, -bx * sa + bz * ca, want + 1.5, mh) * 1.08);
     let target = Math.max(2.6, Math.min(want, limit - 1.2));
     if (target <= 2.6 && col.inside(car.x + bx * 2.6, car.z + bz * 2.6, Math.max(4, car.y + 3))) target = 1.4;
     camD = target < camD ? target : camD + (target - camD) * Math.min(1, 2.2 * dt);
-    const t = (camD - 1.4) / 7;
-    const height = 2.4 + Math.min(1, Math.max(0, t)) * 1.7 + speed * 0.012;
-    const px = car.x + bx * camD, pz = car.z + bz * camD;
+    const t = (camD - 1.4) / 7, tight = clampc((6 - camD) / 3.6, 0, 1); // strada stretta: la camera sale un po' per vedere sopra i muri invece di avvicinarsi
+    const height = 2.4 + Math.min(1, Math.max(0, t)) * 1.7 + speed * 0.012 + tight * 1.6;
+    let px = car.x + bx * camD, pz = car.z + bz * camD;
+    { const pu = col.push(px, pz, 0.9, height + car.y - 0.5); if (pu) { px = pu.x; pz = pu.z; } } // mai dentro un muro
     camY += (car.y - camY) * Math.min(1, (car.canFly ? 12 : 6) * dt); // la camera segue la quota più lentamente: i salti si vedono
     camPos.set(px, height + camY, pz);
     camera.position.copy(camPos);
@@ -311,7 +320,7 @@ async function boot() {
   function beginBoss() {
     run.boss = true; marker.visible = false; $('goal-txt').textContent = target.bossGoal || 'Sconfiggi il boss'; $('boss').hidden = false;
     $('boss').querySelector('u').style.transform = 'scaleX(1)'; $('boss').querySelector('span').textContent = enemies.giant.maxHp;
-    enemies.startBoss(car); target = bossT; toast('Cliente consegnato! Arriva COS, il boss!'); sfx.boom(0.6);
+    enemies.startBoss(car); target = bossT; toast('Cliente consegnato!'); sfx.boom(0.6);
     for (let k = 0; k < 3; k++) gadgets.addAt(car.x + Math.cos(k * 2.1 + 0.2) * 55, car.z + Math.sin(k * 2.1 + 0.2) * 55);
     for (let k = 0; k < 4; k++) nos.addAt(car.x + Math.cos(k * 1.57 + 0.7) * 65, car.z + Math.sin(k * 1.57 + 0.7) * 65); // NOS per speronare più forte
   }
@@ -345,13 +354,13 @@ async function boot() {
       if (!NOTRAFFIC) {
         traffic.update(dt, car); peds.update(dt, car); props.update(dt, car); events.update(dt, car, run.t);
         const bump = traffic.collide(car); if (bump > 5) { toast('Botta!'); car.hurt(bump); }
-        if (peds.collide(car)) { car.hitSlow(); toast('Pedone! Rallentato per 10 s'); }
+        if (peds.collide(car)) { car.hitSlow(); toast('Pedone! Rallenti 10 s'); }
       }
       if (!NOENEMIES) enemies.update(dt, car);
       if (run.boss) { bossT.x = enemies.giant.x; bossT.z = enemies.giant.z; }
       { const g = gadgets.update(dt, car); if (g) { sfx.pickup(); toast(GADGETS[g].tip); } }
       if (input.takeGad() && car.gadget) useGadget();
-      if (car.onRoof && !wasRoof && now - roofToastT > 15000) { roofToastT = now; toast('Sei sui tetti! Scendi guidando o usa il NOS per un salto lungo'); } wasRoof = car.onRoof;
+      if (car.onRoof && !wasRoof && now - roofToastT > 15000) { roofToastT = now; toast('Sei sui tetti: NOS = salto lungo'); } wasRoof = car.onRoof;
       if (nos.update(dt, car) && car.giveCharge()) { sfx.pickup(); toast(car.charges >= 3 ? 'NOS ×3 pronto!' : `NOS: ${car.charges}/3 cariche`); }
       if (input.takeNos()) { const lv = car.activate(); if (lv) { sfx.nos(lv); toast(`NOS ×${lv}! 10 secondi`); } }
       if (car.superJump) { car.superJump = false; toast('Super salto verso il tetto!'); }

@@ -27,6 +27,7 @@ canvas { position: fixed; inset: auto; left: var(--vx, 0px); top: var(--vy, 0px)
 #speed small { margin-left: 4px; color: var(--muted); font-size: 12px; }
 #toast { position: absolute; top: calc(max(10px, env(safe-area-inset-top)) + 140px); left: max(12px, env(safe-area-inset-left)); max-width: 30vw; padding: 6px 10px; border-radius: 12px; border-left: 3px solid #ffb000; background: #000b; font-size: 12px; line-height: 1.25; text-align: left; opacity: 0; transition: opacity .25s; pointer-events: none; }
 #toast.show { opacity: 1; }
+#toast[data-k=danger] { border-left-color: #ff5a4a; background: #2a0d0ccc; } #toast[data-k=good] { border-left-color: #5be37d; background: #0d2a14cc; } #toast[data-k=info] { border-left-color: #ffb000; }
 
 /* Controlli touch */
 #controls { position: fixed; inset: auto; left: var(--vx, 0px); top: var(--vy, 0px); width: var(--hw, var(--vw, 100%)); height: var(--vh, 100%); pointer-events: none; }

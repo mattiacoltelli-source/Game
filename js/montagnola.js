@@ -5,7 +5,7 @@ import { mergeBoxes } from './geom.js';
 // pilastri, contrafforti, camminamento sul bordo e due scaloni: lo Scalone del Pincio da Via dell'Indipendenza e la scalinata verso Via Irnerio
 // (Piazza dell'Otto Agosto). L'area del parco è sollevata, i sentieri OSM ridisegnati in quota, strade e edifici interni tolti.
 export const PARK_H = 6;
-const STONE = [0.72, 0.68, 0.6], STONE_D = [0.5, 0.46, 0.4], STONE_L = [0.84, 0.8, 0.72], GRASS = [0.5, 0.68, 0.4], PATH = [0.82, 0.76, 0.64], BRONZE = [0.26, 0.2, 0.15], LAMP = [1.4, 1.3, 0.95];
+const STONE = [0.72, 0.68, 0.6], STONE_D = [0.5, 0.46, 0.4], STONE_L = [0.84, 0.8, 0.72], GRASS = [0.56, 0.70, 0.45], PATH = [0.82, 0.76, 0.64], BRONZE = [0.26, 0.2, 0.15], LAMP = [1.4, 1.3, 0.95];
 // base indicativa (viene riaggiustata sul bordo del parco), direzione di salita (dx,dz), lunghezza e larghezza
 const STAIRS = [
   { id: 'pincio', x0: -392, z0: -297, dx: 1, dz: 0, len: 26, w: 15, clip: true, terrace: true },

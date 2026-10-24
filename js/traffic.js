@@ -73,6 +73,7 @@ export class Traffic {
     this.world = world; this.ri = roadIndex; this.props = props; this.max = max; this.cars = []; this.t = 0;
     this.g = new Graph(world.roads, (r) => DRIVE.has(r.c) && !r.n.includes('Matteotti') && r.w >= 5);
     this.meshes = {}; const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+    { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d'), gr = g.createRadialGradient(32, 32, 4, 32, 32, 32); gr.addColorStop(0, 'rgba(0,0,0,0.55)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); this.sh = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }), 36); this.sh.frustumCulled = false; this.sh.count = 0; this.sh.renderOrder = 2; scene.add(this.sh); } // ombra morbida sotto i veicoli, come per il taxi
     for (const k of TYPE_KEYS) { const m = new THREE.InstancedMesh(TYPES[k].geo(), mat, 32); m.frustumCulled = false; m.count = 0; scene.add(m); this.meshes[k] = m; }
   }
 
@@ -153,6 +154,7 @@ export class Traffic {
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sc = new THREE.Vector3(1, 1, 1), pos = new THREE.Vector3(), n = {};
     for (const k of TYPE_KEYS) n[k] = 0;
     for (const c of this.cars) { const k = c.type, i = n[k]++; if (i >= 32) { n[k] = 32; continue; } e.set(0, -c.h, 0); q.setFromEuler(e); pos.set(c.x + c.offx, 0.18, c.z + c.offz); m.compose(pos, q, sc); this.meshes[k].setMatrixAt(i, m); this.meshes[k].setColorAt(i, c.col); }
+    { let j = 0; for (const c of this.cars) { if (j >= 36) break; e.set(0, -c.h, 0); q.setFromEuler(e); const T = TYPES[c.type]; pos.set(c.x + c.offx, 0.17, c.z + c.offz); m.compose(pos, q, sc.set(T.len * 1.35, 1, T.r * 3.2)); this.sh.setMatrixAt(j++, m); } this.sh.count = j; this.sh.instanceMatrix.needsUpdate = true; sc.set(1, 1, 1); }
     for (const k of TYPE_KEYS) { const mm = this.meshes[k]; mm.count = n[k]; mm.instanceMatrix.needsUpdate = true; if (mm.instanceColor) mm.instanceColor.needsUpdate = true; }
   }
 }

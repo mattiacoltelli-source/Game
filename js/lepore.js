@@ -39,7 +39,7 @@ export class Lepore {
     this.group = new THREE.Group(); this.body = new THREE.Mesh(figure(), new THREE.MeshLambertMaterial({ vertexColors: true })); this.paddle = paddle(); this.paddle.position.set(0.05, 1.45, 0.42); this.arm = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.7, 0.14), new THREE.MeshLambertMaterial({ color: 0x1a1b22 })); this.arm.position.set(0.05, 1.7, 0.4);
     this.group.add(this.body, this.paddle, this.arm); this.group.scale.setScalar(2.4); this.group.visible = false; scene.add(this.group); // alto circa 5 m
     this.zone = zone(); this.zone.visible = false; scene.add(this.zone);
-    this.tag = nameTag('LEPORE', '#1e88e5'); this.tag.scale.set(10, 2.5, 1); this.tag.visible = false; scene.add(this.tag);
+    this.tag = nameTag('LEPORE', '#1e88e5'); this.tag.scale.set(14, 3.5, 1); this.tag.visible = false; scene.add(this.tag);
     this.reset();
   }
 
@@ -56,7 +56,7 @@ export class Lepore {
     if (!pick) return false;
     this.px = pick[0]; this.pz = pick[1]; this.group.position.set(this.px, 0.17, this.pz); this.zone.position.set(this.px, 0.19, this.pz); this.tag.position.set(this.px, 7.6, this.pz);
     this.group.visible = this.zone.visible = this.tag.visible = true; this.state = 'on'; this.t = 0; this.inside = false; this.n++; this.whistleT = 0.4; this.group.rotation.set(0, 0, 0); this.group.position.y = 0.17;
-    this.ctx.toast('Lepore ti ferma con la paletta: zona 30!'); return true;
+    this.ctx.toast('Lepore: zona 30!'); return true;
   }
 
   end(runT) { this.state = 'off'; this.group.visible = this.zone.visible = this.tag.visible = false; this.inside = false; this.next = runT + rnd(50, 80); this.cool = 45; }
@@ -82,7 +82,7 @@ export class Lepore {
     const inz = d < R && !player.air && player.clear < 4;
     if (inz) {
       const sp = Math.hypot(player.vx, player.vz);
-      if (!this.inside) { this.inside = true; this.cap = Math.max(2.8, sp - CUT); this.ctx.toast('Zona 30! Perdi 50 km/h'); }
+      if (!this.inside) { this.inside = true; this.cap = Math.max(2.8, sp - CUT); this.ctx.toast('Zona 30: -50 km/h'); }
       if (sp > this.cap) { const k = this.cap / sp; player.vx *= k; player.vz *= k; }
     } else this.inside = false;
     // sperone forte: Lepore vola via

@@ -33,9 +33,9 @@ export class RandomEvents {
   start(player) {
     const sp = this.spot(player); if (!sp) return false;
     const nx = -sp.uz, nz = sp.ux, ttl = 32, kind = ['camion', 'incidente', 'corteo'][Math.floor(Math.random() * 3)], cars = [], cones = [];
-    if (kind === 'camion') { cars.push(this.fixedCar('truck', sp.x + nx * 2.1, sp.z + nz * 2.1, Math.atan2(sp.uz, sp.ux) + 0.08, ttl)); cones.push([sp.x - sp.ux * 9 + nx * 1.2, sp.z - sp.uz * 9 + nz * 1.2], [sp.x - sp.ux * 12 + nx * 0.2, sp.z - sp.uz * 12 + nz * 0.2], [sp.x - sp.ux * 15 + nx * 1.6, sp.z - sp.uz * 15 + nz * 1.6]); this.ctx.toast('Camion in panne davanti: scansalo!'); }
-    else if (kind === 'incidente') { cars.push(this.fixedCar('car', sp.x + nx * 1.3, sp.z + nz * 1.3, Math.atan2(sp.uz, sp.ux) + 0.9, ttl), this.fixedCar('hatch', sp.x + sp.ux * 5.5 - nx * 0.8, sp.z + sp.uz * 5.5 - nz * 0.8, Math.atan2(sp.uz, sp.ux) - 0.5, ttl)); for (let k = 0; k < 4; k++) cones.push([sp.x - sp.ux * (8 + k * 2.5) + nx * (1.5 - k * 0.5), sp.z - sp.uz * (8 + k * 2.5) + nz * (1.5 - k * 0.5)]); this.ctx.toast('Incidente davanti: attenzione!'); }
-    else { const seg = Math.max(2, sp.L * 0.15); this.crowd = this.peds.crowd(sp.r, sp.i, 14, seg); this.ctx.toast('Corteo di pedoni davanti: rallenta!'); }
+    if (kind === 'camion') { cars.push(this.fixedCar('truck', sp.x + nx * 2.1, sp.z + nz * 2.1, Math.atan2(sp.uz, sp.ux) + 0.08, ttl)); cones.push([sp.x - sp.ux * 9 + nx * 1.2, sp.z - sp.uz * 9 + nz * 1.2], [sp.x - sp.ux * 12 + nx * 0.2, sp.z - sp.uz * 12 + nz * 0.2], [sp.x - sp.ux * 15 + nx * 1.6, sp.z - sp.uz * 15 + nz * 1.6]); this.ctx.toast('Camion in panne davanti'); }
+    else if (kind === 'incidente') { cars.push(this.fixedCar('car', sp.x + nx * 1.3, sp.z + nz * 1.3, Math.atan2(sp.uz, sp.ux) + 0.9, ttl), this.fixedCar('hatch', sp.x + sp.ux * 5.5 - nx * 0.8, sp.z + sp.uz * 5.5 - nz * 0.8, Math.atan2(sp.uz, sp.ux) - 0.5, ttl)); for (let k = 0; k < 4; k++) cones.push([sp.x - sp.ux * (8 + k * 2.5) + nx * (1.5 - k * 0.5), sp.z - sp.uz * (8 + k * 2.5) + nz * (1.5 - k * 0.5)]); this.ctx.toast('Incidente davanti'); }
+    else { const seg = Math.max(2, sp.L * 0.15); this.crowd = this.peds.crowd(sp.r, sp.i, 14, seg); this.ctx.toast('Corteo di pedoni davanti'); }
     this.ev = { kind, x: sp.x, z: sp.z, t: 0, ttl, cars, cones, sx: sp.x, sz: sp.z, smoke: 0 }; this.cool = rnd(30, 45); return true;
   }
 

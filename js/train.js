@@ -72,7 +72,7 @@ export class Train {
   // Fa comparire il treno vicino al giocatore (boss, fase 3): lo mette sul punto del binario più vicino.
   summon(player) {
     let bi = 0, bd = 1e9; for (let i = 0; i < this.S.length; i += 3) { const d = Math.hypot(this.S[i][0] - player.x, this.S[i][1] - player.z); if (d < bd) { bd = d; bi = i; } }
-    this.s = clamp(bi * this.step, 80, this.L - 80); this.state = 'on'; this.cool = 0; for (const c of this.cars) if (c.gun) { c.alive = true; c.gun.visible = true; } this.ctx.toast('Lucchio, il treno, vi spara dai binari!'); this.told = true; this.boost = true;
+    this.s = clamp(bi * this.step, 80, this.L - 80); this.state = 'on'; this.cool = 0; for (const c of this.cars) if (c.gun) { c.alive = true; c.gun.visible = true; } this.ctx.toast('Lucchio spara dai binari'); this.told = true; this.boost = true;
   }
 
   place() {
@@ -94,7 +94,7 @@ export class Train {
     else { this.spd += (SPEED - this.spd) * Math.min(1, 2 * dt); }
     if (show || this.state === 'dead') this.place();
     const d0 = Math.hypot(this.x - player.x, this.z - player.z), range = this.boost ? 190 : 125;
-    if (this.state === 'idle' && !this.hold && runT > 12 && d0 < 240) { this.state = 'on'; if (!this.told) { this.told = true; this.ctx.toast('Lucchio, il treno, ti spara dai binari!'); } }
+    if (this.state === 'idle' && !this.hold && runT > 12 && d0 < 240) { this.state = 'on'; if (!this.told) { this.told = true; this.ctx.toast('Lucchio spara dai binari'); } }
     if (this.state === 'on' && !near) this.state = 'idle';
     if (this.state === 'on') this.shoot(dt, player, range);
     this.updateBullets(dt, player);
@@ -128,7 +128,7 @@ export class Train {
       if (!dead && player.clear < 3 && Math.abs(b.y - (player.y + 0.9)) < 1.4 && Math.hypot(b.x - player.x, b.z - player.z) < 1.7 && player.shield > 0) { dead = true; this.ctx.sparks && this.ctx.sparks(b.x, b.y, b.z, 3, 0, 0); } // lo scudo ferma i proiettili
       else if (!dead && player.clear < 3 && Math.abs(b.y - (player.y + 0.9)) < 1.4 && Math.hypot(b.x - player.x, b.z - player.z) < 1.7) {
         dead = true; player.vx *= 0.9; player.vz *= 0.9; this.fx.shake = Math.max(this.fx.shake, 0.45); sfx.thud(0.25); this.ctx.sparks && this.ctx.sparks(b.x, b.y, b.z, 5, 0, 0);
-        if (this.hitT <= 0) { this.hitT = 6; this.ctx.toast && this.ctx.toast('Ti mitragliano! Schiva!'); }
+        if (this.hitT <= 0) { this.hitT = 6; this.ctx.toast && this.ctx.toast('Mitra! Schiva'); }
       }
       if (dead) { if (b.y < 0.1 && this.ctx.sparks) this.ctx.sparks(b.x, 0.2, b.z, 2, 0, 0); this.b.splice(i, 1); }
     }

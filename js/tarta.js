@@ -60,14 +60,14 @@ export class Tarta {
 
   update(dt, player, runT) {
     this.updateFire(dt, player);
-    if (this.state === 'off') { this.cool -= dt; if (!this.hold && runT > 30 && this.cool <= 0 && this.appear(player)) { this.life = 0; if (!this.told) { this.told = true; this.ctx.toast('Tarta, l\'ingegnere malvagio, ti spia dai tetti!'); } } return; }
+    if (this.state === 'off') { this.cool -= dt; if (!this.hold && runT > 30 && this.cool <= 0 && this.appear(player)) { this.life = 0; if (!this.told) { this.told = true; this.ctx.toast('Tarta ti spia dai tetti'); } } return; }
     this.t += dt; this.life += dt;
     const dx = player.x - this.rx, dz = player.z - this.rz, d = Math.hypot(dx, dz), face = Math.atan2(dz, dx);
     if (d > 260 || this.life > 38) { this.group.visible = this.tag.visible = this.beam.visible = false; this.state = 'off'; this.cool = 22; return; }
     if (this.state !== 'idle' || this.t > 0.3) this.group.rotation.y = -face; // il cannone guarda verso di te
     if (this.state === 'idle') { if (this.t >= this.wait && d < 150) { // punta il laser davanti all'auto
         const T = 1.7, sp = Math.hypot(player.vx, player.vz), tx = player.x + player.vx * T * 0.9, tz = player.z + player.vz * T * 0.9; this.ty = player.y > 3 ? Math.max(1.5, player.y + 1 + player.vy * T * 0.5) : 0; const sn = this.ty > 0 ? null : this.ri.nearest(tx, tz); this.tx = sn ? sn.x : tx; this.tz = sn ? sn.z : tz; this.dirx = sp > 4 ? player.vx / sp : Math.cos(player.h); this.dirz = sp > 4 ? player.vz / sp : Math.sin(player.h);
-        this.state = 'aim'; this.t = 0; this.mark = this.fx.mark(this.tx, this.tz, 1.2, 0.5); this.ctx.toast('Laser in carica! Attento al fuoco'); } }
+        this.state = 'aim'; this.t = 0; this.mark = this.fx.mark(this.tx, this.tz, 1.2, 0.5); this.ctx.toast('Laser in carica!'); } }
     else if (this.state === 'aim') { this.setBeam(0.12 + 0.1 * Math.sin(this.t * 30), 0.12); if (this.t >= 1.2) { this.state = 'fire'; this.t = 0; sfx.shot(); } }
     else if (this.state === 'fire') { this.setBeam(0.9, 0.5 * (1 - this.t / 0.5) + 0.12); if (this.t < 0.06) { if (this.ty > 0) { if (!this.burn) { this.burn = true; this.fx.explode(this.tx, this.tz, this.ty, 0.7); setTimeout(() => { this.burn = false; }, 0); } } else this.ignite(); } if (this.t >= 0.5) { this.beam.visible = false; this.state = 'rest'; this.t = 0; } }
     else if (this.state === 'rest') { if (this.t >= 1.2) { if (!this.appear(player)) { this.state = 'idle'; this.t = 0; this.wait = 2; } } }
@@ -90,7 +90,7 @@ export class Tarta {
     let inside = false; const f = this.fires;
     for (let i = f.length - 1; i >= 0; i--) { const p = f[i]; p.t += dt; if (p.out !== undefined) { p.out -= dt; if ((p.st = (p.st || 0) - dt) <= 0) { p.st = 0.12; this.ctx.smoke && this.ctx.smoke(p.x, p.z, 2); } if (p.out <= 0) { f.splice(i, 1); continue; } } if (p.t >= p.life) { f.splice(i, 1); continue; } if (p.out === undefined && !player.air && player.y < 1.2 && Math.hypot(player.x - p.x, player.z - p.z) < p.r + 0.7) inside = true; }
     if (player.shield > 0) inside = false; // lo scudo ripara dal fuoco
-    if (inside) { const k = Math.exp(-0.35 * dt); player.vx *= k; player.vz *= k; this.fx.shake = Math.max(this.fx.shake, 0.18); if (!this.hot) { this.hot = true; this.ctx.toast('Fuoco! Rallenta un po\''); } } else this.hot = false;
+    if (inside) { const k = Math.exp(-0.35 * dt); player.vx *= k; player.vz *= k; this.fx.shake = Math.max(this.fx.shake, 0.18); if (!this.hot) { this.hot = true; this.ctx.toast('Fuoco sulla strada'); } } else this.hot = false;
     const m = this.m, q = this.q, tm = performance.now() / 1000; let n = 0;
     for (const p of f) {
       const g = Math.min(1, p.t * 2.5) * Math.min(1, (p.life - p.t) * 1.5) * (p.out === undefined ? 1 : Math.max(0, p.out / 0.6)), fl = 0.85 + 0.25 * Math.sin(tm * 14 + p.ph) + 0.1 * Math.sin(tm * 23 + p.ph * 2);

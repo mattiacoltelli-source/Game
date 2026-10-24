@@ -107,7 +107,7 @@ export class Car {
       for (const off of CIRCLES) {
         const p = col.push(this.x + fx * off, this.z + fz * off, RADIUS, this.clear);
         if (!p) continue;
-        any = hit = true;
+        any = hit = true; this.wnx = p.nx; this.wnz = p.nz; this.wT = 0.4; // ultima normale del muro (per sbloccarsi)
         this.x += p.x - (this.x + fx * off); this.z += p.z - (this.z + fz * off);
         const vn = this.vx * p.nx + this.vz * p.nz;
         if (vn < -5 && !this.air) this.hurt(-vn); // urto contro un muro: danni in base alla velocità
@@ -138,7 +138,14 @@ export class Car {
 
     // anti-incastro: input attivo ma l'auto non si muove
     const active = input.throttle > 0 || input.brake > 0;
+    this.wT = Math.max(0, (this.wT || 0) - dt);
     if (active && Math.hypot(this.vx, this.vz) < 1.5) this.stuck += dt; else this.stuck = Math.max(0, this.stuck - 2 * dt);
+    // sblocco assistito: se si resta fermi contro un muro, l'auto viene spinta via dal muro e il muso gira lungo la parete (così basta continuare a dare gas)
+    if (this.stuck > 0.45 && this.wT > 0 && !this.air) {
+      const k = Math.min(1, (this.stuck - 0.45) / 0.5), nx = this.wnx, nz = this.wnz, tx = -nz, tz = nx, fx = Math.cos(this.h), fz = Math.sin(this.h), sgn = (fx * tx + fz * tz) >= 0 ? 1 : -1;
+      this.vx += nx * 44 * k * dt; this.vz += nz * 44 * k * dt; this.x += nx * 1.5 * k * dt; this.z += nz * 1.5 * k * dt;
+      let dh = Math.atan2(tz * sgn, tx * sgn) - this.h; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); this.h += dh * Math.min(1, 5 * k * dt);
+    }
   }
 
   // NOS: 10 s di boost più uno scatto in avanti. Rallentamento: 10 s con velocità massima ridotta.
@@ -174,5 +181,5 @@ export class Car {
   spring() { this.vy = 13; this.y += 0.3; if (!this.air) { this.air = true; this.airT = 0; this.x0 = this.x; this.z0 = this.z; } }
 
   // Ritorna true se serve riposizionare (incastrata per >2 s).
-  needsRescue() { return this.stuck > 2.0; }
+  needsRescue() { return this.stuck > 2.4; }
 }

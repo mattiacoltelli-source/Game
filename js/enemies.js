@@ -17,7 +17,7 @@ function nameTag(text, color) {
   const c = document.createElement('canvas'); c.width = 256; c.height = 64; const g = c.getContext('2d');
   g.fillStyle = color; g.beginPath(); g.roundRect ? g.roundRect(4, 8, 248, 48, 24) : g.rect(4, 8, 248, 48); g.fill();
   g.fillStyle = '#fff'; g.font = '800 30px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 128, 33);
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, fog: false })); sp.scale.set(14, 3.5, 1); sp.renderOrder = 12; return sp;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, fog: false })); sp.scale.set(16, 4, 1); sp.renderOrder = 12; return sp;
 }
 
 // ---- proiettili, cerchi di avviso ed esplosioni
@@ -106,7 +106,7 @@ class Truck {
       { x: -4.2, y: 0.45, z: 1.15, sx: 1.0, sy: 0.9, sz: 0.3, c: TRK_DARK }, { x: -4.2, y: 0.45, z: -1.15, sx: 1.0, sy: 0.9, sz: 0.3, c: TRK_DARK },
     ]), new THREE.MeshLambertMaterial({ vertexColors: true })));
     this.group.scale.setScalar(1.4); this.group.visible = false; scene.add(this.group);
-    this.tag = nameTag('SIMO PAKELO', '#7a3b00'); this.tag.scale.set(18, 4.5, 1); this.tag.visible = false; scene.add(this.tag);
+    this.tag = nameTag('SIMO PAKELO', '#7a3b00'); this.tag.scale.set(16, 4, 1); this.tag.visible = false; scene.add(this.tag);
     // chiazze d'olio (istanze piatte)
     const geo = new THREE.CircleGeometry(1, 20); geo.rotateX(-Math.PI / 2);
     this.puddles = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({ color: 0x0b0710, transparent: true, opacity: 0.88, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), MAX_OIL);
@@ -135,7 +135,7 @@ class Truck {
   }
 
   update(dt, player, runT) {
-    if (this.state === 'off') { this.cool -= dt; if (runT > 25 && this.cool <= 0 && this.spawn(player)) { this.ctx.toast(this.chase ? 'Simo Pakelo ti insegue da dietro!' : 'Simo Pakelo, il tir, ti sta davanti e perde olio!'); } }
+    if (this.state === 'off') { this.cool -= dt; if (runT > 25 && this.cool <= 0 && this.spawn(player)) { this.ctx.toast(this.chase ? 'Pakelo ti insegue' : 'Pakelo perde olio davanti'); } }
     else {
       this.age += dt;
       const dx = player.x - this.x, dz = player.z - this.z, d = Math.hypot(dx, dz);
@@ -168,7 +168,7 @@ class Truck {
     }
     for (let i = 0; i < o.length; i++) { const p = o[i], sc = p.r * Math.min(1, (11 - p.t) * 3) * Math.min(1, p.t); this.m.makeScale(sc, 1, sc); this.m.setPosition(p.x, 0.07, p.z); this.puddles.setMatrixAt(i, this.m); }
     this.puddles.count = o.length; this.puddles.instanceMatrix.needsUpdate = true;
-    if (hit) { if (player.oil <= 0 && !this.told) { this.ctx.toast('Olio! Non hai più aderenza!'); this.told = true; } player.oil = 2.2; }
+    if (hit) { if (player.oil <= 0 && !this.told) { this.ctx.toast('Olio! Niente aderenza'); this.told = true; } player.oil = 2.2; }
     if (this.state === 'off' && !o.length) this.told = false;
   }
 
@@ -181,7 +181,7 @@ class Truck {
       let dx = player.x + pf[0] * po - (this.x + tf[0] * to), dz = player.z + pf[1] * po - (this.z + tf[1] * to); const d = Math.hypot(dx, dz), pen = 2.1 + 0.92 - d; if (pen <= 0) continue;
       if (d > 1e-3) { dx /= d; dz /= d; } else { dx = 0; dz = 1; }
       player.x += dx * pen; player.z += dz * pen; const vn = player.vx * dx + player.vz * dz; if (vn < 0) { player.vx -= vn * dx * 1.5; player.vz -= vn * dz * 1.5; } player.oil = Math.max(player.oil, 1.5);
-      if (this.chase && !(this.hitCd > 0)) { this.hitCd = 1.5; const sp = Math.hypot(player.vx, player.vz) || 1; player.vx += tf[0] * 10; player.vz += tf[1] * 10; player.hitSlow(); this.ctx.toast('Simo Pakelo ti ha speronato!'); this.fx.shake = Math.max(this.fx.shake, 1.0); sfx.boom(0.6); } // lo speronamento ti spinge avanti e ti rallenta (10 s)
+      if (this.chase && !(this.hitCd > 0)) { this.hitCd = 1.5; const sp = Math.hypot(player.vx, player.vz) || 1; player.vx += tf[0] * 10; player.vz += tf[1] * 10; player.hitSlow(); this.ctx.toast('Pakelo ti ha speronato'); this.fx.shake = Math.max(this.fx.shake, 1.0); sfx.boom(0.6); } // lo speronamento ti spinge avanti e ti rallenta (10 s)
       return 'bump';
     }
     return false;
@@ -214,7 +214,7 @@ class Heli {
   update(dt, player, runT) {
     if (this.state === 'off') { this.cool -= dt; if ((runT > 18 && this.cool <= 0) || (player.y > 14 && this.cool <= 12 && runT > 8)) { // arriva da lontano (o subito se voli alto)
         const a = Math.random() * 6.28; Object.assign(this, { state: 'on', t: 0, x: player.x + Math.cos(a) * 230, z: player.z + Math.sin(a) * 230, y: 40, fireT: 6, burst: 0, ang: a });
-        this.group.visible = this.tag.visible = true; this.ctx.toast('Macco, l\'elicottero, è in arrivo!'); }
+        this.group.visible = this.tag.visible = true; this.ctx.toast('Macco in arrivo'); }
       return; }
     this.t += dt; this.rotor.rotation.y += dt * 26;
     this.ang += dt * 0.4; const leaving = this.t > (player.y > 10 ? 60 : 34) && !this.stay;
@@ -257,7 +257,7 @@ class Giant {
     this.armR = limb([{ x: 0, y: -1.2, z: 0, sx: 1.8, sy: 2.4, sz: 1.8, c: BLU }, { x: 0, y: -5.6, z: 0, sx: 1.5, sy: 7, sz: 1.5, c: SK }], 27.6, -3.1);
     this.group.scale.setScalar(0.94); // ~30 m in totale
     this.group.visible = false; scene.add(this.group);
-    this.tag = nameTag('COS', '#6a2fb0'); this.tag.scale.set(18, 4.5, 1); this.tag.visible = false; scene.add(this.tag);
+    this.tag = nameTag('COS', '#6a2fb0'); this.tag.scale.set(16, 4, 1); this.tag.visible = false; scene.add(this.tag);
     this.state = 'off'; this.cool = 0; this.phase = 0; this.t = 0; this.kickCool = 0; this.step = 0;
     this.boss = false; this.maxHp = 8; this.hp = 0; this.hitCool = 0; this.stompCool = 0; this.bp = 1;
     // pallone da calcio gigante (proporzionato a Cos): lo tiene ai piedi e te lo calcia addosso
@@ -281,7 +281,7 @@ class Giant {
       this.cool -= dt;
       if (runT > 30 && this.cool <= 0) { // compare davanti al giocatore, a ~230 m
         const a = player.h + rnd(-0.6, 0.6); Object.assign(this, { state: 'walk', x: player.x + Math.cos(a) * 230, z: player.z + Math.sin(a) * 230, h: a + Math.PI, kickCool: 4, phase: 0, t: 0 });
-        this.group.visible = this.tag.visible = true; this.ball.s = 'held'; this.ballCool = 4; this.ctx.toast('Cos, il gigante, ti sta venendo a prendere!');
+        this.group.visible = this.tag.visible = true; this.ball.s = 'held'; this.ballCool = 4; this.ctx.toast('Cos ti viene incontro');
       }
       return;
     }
@@ -302,14 +302,14 @@ class Giant {
       const sw = Math.sin(this.phase); this.legL.rotation.z = sw * 0.55; this.legR.rotation.z = -sw * 0.55; this.armL.rotation.z = -sw * 0.5; this.armR.rotation.z = sw * 0.5;
       const st = Math.floor(this.phase / Math.PI); if (st !== this.step) { this.step = st; if (d < 300) { this.fx.shake = Math.max(this.fx.shake, clamp(0.9 - d / 330, 0, 0.9)); sfx.thud(clamp(1 - d / 250, 0.1, 1)); } }
       // inizia il calcio: bersaglio = posizione prevista dell'auto, a 8-14 m da lui
-      if (this.boss && this.bp >= 2 && this.stompCool <= 0 && d < 34) { this.state = 'stompwind'; this.t = 0; this.fx.mark(this.x, this.z, 1.1, 1.7); this.ctx.toast('Pestone! Allontanati!'); }
+      if (this.boss && this.bp >= 2 && this.stompCool <= 0 && d < 34) { this.state = 'stompwind'; this.t = 0; this.fx.mark(this.x, this.z, 1.1, 1.7); this.ctx.toast('Pestone! Scappa'); }
       else if (this.ball.s === 'held' && this.ballCool <= 0 && d > 26 && d < 140 && !this.useBall) { // calcio di pallone a distanza
         const Tf = clamp(d / 48, 1.1, 2.4), Tt = WIND + SWING + Tf, tx = player.x + player.vx * Tt * 0.85, tz = player.z + player.vz * Tt * 0.85;
-        Object.assign(this, { state: 'wind', t: 0, useBall: true, tx, tz, Tf }); this.fx.mark(tx, tz, Tt, 0.55); this.h = Math.atan2(tz - this.z, tx - this.x); this.ctx.toast('Cos calcia il pallone!');
+        Object.assign(this, { state: 'wind', t: 0, useBall: true, tx, tz, Tf }); this.fx.mark(tx, tz, Tt, 0.55); this.h = Math.atan2(tz - this.z, tx - this.x); this.ctx.toast('Cos calcia il pallone');
       }
       else if (this.kickCool <= 0 && d < 40) {
         const T = WIND + SWING, tx = player.x + player.vx * T * 0.9, tz = player.z + player.vz * T * 0.9, td = Math.hypot(tx - this.x, tz - this.z);
-        if (td > 6 && td < 16) { this.state = 'wind'; this.t = 0; this.tx = tx; this.tz = tz; this.fx.mark(tx, tz, T); this.h = Math.atan2(tz - this.z, tx - this.x); this.ctx.toast('Cos sta per calciare!'); }
+        if (td > 6 && td < 16) { this.state = 'wind'; this.t = 0; this.tx = tx; this.tz = tz; this.fx.mark(tx, tz, T); this.h = Math.atan2(tz - this.z, tx - this.x); this.ctx.toast('Cos sta per calciare'); }
       }
     } else {
       this.t += dt; this.v = 0;
