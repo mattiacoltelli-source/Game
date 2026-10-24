@@ -1,6 +1,6 @@
 import * as THREE from '../lib/three.module.min.js';
 import { VIEW } from './config.js';
-import { setupPark, parkHeight, buildPark, clipPassage } from './montagnola.js';
+import { setupPark, parkHeight, buildPark, clipPassage, nearStair } from './montagnola.js';
 
 const R_EARTH = 6371000;
 export function makeProjector(origin) {
@@ -443,7 +443,7 @@ export class World {
     }
     // alberi (parchi): tronco + chioma low-poly
     const tr = this.cT.get(key);
-    if (tr) for (let q = 0; q < tr.length; q += 3) { if (this.park && tr[q] > this.park.stair.x0 - 4 && tr[q] < this.park.stair.x0 + this.park.stair.len + 14 && Math.abs(tr[q + 1] - this.park.stair.z0) < this.park.stair.w / 2 + 4) continue; const n0 = extra.p.length; this.addTree(extra, tr[q], tr[q + 1], tr[q + 2]); const Y = this.park ? parkHeight(this.park, tr[q], tr[q + 1]) : 0; if (Y) for (let i = n0 + 1; i < extra.p.length; i += 3) extra.p[i] += Y; } // alberi sul parco: a quota
+    if (tr) for (let q = 0; q < tr.length; q += 3) { if (this.park && nearStair(this.park, tr[q], tr[q + 1], 5)) continue; const n0 = extra.p.length; this.addTree(extra, tr[q], tr[q + 1], tr[q + 2]); const Y = this.park ? parkHeight(this.park, tr[q], tr[q + 1]) : 0; if (Y) for (let i = n0 + 1; i < extra.p.length; i += 3) extra.p[i] += Y; } // alberi sul parco: a quota
 
     // edifici: pareti con texture finestre (W), tetti e monumenti a tinta unita (Pl)
     const W = { p: [], n: [], c: [], u: [] }, Pl = { p: [], n: [], c: [] }, Ar = { p: [], n: [], c: [], u: [] };
