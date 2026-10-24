@@ -86,8 +86,8 @@ export function buildPark(world, park, removedPaths) {
   for (let i = 0; i < n; i++) {
     const a = poly[i], b = poly[(i + 1) % n]; if (isTop(park, a, b)) continue; const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz); if (L < 0.05) continue; const nx = sg * dz / L, nz = -sg * dx / L; // normale verso l'esterno
     Q(a, b, 0, 0.7, 0.25, nx, nz, STONE_D); // zoccolo sporgente
-    const courses = 6, ch = (H - 0.7 - 0.5) / courses; for (let k = 0; k < courses; k++) Q(a, b, 0.7 + k * ch, 0.7 + (k + 1) * ch - 0.04, 0, nx, nz, k % 2 ? STONE : [0.76, 0.72, 0.64]); // corsi di blocchi
-    Q(a, b, 0.7 + courses * ch, H - 0.5, 0, nx, nz, STONE);
+    Q(a, b, 0.7, H - 0.5, 0, nx, nz, STONE_D); // fondo pieno (nessuna fessura tra i corsi)
+    const courses = 6, ch = (H - 0.7 - 0.5) / courses; for (let k = 0; k < courses; k++) Q(a, b, 0.7 + k * ch + 0.03, 0.7 + (k + 1) * ch - 0.03, 0.04, nx, nz, k % 2 ? STONE : [0.76, 0.72, 0.64]); // corsi di blocchi in rilievo
     Q(a, b, H - 0.5, H, 0.28, nx, nz, STONE_L); // cornice sporgente
     if (!isSide(park, a, b)) { // parapetto sul bordo del piano (non lungo gli scaloni): muretto alto 1 m, un po' arretrato
       const ix = -nx, iz = -nz, ob = 0.35, A2 = [a[0] + ix * ob, a[1] + iz * ob], B2 = [b[0] + ix * ob, b[1] + iz * ob];

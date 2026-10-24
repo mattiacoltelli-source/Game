@@ -265,6 +265,7 @@ export class World {
       }
     }
     this.buildings.push(...this.parapets); // collisione
+    if (this.park) for (const a of this.areas) { let cx = 0, cz = 0; const n = a.p.length / 2; for (let i = 0; i < n; i++) { cx += a.p[i * 2]; cz += a.p[i * 2 + 1]; } if (parkHeight(this.park, cx / n, cz / n) > 0) a.noDraw = true; } // il verde del parco è disegnato dal piano sopraelevato: niente "doppio fondo" a terra
     this.areas.forEach((a, ai) => {
       let mnx = 1e9, mnz = 1e9, mxx = -1e9, mxz = -1e9;
       for (let i = 0; i < a.p.length; i += 2) { mnx = Math.min(mnx, a.p[i]); mxx = Math.max(mxx, a.p[i]); mnz = Math.min(mnz, a.p[i + 1]); mxz = Math.max(mxz, a.p[i + 1]); }
@@ -327,7 +328,7 @@ export class World {
     const UP = [0, 1, 0];
 
     for (const ai of this.cA.get(key) || []) {
-      const a = this.areas[ai], n = a.p.length / 2; let m = n;
+      const a = this.areas[ai], n = a.p.length / 2; let m = n; if (a.noDraw) continue;
       if (a.p[0] === a.p[a.p.length - 2] && a.p[1] === a.p[a.p.length - 1]) m--;
       const contour = []; for (let i = 0; i < m; i++) contour.push(new THREE.Vector2(a.p[i * 2], a.p[i * 2 + 1]));
       let idx; try { idx = THREE.ShapeUtils.triangulateShape(contour, []); } catch (e) { continue; }
