@@ -329,7 +329,7 @@ async function boot() {
   $('go').addEventListener('click', () => {
     beginRun();
     const el = document.documentElement;
-    try { (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el)?.catch?.(() => {}); screen.orientation?.lock?.('landscape')?.catch(() => {}); } catch (e) { /* best effort */ }
+    try { screen.orientation?.lock?.('landscape')?.catch(() => {}); } catch (e) { /* best effort */ } // niente schermo intero forzato: su Android mostrava sempre il banner di sistema «per uscire dalla modalità a schermo intero…»
   });
 
   let lastT = performance.now(), last = lastT, acc = 0, frames = 0, fpsT = 0, fps = 60;
