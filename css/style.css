@@ -41,7 +41,10 @@ canvas { position: fixed; inset: auto; left: var(--vx, 0px); top: var(--vy, 0px)
 /* Schermate */
 .screen { position: fixed; inset: auto; left: var(--vx, 0px); top: var(--vy, 0px); width: var(--hw, var(--vw, 100%)); height: var(--vh, 100%); display: grid; place-items: center; background: radial-gradient(120% 120% at 50% 0%, #1f2730 0%, var(--bg) 70%); z-index: 5; padding: 12px; }
 #screen-start { place-items: center start; padding-left: max(28px, env(safe-area-inset-left)); background: linear-gradient(90deg, #14181df0 0%, #14181dd0 34%, #14181d00 62%); }
+#screen-start { overflow-y: auto; align-items: start; touch-action: pan-y; padding-top: max(10px, env(safe-area-inset-top)); padding-bottom: 20px; }
 #screen-start .card { width: 300px; text-align: left; }
+#screen-start .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+#screen-start .row2 .opt { font-size: 13px; min-height: 40px; gap: 8px; }
 #screen-start .route { flex-direction: column; align-items: flex-start; gap: 4px; counter-reset: st; font-size: 15px; }
 #screen-start .route i { display: none; }
 #screen-start .route span { counter-increment: st; }

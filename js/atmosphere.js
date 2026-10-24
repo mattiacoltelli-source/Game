@@ -44,6 +44,12 @@ export class Atmosphere {
     hl.position.set(12.4, 0.22, 0); hl.visible = false; hl.renderOrder = 3; taxi.outer.add(hl); this.headlights = hl;
   }
 
+  // Sagome lontane delle Due Torri: oltre la nebbia (290 m) resterebbero invisibili. Box senza nebbia, un po' più piccoli delle torri vere (che le coprono da vicino).
+  addFarTowers(list) {
+    this.far = list.map((t) => { const m = new THREE.Mesh(new THREE.BoxGeometry(t.w, t.h, t.w), new THREE.MeshBasicMaterial({ color: 0xa06048, fog: false })); m.position.set(t.x, t.h / 2, t.z); m.renderOrder = -1; this.scene.add(m); return m; });
+    if (this.P) this.set(this.name);
+  }
+
   set(name) {
     const P = PRESETS[name] || PRESETS.giorno; this.name = PRESETS[name] ? name : 'giorno'; this.P = P;
     const col = this.skyGeo.attributes.color, pos = this.skyGeo.attributes.position, hor = new THREE.Color(P.hor), mid = new THREE.Color(P.mid), top = new THREE.Color(P.top), c = new THREE.Color();
@@ -63,6 +69,7 @@ export class Atmosphere {
     for (const c of this.clouds) { c.material.color.setRGB(cc[0], cc[1], cc[2]); c.material.opacity = cc[3]; }
     this.sunSpr.position.copy(sd); const ss = name === 'notte' ? 46 : name === 'tramonto' ? 150 : 110; this.sunSpr.scale.set(ss, ss, 1);
     this.sunSpr.material.color.set(name === 'notte' ? 0xbfd0ff : name === 'tramonto' ? 0xffa060 : 0xfff2c8); this.stars.visible = name === 'notte';
+    if (this.far) { const k = name === 'notte' ? 0.34 : name === 'tramonto' ? 0.78 : 1, c = new THREE.Color(0x8a4a36).multiplyScalar(k).lerp(new THREE.Color(P.fog), 0.12); for (const m of this.far) m.material.color.copy(c); }
     this.headlights.visible = P.lamp > 0; this.pool.material.opacity = P.lamp; this.pool.visible = P.lamp > 0; this.t = 0;
   }
 

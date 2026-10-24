@@ -57,7 +57,7 @@ renderer.setPixelRatio(pixelRatio);
 renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
 const scene = new THREE.Scene();
 scene.background = SKY; scene.fog = new THREE.Fog(SKY, VIEW.fogNear, VIEW.fogFar);
-const camera = new THREE.PerspectiveCamera(60, 2, 0.4, VIEW.fogFar + 40);
+const camera = new THREE.PerspectiveCamera(60, 2, 0.4, 900);
 const hemi = new THREE.HemisphereLight(0xffffff, 0x8e8c86, 2.5); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff0d8, 1.5); sun.position.set(-0.5, 1, 0.35); scene.add(sun);
 
@@ -135,6 +135,7 @@ async function boot() {
   let tod = 'giorno'; try { tod = localStorage.getItem('taxi-bologna:tod') || 'giorno'; } catch (e) { /* storage non disponibile */ }
   if (!PRESET_NAMES.includes(tod)) tod = 'giorno';
   atmo.set(tod);
+  { const pois = data.labels.pois || [], as = pois.find((q) => q.n === 'Asinelli'), ga = pois.find((q) => q.n === 'Garisenda'); if (as && ga) atmo.addFarTowers([{ x: as.x, z: as.z, w: 8.2, h: as.h - 2 }, { x: ga.x, z: ga.z, w: 8.2, h: ga.h - 2 }]); }
   const markTod = () => document.querySelectorAll('#tod button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.tod === atmo.name)));
   markTod();
   document.querySelectorAll('#tod button').forEach((b) => b.addEventListener('click', () => {
@@ -226,7 +227,8 @@ async function boot() {
   function updateCamera(dt) {
     if (run.state === 'menu' && hero) { // schermata iniziale: inquadra le due torri, spostate a destra del pannello
       // camera davanti all'auto (che guarda verso di lei) e rivolta alle torri, che stanno alle spalle del taxi
-      const cx = car.x + Math.cos(car.h) * 22, cz = car.z + Math.sin(car.h) * 22, dx = hero.p[0] - cx, dz = hero.p[1] - cz, d = Math.hypot(dx, dz), a = Math.atan2(dz, dx) - 0.3;
+      const ahead = (hero.p[0] - car.x) * Math.cos(car.h) + (hero.p[1] - car.z) * Math.sin(car.h) > 0, off = ahead ? -16 : 22; // torri davanti: camera dietro il taxi
+      const cx = car.x + Math.cos(car.h) * off, cz = car.z + Math.sin(car.h) * off, dx = hero.p[0] - cx, dz = hero.p[1] - cz, d = Math.hypot(dx, dz), a = Math.atan2(dz, dx) - (ahead ? 0.18 : 0.3);
       camera.position.set(cx, 5.5, cz);
       camera.lookAt(cx + Math.cos(a) * d, hero.y, cz + Math.sin(a) * d);
       if (camera.fov !== 66) { camera.fov = 66; camera.updateProjectionMatrix(); }
