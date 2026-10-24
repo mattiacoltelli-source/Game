@@ -1,5 +1,6 @@
 import * as THREE from '../lib/three.module.min.js';
 import { VIEW } from './config.js';
+import { setupPark, parkHeight, buildPark, clipPassage } from './montagnola.js';
 
 const R_EARTH = 6371000;
 export function makeProjector(origin) {
@@ -134,7 +135,10 @@ export class World {
     this.cols = Math.ceil((this.x1 - this.x0) / VIEW.cell);
     this.rows = Math.ceil((this.z1 - this.z0) / VIEW.cell);
 
-    this.roads = data.roads.roads;
+    this.park = setupPark(data.areas.areas, data.labels && data.labels.pois); // Parco della Montagnola sopraelevato (null se non nei dati)
+    const parkPoly = this.park ? this.park.poly : null, inPark = (x, z) => this.park && parkHeight(this.park, x, z) > 0;
+    const removedPaths = []; // sentieri/strade interne al parco: tolte dalla rete stradale (sarebbero sottoterra) e ridisegnate in quota
+    this.roads = data.roads.roads.filter((r) => { if (!this.park || !/^(pedestrian|service|living_street|track|path|footway|residential)$/.test(r.c) || /Indipendenza/.test(r.n || '')) return true; let k = 0; const m = r.p.length / 2; for (let i = 0; i < m; i++) if (inPark(r.p[i * 2], r.p[i * 2 + 1])) k++; if (k / m >= 0.5) { removedPaths.push(r); return false; } return true; });
     this.areas = data.areas.areas.filter((a) => a.k !== 'river' && a.k !== 'plaza');
     this.plazas = data.areas.areas.filter((a) => a.k === 'plaza');
     this.rivers = data.areas.areas.filter((a) => a.k === 'river');
@@ -144,6 +148,8 @@ export class World {
       let p = b.p, n = p.length / 2;
       if (p[0] === p[p.length - 2] && p[1] === p[p.length - 1]) n--;
       if (n < 3) continue;
+      if (this.park) { let cx = 0, cz = 0; for (let i = 0; i < n; i++) { cx += p[i * 2]; cz += p[i * 2 + 1]; } if (parkHeight(this.park, cx / n, cz / n) > 0 && !b.k) continue; } // edifici nel parco: tolti
+      if (this.park && !b.k) { const cl = clipPassage(this.park, p, n); if (cl) { for (const q of cl) this.buildings.push({ pts: Float32Array.from(q), h: b.h, k: null, t: b.t || 0, a: b.a ? new Set(b.a) : null, bc: b.bc ? hexRgb(b.bc) : null, rs: 0 }); continue; } }
       this.buildings.push({ pts: Float32Array.from(p.slice(0, n * 2)), h: b.h, k: b.k, t: b.t || 0, a: b.a ? new Set(b.a) : null, bc: b.bc ? hexRgb(b.bc) : null, rs: b.rs || 0 });
     }
 
@@ -205,7 +211,7 @@ export class World {
     // alberi, lampioni e fermate non devono stare sulla carreggiata: li sposto sul marciapiede
     data.details.trees = data.details.trees.filter((c) => { const q = this.pushOut(c[0], c[1], 1.9), g = this.edgeGap(q[0], q[1]); c[0] = q[0]; c[1] = q[1]; return !g || g.gap > 1.0; }); // se non si riesce (incroci) l'albero viene tolto
     for (const b of data.details.bus) { const g = this.edgeGap(b[0], b[1]); if (g && g.gap < 1.2) { const hw = g.hw, sx = -b[3] * b[4], sz = b[2] * b[4], L = Math.hypot(sx, sz) || 1; b[0] += sx / L * (hw + 1.3 - g.d); b[1] += sz / L * (hw + 1.3 - g.d); } }
-    { const keep = []; for (let i = 0; i < data.extras.lamps.length; i += 2) { const q = this.pushOut(data.extras.lamps[i], data.extras.lamps[i + 1], 0.7), g = this.edgeGap(q[0], q[1]); if (!g || g.gap > 0.35) keep.push(q[0], q[1]); } data.extras.lamps = keep; }
+    { const keep = []; for (let i = 0; i < data.extras.lamps.length; i += 2) { const q = this.pushOut(data.extras.lamps[i], data.extras.lamps[i + 1], 0.7), g = this.edgeGap(q[0], q[1]); if ((!g || g.gap > 0.35) && !inPark(q[0], q[1])) keep.push(q[0], q[1]); } data.extras.lamps = keep; }
     // dettagli del corridoio di gioco (insegne, strisce pedonali, fermate, dissuasori, alberi, frecce dei sensi unici)
     const dt = data.details; this.cSign = mk(); this.cDet = mk(); this.signs = dt.signs;
     this.corridor = dt.corridor;
@@ -279,6 +285,7 @@ export class World {
     this.sun = null; // {sx, sz, k, cap, op}: direzione orizzontale verso il sole, lunghezza ombra per metro di altezza
     this.matShadow = new THREE.MeshBasicMaterial({ color: 0x0a0c14, transparent: true, opacity: 0.26, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
     this.matSign = new THREE.MeshBasicMaterial({ map: makeSignAtlas(this.signs), side: THREE.DoubleSide });
+    if (this.park) this.group.add(buildPark(this, this.park, removedPaths));
   }
 
   // Carica al massimo `maxBuild` celle vicine a (x,z), scarica quelle lontane.
@@ -436,7 +443,7 @@ export class World {
     }
     // alberi (parchi): tronco + chioma low-poly
     const tr = this.cT.get(key);
-    if (tr) for (let q = 0; q < tr.length; q += 3) this.addTree(extra, tr[q], tr[q + 1], tr[q + 2]);
+    if (tr) for (let q = 0; q < tr.length; q += 3) { if (this.park && tr[q] > this.park.stair.x0 - 4 && tr[q] < this.park.stair.x0 + this.park.stair.len + 14 && Math.abs(tr[q + 1] - this.park.stair.z0) < this.park.stair.w / 2 + 4) continue; const n0 = extra.p.length; this.addTree(extra, tr[q], tr[q + 1], tr[q + 2]); const Y = this.park ? parkHeight(this.park, tr[q], tr[q + 1]) : 0; if (Y) for (let i = n0 + 1; i < extra.p.length; i += 3) extra.p[i] += Y; } // alberi sul parco: a quota
 
     // edifici: pareti con texture finestre (W), tetti e monumenti a tinta unita (Pl)
     const W = { p: [], n: [], c: [], u: [] }, Pl = { p: [], n: [], c: [] }, Ar = { p: [], n: [], c: [], u: [] };
@@ -460,6 +467,7 @@ export class World {
 
   // Quota del terreno (impalcato del Ponte Matteotti), 0 altrove.
   groundY(x, z) {
+    if (this.park) { const ph = parkHeight(this.park, x, z); if (ph > 0) return ph; }
     for (const h of this.humps) {
       const dx = x - h.ax, dz = z - h.az, t = dx * h.ux + dz * h.uz;
       if (t < 0 || t > h.L) continue;

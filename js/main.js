@@ -2,6 +2,7 @@ import * as THREE from '../lib/three.module.min.js';
 import { RIDES, VIEW, STOP_SPEED, CANTIERI } from './config.js';
 import { loadData, World } from './world.js';
 import { Collider, RoadIndex } from './collider.js';
+import { addParkSolids } from './montagnola.js';
 import { Car } from './car.js';
 import { Input } from './input.js';
 import { buildTaxi } from './carmodel.js';
@@ -102,6 +103,7 @@ async function boot() {
   const world = new World(data);
   await step('Preparo le strade…', 72);
   const col = new Collider(world.buildings, world.meta.bounds);
+  if (world.park) addParkSolids(world.park, col);
   const roads = new RoadIndex(world.roads);
   await step('Pianto gli alberi…', 80);
   world.plantTrees(col);

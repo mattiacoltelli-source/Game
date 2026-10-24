@@ -22,6 +22,7 @@ export class Props {
             const x = p[i * 2] + dx * t / L, z = p[i * 2 + 1] + dz * t / L;
             if (acc + t < 35 || acc + t > Ltot - 35 || world.groundY(x, z) > 0 || world.humps.some((h) => Math.hypot(h.ax + h.ux * h.L / 2 - x, h.az + h.uz * h.L / 2 - z) < h.L / 2 + 70)) continue;
             if (sites.some((s) => Math.hypot(s.x - x, s.z - z) < every)) continue;
+            if (world.park && Math.hypot(x - (world.park.stair.x0 + 4), z - world.park.stair.z0) < 55) continue; // libero l'accesso allo scalone
             sites.push({ x, z, ux: dx / L, uz: dz / L, w: r.w, sd: sites.length % 2 ? 1 : -1 }); count++;
           }
           acc += L;
