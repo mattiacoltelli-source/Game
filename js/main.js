@@ -337,7 +337,7 @@ async function boot() {
     }
     lastT = now;
     world.update(car.x, car.z, 1); street.update(dt);
-    flames(car.boost > 0 ? car.level : 0, now / 1000); taxi.setThrust(car.canFly, car.thrusting, now / 1000); shieldFx(car.shield, now / 1000); gfx.update(dt, car);
+    flames(car.boost > 0 ? car.level : 0, now / 1000); taxi.setThrust(car.canFly, car.thrusting, now / 1000); { const iv = input.value; taxi.setJets(car.canFly && car.air, iv.throttle, iv.brake, iv.steer, now / 1000); } shieldFx(car.shield, now / 1000); gfx.update(dt, car);
     poseCar(dt); if (!window.__freeCam) updateCamera(dt); fx.update(dt, car, camera); parts.update(dt, car, camera, scene.fog.color); labels.update(dt, car, camH); atmo.update(dt, car);
     if (run.state === 'running') {
       $('kmh').textContent = Math.round(Math.abs(car.speed) * 3.6);

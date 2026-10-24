@@ -64,7 +64,16 @@ export function buildTaxi() {
   thr.add(new THREE.Mesh(noz, new THREE.MeshLambertMaterial({ vertexColors: true })));
   const fg = new THREE.ConeGeometry(0.34, 2.4, 8).rotateX(Math.PI).translate(0, -1.2, 0), fo = new THREE.MeshBasicMaterial({ color: 0x66c8ff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }), fi = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
   for (const [x, z] of [[1.4, 0.96], [1.4, -0.96], [-1.4, 0.96], [-1.4, -0.96]]) for (const [m, s] of [[fo, 1], [fi, 0.5]]) { const f = new THREE.Mesh(fg, m); f.position.set(x, 0.05, z); f.scale.set(s, s, s); f.visible = false; thr.add(f); flames.push([f, s]); }
+  // getti direzionali (in volo): dietro se acceleri, davanti se freni, ai lati se sterzi: la fiamma esce dal lato opposto alla spinta
+  const jg = new THREE.ConeGeometry(0.22, 1.7, 8).rotateZ(-Math.PI / 2).translate(0.85, 0, 0), jets = {};
+  const mkJet = (name, x, y, z, ry) => { const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; for (const [m, s] of [[fo, 1], [fi, 0.5]]) { const f = new THREE.Mesh(jg, m); f.scale.set(s, s, s); g.add(f); } g.visible = false; thr.add(g); jets[name] = g; };
+  mkJet('back', -2.2, 0.62, 0.55, Math.PI); mkJet('back2', -2.2, 0.62, -0.55, Math.PI); mkJet('front', 2.2, 0.55, 0.55, 0); mkJet('front2', 2.2, 0.55, -0.55, 0);
+  mkJet('left', 0.4, 0.75, -1.0, -Math.PI / 2); mkJet('left2', -0.9, 0.75, -1.0, -Math.PI / 2); mkJet('right', 0.4, 0.75, 1.0, Math.PI / 2); mkJet('right2', -0.9, 0.75, 1.0, Math.PI / 2);
   thr.visible = false; inner.add(thr);
+  const setJets = (air, gas, brake, steer, t) => { // getti direzionali: solo in volo
+    const on = { back: air && gas > 0, front: air && brake > 0, left: air && steer > 0.15, right: air && steer < -0.15 }, fl = 0.8 + 0.3 * Math.sin(t * 50);
+    for (const k of ['back', 'front', 'left', 'right']) for (const n of [k, k + '2']) { const g = jets[n]; g.visible = !!on[k]; if (on[k]) g.scale.set(1 + 0.5 * fl, 1, 1); }
+  };
   const setThrust = (enabled, on, t) => { thr.visible = enabled; for (const [f, s] of flames) { f.visible = enabled && on; if (on) { const k = 0.85 + 0.3 * Math.sin(t * 45 + f.position.x * 7 + f.position.z * 5); f.scale.set(s, s * (1 + k * 0.5), s); } } };
-  return { outer, inner, update, blob, setThrust };
+  return { outer, inner, update, blob, setThrust, setJets };
 }
