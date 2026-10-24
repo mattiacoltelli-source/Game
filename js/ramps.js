@@ -35,7 +35,7 @@ export class Ramps {
     };
     const add = (q, w, off) => { // sposta lateralmente (verso destra della marcia) di `off` m
       if (!q) return; const nx = -q.uz, nz = q.ux, x = q.x + nx * off, z = q.z + nz * off, roof = findRoof(x, z, q.ux, q.uz); if (!roof) return;
-      this.list.push({ x, z, ux: q.ux, uz: q.uz, w, tx: roof.tx, tz: roof.tz, th: roof.th });
+      this.list.push({ x, z, ux: q.ux, uz: q.uz, w: Math.max(w, 5.6), tx: roof.tx, tz: roof.tz, th: roof.th });
     };
     // 1) Indipendenza: sul percorso, tratto lungo e dritto verso nord (il percorso va da (-467,6) a (-444,-110))
     let q1 = null; for (const [px, pz] of [[-455, -45], [-480, 60], [-515, 215], [-440, -150], [-410, -260]]) { q1 = onRoad(/Indipendenza/, px, pz, 0.19, -0.98); if (q1 && findRoof(q1.x, q1.z, q1.uz * 0 + q1.ux, q1.uz)) break; }
@@ -74,11 +74,13 @@ export class Ramps {
 
   // Salto assistito col NOS: se (x,z) è al bordo alto di una rampa e si va verso il tetto bersaglio, ritorna la velocità per atterrarci sopra in 2,8 s.
   assist(x, z, vx, vz) {
-    const T = 2.8, G = 14;
+    const G = 14;
     for (const r of this.list) {
       const dx = x - r.x, dz = z - r.z, u = dx * r.ux + dz * r.uz + L / 2; if (dx * dx + dz * dz > 150 || u < L * 0.5) continue;
       const sp = Math.hypot(vx, vz) || 1; if ((vx * r.ux + vz * r.uz) / sp < 0.75) continue;
-      return { vx: (r.tx - x) / T, vz: (r.tz - z) / T, vy: (0.5 * G * T * T + (r.th - (0.2 + H))) / T };
+      const D0 = Math.hypot(r.tx - x, r.tz - z), k = D0 > 30 ? (D0 - 8) / D0 : 1, ax = x + (r.tx - x) * k, az = z + (r.tz - z) * k; // atterra 8 m prima del centro: lo spigolo del tetto si scavalca con margine
+      const D = D0 * k, T = Math.max(1.7, Math.min(3.4, 1.3 * D / Math.max(sp, 14))); // tempo di volo in base alla tua velocità: non si frena di colpo
+      return { vx: (ax - x) / T, vz: (az - z) / T, vy: (0.5 * G * T * T + (r.th - (0.2 + H))) / T };
     }
     return null;
   }
