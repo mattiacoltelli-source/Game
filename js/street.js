@@ -43,7 +43,7 @@ export class Street {
       im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; im.frustumCulled = false; scene.add(im); this.meshes.push(im); this.count += items.length;
     }
     this.junctions(scene, world, near, col);
-    this.cafes(scene, world, near, col, R);
+
     // tombini
     const hg = new THREE.CircleGeometry(0.5, 10).rotateX(-Math.PI / 2), hm = new THREE.MeshBasicMaterial({ color: 0x3b3b40, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }), hi = new THREE.InstancedMesh(hg, hm, list.hole.length || 1);
     list.hole.forEach((it, i) => { m.compose(new THREE.Vector3(it[0], 0.19, it[1]), q.identity(), sc); hi.setMatrixAt(i, m); }); hi.count = list.hole.length; hi.instanceMatrix.needsUpdate = true; hi.frustumCulled = false; scene.add(hi); this.meshes.push(hi); this.count += list.hole.length;
