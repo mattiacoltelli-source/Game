@@ -272,7 +272,7 @@ async function boot() {
   function beginRun() {
     car.place(sx, sz, startH, groundY(sx, sz)); camH = startH; camD = 8; input.override = null; input.keys.clear();
     run.state = 'running'; run.t = 0; run.boss = false; run.bossWon = false; $('boss').hidden = true; setStop(0); playing = true;
-    car.gadget = null; car.fuel = car.fuelMax; car.shield = car.magnet = 0; gfx.reset(); wasRoof = false; gadgets.reset();
+    car.gadget = null; car.fuel = car.fuelMax; car.dry = false; car.shield = car.magnet = 0; gfx.reset(); wasRoof = false; gadgets.reset();
     traffic.reset(); peds.reset(); props.reset(); nos.reset(); enemies.reset(); events.reset(); sfx.init(); if (!NOTRAFFIC) { traffic.fill(car); peds.fill(car); }
     $('screen-start').hidden = true; $('screen-end').hidden = true; $('hud').hidden = false; $('controls').hidden = false;
   }
@@ -356,7 +356,7 @@ async function boot() {
         const act = [['shield', car.shield], ['magnete', car.magnet]].sort((a, b) => b[1] - a[1])[0], sg = $('st-gad');
         sg.hidden = !(act[1] > 0); if (act[1] > 0) { const g2 = GADGETS[act[0]]; sg.style.setProperty('--gc', '#' + g2.color.toString(16).padStart(6, '0')); sg.querySelector('b').textContent = g2.name.toUpperCase(); sg.querySelector('u').style.transform = `scaleX(${Math.min(1, act[1] / g2.time)})`; sg.querySelector('span').textContent = act[1].toFixed(1); }
       }
-      { const sf = $('st-fuel'); sf.hidden = !car.canFly; if (car.canFly) { sf.querySelector('u').style.transform = `scaleX(${Math.max(0, Math.min(1, car.fuel / car.fuelMax))})`; sf.querySelector('span').textContent = car.fuel.toFixed(1); } }
+      { const sf = $('st-fuel'); sf.hidden = !car.canFly; if (car.canFly) { sf.querySelector('u').style.transform = `scaleX(${Math.max(0, Math.min(1, car.fuel / car.fuelMax))})`; sf.querySelector('span').textContent = car.dry ? `ricarica ${Math.ceil((car.fuelMax - car.fuel) / 0.5)}s` : car.fuel.toFixed(1); sf.querySelector('b').textContent = car.dry ? 'RICARICA' : 'PROPULSORI'; } }
       const nb = $('nos-btn'); nb.className = `btn nosbtn c${car.charges}` + (input.btn.nos ? ' on' : '');
       if (car.slow > 0) { sSlow.querySelector('u').style.transform = `scaleX(${car.slow / 10})`; sSlow.querySelector('span').textContent = car.slow.toFixed(1); }
       $('speedfx').classList.toggle('on', car.boost > 0);

@@ -9,7 +9,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 
 export class Car {
-  constructor() { this.canFly = false; this.fuel = FUEL_MAX; this.fuelMax = FUEL_MAX; this.thrusting = false; this.grass = false; this.rampH = () => 0; this.rampAssist = () => null; this.superJump = false; this.onRamp = false; this.gadget = null; this.shield = 0; this.magnet = 0; this.onRoof = false; this.place(0, 0, 0); }
+  constructor() { this.canFly = false; this.dry = false; this.fuel = FUEL_MAX; this.fuelMax = FUEL_MAX; this.thrusting = false; this.grass = false; this.rampH = () => 0; this.rampAssist = () => null; this.superJump = false; this.onRamp = false; this.gadget = null; this.shield = 0; this.magnet = 0; this.onRoof = false; this.place(0, 0, 0); }
 
   place(x, z, h, y = 0) {
     this.x = x; this.z = z; this.h = h; this.vx = 0; this.vz = 0; this.y = y; this.vy = 0; this.boost = 0; this.level = 0; this.charges = 0; this.slow = 0; this.oil = 0; this.oilPh = 0; this.air = false; this.airT = 0; this.jump = 0; this.landed = 0; this.clear = 0;
@@ -68,9 +68,10 @@ export class Car {
 
     this.x += this.vx * dt; this.z += this.vz * dt;
     if (fly) { // propulsori: tenendo premuto sale (carburante 6 s, si ricarica a terra); rilasciando scende lentamente
-      const want = !!input.thrust && this.fuel > 0.02; this.thrusting = want;
+      if (this.fuel <= 0.02) this.dry = true; else if (this.fuel >= FUEL_MAX - 0.02) this.dry = false; // a secco: serve la ricarica completa (20 s) prima di ripartire
+      const want = !!input.thrust && this.fuel > 0.02 && !this.dry; this.thrusting = want;
       if (want) { this.fuel = Math.max(0, this.fuel - dt); if (!this.air) { this.vy = Math.max(this.vy, 3); this.y += 0.08; } this.vy = Math.min(this.vy + THRUST * dt, VUP); if (this.y > MAXALT) this.vy = Math.min(this.vy, 0); }
-      else this.fuel = Math.min(FUEL_MAX, this.fuel + (this.air ? 0 : 2.5) * dt);
+      else this.fuel = Math.min(FUEL_MAX, this.fuel + 0.5 * dt);
     } else this.thrusting = false;
     this.vertical(dt, ground, base);
     this.collide(dt, col, bounds, input);
