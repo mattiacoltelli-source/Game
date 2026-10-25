@@ -57,6 +57,10 @@ export class Ramps {
       }
     }
     if (hid) this.list.push({ x: hid.x, z: hid.z, ux: hid.ux, uz: hid.uz, w: 8.4, tx: hid.roof.tx, tz: hid.roof.tz, th: hid.roof.th });
+    for (const r of this.list) { // primo tetto davanti (alto >= 6 m, profondo >= 12 m) da scavalcare e su cui atterrare: ed = distanza dello spigolo, land = quanto oltre lo spigolo toccare
+      const D0 = Math.hypot(r.tx - r.x, r.tz - r.z), at = (d) => col.buildingAt(r.x + (r.tx - r.x) * d / D0, r.z + (r.tz - r.z) * d / D0); r.ed = Math.max(10, D0 - 17); r.land = 8;
+      for (let d = 10; d < D0 + 20;) { const b = at(d); if (!b || b.h < 6) { d++; continue; } let e = d; while (e < d + 40 && at(e) && Math.abs(at(e).h - b.h) < 1.5) e++; if (e - d >= 12) { r.ed = d; r.th = b.h; r.land = Math.min(26, (e - d) * 0.6); break; } d = e + 1; }
+    }
     for (const r of this.list) this.circles.push({ x: r.x, z: r.z, r: 7 });
     // geometria unita: pendio a strisce, fianchi e retro
     const P = [], C = [], N = [];
@@ -74,15 +78,18 @@ export class Ramps {
     this.mesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })); this.mesh.frustumCulled = false; scene.add(this.mesh);
   }
 
-  // Salto assistito col NOS: se (x,z) è al bordo alto di una rampa e si va verso il tetto bersaglio, ritorna la velocità per atterrarci sopra in 2,8 s.
+  // Salto dalla rampa: la velocità in avanti NON si perde (al massimo si porta a 22-30 m/s), l'arco è calcolato per scavalcare lo spigolo del tetto bersaglio con 2,5 m di margine e atterrarci sopra.
   assist(x, z, vx, vz) {
     const G = 14;
     for (const r of this.list) {
-      const dx = x - r.x, dz = z - r.z, u = dx * r.ux + dz * r.uz + L / 2; if (dx * dx + dz * dz > 150 || u < L * 0.5) continue;
-      const sp = Math.hypot(vx, vz) || 1; if ((vx * r.ux + vz * r.uz) / sp < 0.75) continue;
-      const D0 = Math.hypot(r.tx - x, r.tz - z), k = D0 > 30 ? (D0 - 8) / D0 : 1, ax = x + (r.tx - x) * k, az = z + (r.tz - z) * k; // atterra 8 m prima del centro: lo spigolo del tetto si scavalca con margine
-      const D = D0 * k, T = Math.max(1.7, Math.min(3.4, 1.3 * D / Math.max(sp, 14))); // tempo di volo in base alla tua velocità: non si frena di colpo
-      return { vx: (ax - x) / T, vz: (az - z) / T, vy: (0.5 * G * T * T + (r.th - (0.2 + H))) / T };
+      const dx = x - r.x, dz = z - r.z, c = dx * r.ux + dz * r.uz; if (dx * dx + dz * dz > 150 || c < 0) continue;
+      const sp = Math.hypot(vx, vz) || 1; if (sp < 8 || (vx * r.ux + vz * r.uz) / sp < 0.7) continue;
+      const D0 = Math.hypot(r.tx - x, r.tz - z), ux = (r.tx - x) / D0, uz = (r.tz - z) / D0, y0 = 0.2 + H;
+      // L'arco passa 2 m sopra lo spigolo (a Le dal decollo) e tocca il tetto 'land' m dopo: dalle due condizioni escono tempo allo spigolo e velocità orizzontale.
+      const Le = Math.max(4, r.ed - c - 1), Lt = Le + r.land, q = Lt / Le, A = r.th + 2 - y0, B = r.th - y0, te2 = (A * q - B) / (G / 2 * (q * q - q));
+      let s = te2 > 0.04 ? Le / Math.sqrt(te2) : 22; s = Math.max(Math.min(sp, 30) * 0.7, Math.min(30, Math.max(16, s))); // mai sotto il 70% della tua velocità
+      const te = Le / s, vy = (A + G / 2 * te * te) / te;
+      return { vx: ux * s, vz: uz * s, vy };
     }
     return null;
   }

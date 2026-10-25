@@ -83,14 +83,14 @@ export class Car {
     const Ge = G; // gravità piena anche col propulsore: se molli, cadi; bisogna dare colpetti di spinta
     const g = ground(this.x, this.z, this.y), yb = this.y + this.vy * dt - 0.5 * Ge * dt * dt;
     if (yb > g + 0.02) { // in volo
-      if (!this.air) { this.air = true; this.airT = 0; this.x0 = this.x; this.z0 = this.z; if (this.onRamp && (this.boost > 0 || Math.hypot(this.vx, this.vz) >= 24)) { const a = this.rampAssist(this.x, this.z, this.vx, this.vz); if (a) { this.vx = a.vx; this.vz = a.vz; this.vy = a.vy; this.superJump = true; } else { this.vy += 4 + 3 * this.level; this.vx += Math.cos(this.h) * 5 * this.level; this.vz += Math.sin(this.h) * 5 * this.level; } } // dalla rampa col NOS: super salto (verso un tetto) o spinta in più
+      if (!this.air) { this.air = true; this.airT = 0; this.x0 = this.x; this.z0 = this.z; if (this.onRamp) { const a = this.rampAssist(this.x, this.z, this.vx, this.vz); if (a) { this.vx = a.vx; this.vz = a.vz; this.vy = a.vy; this.superJump = true; this.rampJump = true; } else { this.vy += 4 + 3 * this.level; this.vx += Math.cos(this.h) * 5 * this.level; this.vz += Math.sin(this.h) * 5 * this.level; } } // dalla rampa col NOS: super salto (verso un tetto) o spinta in più
       if (this.onRoof && this.boost > 0) { this.vy = Math.max(this.vy, 5 + 2 * this.level); this.vx += Math.cos(this.h) * 9 * this.level; this.vz += Math.sin(this.h) * 9 * this.level; } } // dal tetto col NOS: la propulsione spinge in alto e in avanti
       this.airT += dt; this.y = yb; this.vy -= Ge * dt; if (this.canFly && this.vy < -30) this.vy = -30;
     } else {
       const vyg = Math.max(-25, Math.min(25, (g - this.y) / dt));
       if (this.air) { // atterraggio
         if (g > base(this.x, this.z) + 0.5) { this.vx *= 0.45; this.vz *= 0.45; } // atterrando su un tetto si frena
-        const impact = -this.vy; if (impact > 12 && !this.canFly) this.hurt(impact * 0.9); // atterraggio duro this.jump = this.airT > 0.35 ? Math.hypot(this.x - this.x0, this.z - this.z0) : 0; this.landed = impact;
+        const impact = -this.vy; if (impact > 12 && !this.canFly && !this.rampJump) this.hurt(impact * 0.9); this.rampJump = false; // atterraggio duro this.jump = this.airT > 0.35 ? Math.hypot(this.x - this.x0, this.z - this.z0) : 0; this.landed = impact;
         if (impact > 6) { const k = 1 - Math.min(0.18, (impact - 6) * 0.02); this.vx *= k; this.vz *= k; }
         this.air = false;
       }
