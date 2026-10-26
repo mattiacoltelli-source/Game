@@ -7,7 +7,7 @@ const APP_CACHE = `taxi-app-${VERSION}`;
 const DATA_CACHE = `taxi-data-${DATA_HASH}`; // i dati cambiano di rado: non si riscaricano a ogni versione
 const APP_FILES = ['./', 'index.html', 'manifest.webmanifest', 'css/style.css', 'lib/three.module.min.js',
   'js/main.js', 'js/config.js', 'js/world.js', 'js/collider.js', 'js/car.js', 'js/input.js', 'js/carmodel.js', 'js/fx.js', 'js/particles.js', 'js/post.js', 'js/street.js', 'js/train.js', 'js/tarta.js', 'js/gadgets.js', 'js/ramps.js', 'js/foeind.js', 'js/montagnola.js', 'js/roofs.js', 'js/icons.js', 'js/lepore.js', 'js/events.js',
-  'js/minimap.js', 'js/marker.js', 'js/labels.js', 'js/pwa.js', 'js/version.js', 'js/geom.js', 'js/nos.js', 'js/enemies.js', 'js/sfx.js', 'js/atmosphere.js', 'js/traffic.js', 'js/props.js',
+  'js/minimap.js', 'js/marker.js', 'js/labels.js', 'js/pwa.js', 'js/version.js', 'js/geom.js', 'js/nos.js', 'js/enemies.js', 'js/shooter.js', 'js/sfx.js', 'js/atmosphere.js', 'js/traffic.js', 'js/props.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png'];
 const DATA_FILES = ['data/roads.json', 'data/buildings.json', 'data/areas.json', 'data/labels.json', 'data/extras.json', 'data/details.json'];
 

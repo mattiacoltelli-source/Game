@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="css/style.css">
 <link rel="modulepreload" href="js/main.js">
 <link rel="modulepreload" href="js/config.js">
+<link rel="modulepreload" href="js/shooter.js">
 <link rel="modulepreload" href="js/world.js">
 <link rel="modulepreload" href="js/collider.js">
 <link rel="modulepreload" href="js/car.js">
@@ -63,6 +64,9 @@
     <div id="goal"><svg id="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 20l-7-4-7 4z"/></svg><span id="goal-txt">Vai dal cliente</span><em id="dist"></em></div>
   </div>
   <div id="foes" aria-hidden="true"></div>
+  <div id="sh-l" class="sh"><div class="chip hp"><b>VITA</b><i><u id="sh-hp"></u></i><span id="sh-hpn">100</span></div><div class="chip veh" id="sh-veh" hidden><b id="sh-vname">TAXI</b><i><u id="sh-vhp"></u></i></div></div>
+  <div id="sh-c" class="sh"><b id="sh-wave">ONDATA 1</b><span id="sh-score">0</span><small id="sh-left"></small></div>
+  <div id="sh-r" class="sh"><b id="sh-wpn">PISTOLA</b><span id="sh-ammo">∞</span><small id="sh-gren">Granate 3</small></div>
   <button id="pause" aria-label="Pausa e menu" type="button"><svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg><span>MENU</span></button>
   <div id="speedfx"></div>
   <button id="mute" aria-label="Audio acceso/spento"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/><path class="x" d="m16 9 5 6m0-6-5 6"/></svg></button>
@@ -91,19 +95,33 @@
   </div>
 </div>
 
+<div id="hurt" aria-hidden="true"></div>
+<div id="shoot-ui" hidden>
+  <div id="joy"><i id="joy-knob"></i></div>
+  <button class="btn sbtn" id="b-wpn" data-s="wpn" aria-label="Cambia arma"><span>ARMA</span></button>
+  <button class="btn sbtn" id="b-gren" data-s="gren" aria-label="Lancia una granata"><span>GRANATA</span></button>
+  <button class="btn sbtn fire" id="b-fire" data-s="fire" aria-label="Fuoco"><span>FUOCO</span></button>
+  <button class="btn sbtn veh" id="b-veh" data-s="veh" aria-label="Sali o scendi dal mezzo" hidden><span>SALI</span></button>
+</div>
+
 <div id="screen-start" class="screen" hidden>
   <div class="card">
     <div id="inapp" class="warn" hidden><b>Sei in un browser interno</b><span>Aprilo in Chrome o Safari per installarlo.</span><div class="wr"><a id="inapp-open" class="ghost" href="#" hidden>Apri in Chrome</a><button id="inapp-copy" class="ghost">Copia link</button></div></div>
     <h1>Taxi Bologna</h1>
-    <p class="job">Corsa disponibile</p>
-    <p class="route" id="route"></p>
+    <div class="seg" id="mode" role="radiogroup" aria-label="Modalità di gioco"><button data-mode="taxi" aria-checked="true">Taxi</button><button data-mode="shoot">Sparatutto</button></div>
+    <p class="job taxi-only">Corsa disponibile</p>
+    <p class="route taxi-only" id="route"></p>
+    <p class="job shoot-only">Difendi il centro!</p>
+    <p class="route shoot-only"><span>Piazza Maggiore</span><i></i><span>Santo Stefano</span><i></i><span>Via Rizzoli</span><i></i><span>Ugo Bassi</span><i></i><span>Indipendenza</span></p>
     <div class="seg" id="tod" role="radiogroup" aria-label="Momento della giornata"><button data-tod="giorno">Giorno</button><button data-tod="tramonto">Tramonto</button><button data-tod="notte">Notte</button></div>
     <div class="seg" id="wx" role="radiogroup" aria-label="Meteo"><button data-wx="sereno">Sereno</button><button data-wx="pioggia">Pioggia</button><button data-wx="nebbia">Nebbia</button></div>
-    <label class="opt flyopt"><input type="checkbox" id="flyq"> Taxi volante (propulsori)</label>
-    <p class="best" id="best-start"></p>
+    <label class="opt flyopt taxi-only"><input type="checkbox" id="flyq"> Taxi volante (propulsori)</label>
+    <p class="best taxi-only" id="best-start"></p>
+    <label class="opt shoot-only"><input type="checkbox" id="autof" checked> Fuoco automatico</label>
+    <p class="best shoot-only" id="best-shoot"></p>
     <button id="go" class="primary">Parti</button>
     <div class="row2">
-      <label class="opt"><input type="checkbox" id="auto"> Acceleratore automatico</label>
+      <label class="opt taxi-only"><input type="checkbox" id="auto"> Acceleratore automatico</label>
       <label class="opt"><input type="checkbox" id="fxq" checked> Effetti luce</label>
       <button id="install" class="ghost" hidden>Installa app</button>
       <button id="howto" class="ghost" hidden>Come installare</button>

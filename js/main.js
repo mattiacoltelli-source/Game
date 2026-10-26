@@ -27,6 +27,7 @@ import { FoeIndicators } from './foeind.js';
 import { RandomEvents } from './events.js';
 import { GadgetPickups, GADGETS, buildShield, GadgetFx } from './gadgets.js';
 import { Traffic, Pedestrians } from './traffic.js';
+import { Shooter, ARENA } from './shooter.js';
 import { VERSION } from './version.js';
 
 const $ = (id) => document.getElementById(id);
@@ -209,10 +210,16 @@ async function boot() {
   setStop(0);
   $('route').innerHTML = [START.nome, ...stops.map((s2) => s2.nome)].map((n) => `<span>${n}</span>`).join('<i></i>');
   const bid = () => ride.id + (car.canFly ? '-fly' : '');
-  const showBest = () => { const b = loadBest(bid()); $('best-start').textContent = b ? `Record: ${fmt(b)}` : 'Nessun record ancora'; };
+  const shootBest = () => { let v = 0; try { v = +localStorage.getItem('taxi-bologna:shoot-best') || 0; } catch (e) { /* ignora */ } return v; };
+  const showBest = () => { const b = loadBest(bid()); $('best-start').textContent = b ? `Record: ${fmt(b)}` : 'Nessun record ancora'; const sb = shootBest(); $('best-shoot').textContent = sb ? `Record: ${sb} punti` : 'Nessun record ancora'; };
   showBest();
 
   const input = new Input();
+  let mode = 'taxi'; try { mode = localStorage.getItem('taxi-bologna:mode') === 'shoot' ? 'shoot' : 'taxi'; } catch (e) { /* ignora */ }
+  const shooter = new Shooter({ scene, camera, world, col, roads, parts, toast, car, taxi, groundCar, groundY, input, onEnd: (r) => finishShoot(r) });
+  const piazza = (data.labels.pois || []).find((q) => q.n === 'Piazza Maggiore') || { x: sx, z: sz };
+  const markMode = () => { document.querySelectorAll('#mode button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === mode))); $('screen-start').dataset.mode = mode; };
+  markMode(); document.querySelectorAll('#mode button').forEach((b) => b.addEventListener('click', () => { mode = b.dataset.mode; markMode(); try { localStorage.setItem('taxi-bologna:mode', mode); } catch (e) { /* ignora */ } }));
   { // taxi volante (propulsori): opzione salvata, record separato
     const fq = $('flyq'); let fl = false; try { fl = localStorage.getItem('taxi-bologna:fly') === '1'; } catch (e) { /* ignora */ }
     const apply = (v) => { car.canFly = v; fq.checked = v; $('fly-btn').hidden = !v; showBest(); }; apply(fl);
@@ -300,6 +307,7 @@ async function boot() {
   function toMenu() {
     run.state = 'menu'; playing = false; input.override = null; input.keys.clear(); car.place(sx, sz, startH, groundY(sx, sz)); camH = startH;
     traffic.reset(); peds.reset(); props.reset(); nos.reset(); enemies.reset(); events.reset(); gadgets.reset(); gfx.reset(); $('boss').hidden = true; setStop(0); if (marker) marker.visible = true;
+    shooter.stop(); document.body.classList.remove('shoot', 'driving'); $('shoot-ui').hidden = true; taxi.outer.visible = true; car.canFly = $('flyq').checked; $('fly-btn').hidden = !car.canFly;
     $('hud').hidden = true; $('controls').hidden = true; $('screen-end').hidden = true; $('screen-start').hidden = false; showBest();
   }
   $('pause').addEventListener('click', () => setPaused(true));
@@ -309,12 +317,28 @@ async function boot() {
   $('pc-yes').addEventListener('click', () => { const k = askKind; askKind = null; setPaused(false); if (k === 'menu') toMenu(); else beginRun(); });
   addEventListener('keydown', (e) => { if ((e.code === 'Escape' || e.code === 'KeyP') && !e.repeat) setPaused(!paused && run.state === 'running'); });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') setPaused(true); }); // in background il gioco si ferma
-  function beginRun() {
+  function beginRun() { if (mode === 'shoot') beginShooter(); else beginTaxi(); }
+  function beginTaxi() {
+    shooter.stop(); document.body.classList.remove('shoot', 'driving'); $('shoot-ui').hidden = true; taxi.outer.visible = true; car.canFly = $('flyq').checked; $('fly-btn').hidden = !car.canFly; input.takeNos(); input.takeGad(); $('hurt').style.opacity = '0';
     car.place(sx, sz, startH, groundY(sx, sz)); camH = startH; camD = 8; input.override = null; input.keys.clear();
     run.state = 'running'; run.t = 0; run.boss = false; run.bossWon = false; $('boss').hidden = true; setStop(0); playing = true;
     car.gadget = null; car.damage = 0; car.dmgHit = 0; car.fuel = car.fuelMax; car.dry = false; car.shield = car.magnet = 0; gfx.reset(); wasRoof = false; gadgets.reset();
     traffic.reset(); peds.reset(); props.reset(); nos.reset(); enemies.reset(); events.reset(); sfx.init(); if (!NOTRAFFIC) { traffic.fill(car); peds.fill(car); }
     $('screen-start').hidden = true; $('screen-end').hidden = true; $('hud').hidden = false; $('controls').hidden = false;
+  }
+  function beginShooter() {
+    input.override = null; input.keys.clear(); input.takeNos(); input.takeGad();
+    traffic.reset(); peds.reset(); props.reset(); nos.reset(); enemies.reset(); events.reset(); gadgets.reset(); gfx.reset(); if (marker) marker.visible = false;
+    car.damage = 0; car.dmgHit = 0; car.shield = car.magnet = 0; car.boost = 0; car.charges = 0; car.canFly = false; car.gadget = null; $('fly-btn').hidden = true; $('boss').hidden = true;
+    run.state = 'running'; playing = true; paused = false; sfx.init(); document.body.classList.add('shoot'); document.body.classList.remove('driving');
+    $('screen-start').hidden = true; $('screen-end').hidden = true; $('hud').hidden = false; $('controls').hidden = true; $('shoot-ui').hidden = false;
+    shooter.autoFire = $('autof').checked; shooter.start({ x: piazza.x, z: piazza.z });
+  }
+  function finishShoot(r) {
+    shooter.stop(); run.state = 'done'; playing = false; paused = false; $('screen-pause').hidden = true; input.override = null;
+    $('end-title').textContent = `Sconfitto all'ondata ${r.wave}`; $('end-time').textContent = r.score; const el = $('end-best'); el.classList.toggle('new', r.isNew);
+    el.textContent = r.isNew ? `Nuovo record! ${r.kills} nemici eliminati` : `Record: ${r.best} punti · ${r.kills} nemici eliminati`;
+    document.body.classList.remove('shoot', 'driving'); $('shoot-ui').hidden = true; $('hud').hidden = true; $('controls').hidden = true; $('screen-end').hidden = false; showBest();
   }
   // Alla Fiera: consegnato il cliente, arriva il boss finale. La corsa finisce quando Cos cade.
   function beginBoss() {
@@ -347,6 +371,7 @@ async function boot() {
     let dt = Math.min(0.05, (now - last) / 1000); last = now;
     const portrait = viewSize()[1] > viewSize()[0];
     if (playing && !paused && !portrait && dt > 0) {
+      if (shooter.active) shooter.update(dt, now); else {
       const inp = input.value, n = Math.ceil(dt / (1 / 90)), h = dt / n;
       car.grass = !car.air && car.onRoof !== true && world.isGrass(car.x, car.z); // prato: -10% di velocità massima
       for (let i = 0; i < n; i++) car.step(h, inp, col, world.meta.bounds, groundCar, groundY);
@@ -374,12 +399,13 @@ async function boot() {
         }
         else if (!run.warned) { run.warned = true; toast('Fermati nel cerchio'); }
       } else run.warned = false;
+      }
     }
     lastT = now;
-    world.update(car.x, car.z, 1); street.update(dt);
+    const foc = shooter.active ? shooter.focus : car; world.update(foc.x, foc.z, 1); street.update(dt);
     flames(car.boost > 0 ? car.level : 0, now / 1000); taxi.setThrust(car.canFly, car.thrusting, now / 1000); taxi.setDamage(car.damage, car.dmgHit, now / 1000); { const iv = input.value; taxi.setJets(car.canFly && car.air, iv.throttle, iv.brake, iv.steer, now / 1000); } shieldFx(car.shield, now / 1000); gfx.update(dt, car);
-    poseCar(dt); if (!window.__freeCam) updateCamera(dt); fx.update(dt, car, camera); parts.update(dt, car, camera, scene.fog.color); labels.update(dt, car, camH); atmo.update(dt, car);
-    if (run.state === 'running') {
+    poseCar(dt); if (!window.__freeCam) { if (shooter.active) shooter.updateCamera(dt); else updateCamera(dt); } fx.update(dt, car, camera); parts.update(dt, car, camera, scene.fog.color); labels.update(dt, foc, camH); atmo.update(dt, foc);
+    if (run.state === 'running' && !shooter.active) {
       $('kmh').textContent = Math.round(Math.abs(car.speed) * 3.6);
       $('time').textContent = fmt(run.t);
       const dx = target.x - car.x, dz = target.z - car.z;
@@ -414,7 +440,7 @@ async function boot() {
   }
   requestAnimationFrame(frame);
 
-  window.__taxi = { roofs, events, ramps, gadgets, street, post, parts, enemies, nos, props, traffic, peds, taxi, get target() { return target; }, stops, setStop, run, startPos: [sx, sz, startH], car, world, col, roads, input, camera, scene, renderer, get fps() { return fps; }, start() { $('go').click(); }, rescue, free };
+  window.__taxi = { shooter, ARENA, get mode() { return mode; }, set mode(v) { mode = v; markMode(); }, roofs, events, ramps, gadgets, street, post, parts, enemies, nos, props, traffic, peds, taxi, get target() { return target; }, stops, setStop, run, startPos: [sx, sz, startH], car, world, col, roads, input, camera, scene, renderer, get fps() { return fps; }, start() { $('go').click(); }, rescue, free };
   if (DEBUG) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;left:8px;top:8px;font:12px monospace;color:#fff;text-shadow:0 1px 2px #000;z-index:9;pointer-events:none'; document.body.append(d); setInterval(() => { d.textContent = `fps ${fps.toFixed(0)} pr ${pixelRatio.toFixed(2)} cells ${world.cells.size} calls ${renderer.info.render.calls} tris ${renderer.info.render.triangles}`; }, 500); }
 }
 
